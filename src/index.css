@@ -1,0 +1,392 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Overpass:wght@400;500;600;700;800&display=swap");
+
+@layer base {
+    :root {
+        /* Deep cinematic dark theme */
+        --background: 222 47% 5%;
+        --foreground: 220 20% 93%;
+
+        --card: 220 36% 10%;
+        --card-foreground: 220 20% 93%;
+
+        --popover: 220 36% 10%;
+        --popover-foreground: 220 20% 93%;
+
+        --primary: 199 89% 58%;
+        --primary-foreground: 222 47% 5%;
+
+        --secondary: 220 30% 15%;
+        --secondary-foreground: 220 20% 80%;
+
+        --muted: 220 25% 13%;
+        --muted-foreground: 220 15% 50%;
+
+        --accent: 38 92% 50%;
+        --accent-foreground: 222 47% 5%;
+
+        --destructive: 350 80% 55%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 220 20% 16%;
+        --input: 220 25% 18%;
+        --ring: 199 89% 58%;
+
+        --radius: 0.5rem;
+
+        /* Status colors */
+        --status-current: 152 56% 46%;
+        --status-completed: 199 89% 58%;
+        --status-planning: 270 60% 65%;
+        --status-dropped: 350 75% 55%;
+        --status-paused: 45 80% 55%;
+        --status-repeating: 152 56% 55%;
+
+        /* Score colors */
+        --score-high: 152 56% 46%;
+        --score-mid: 45 80% 55%;
+        --score-low: 350 75% 55%;
+
+        /* Surface layers */
+        --surface-0: 222 47% 5%;
+        --surface-1: 222 40% 8%;
+        --surface-2: 220 36% 10%;
+        --surface-3: 220 30% 15%;
+
+        /* Nav */
+        --nav-bg: 222 42% 8%;
+
+        /* Tier colors */
+        --tier-s: 340 80% 60%;
+        --tier-a: 25 90% 55%;
+        --tier-b: 45 90% 50%;
+        --tier-c: 152 50% 45%;
+        --tier-d: 199 70% 50%;
+        --tier-f: 220 20% 40%;
+
+        --sidebar-background: 222 40% 8%;
+        --sidebar-foreground: 220 20% 80%;
+        --sidebar-primary: 199 89% 58%;
+        --sidebar-primary-foreground: 222 47% 5%;
+        --sidebar-accent: 220 30% 15%;
+        --sidebar-accent-foreground: 220 20% 93%;
+        --sidebar-border: 220 20% 16%;
+        --sidebar-ring: 199 89% 58%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-family: "Overpass", system-ui, sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: "Outfit", "Overpass", system-ui, sans-serif;
+        letter-spacing: -0.025em;
+    }
+
+    h1 {
+        @apply text-4xl md:text-5xl font-extrabold;
+    }
+    h2 {
+        @apply text-3xl md:text-4xl font-bold;
+    }
+    h3 {
+        @apply text-2xl md:text-3xl font-bold;
+    }
+    h4 {
+        @apply text-xl md:text-2xl font-semibold;
+    }
+    h5 {
+        @apply text-lg font-semibold;
+    }
+    h6 {
+        @apply text-base font-semibold;
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: hsl(var(--muted));
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--muted-foreground));
+    }
+}
+
+@layer components {
+    /* Glass morphism card */
+    .glass {
+        background: hsl(var(--card) / 0.6);
+        backdrop-filter: blur(20px);
+        border: 1px solid hsl(var(--border) / 0.5);
+    }
+
+    .glass-strong {
+        background: hsl(var(--card) / 0.85);
+        backdrop-filter: blur(30px);
+        border: 1px solid hsl(var(--border) / 0.6);
+    }
+
+    /* Status badges */
+    .status-badge {
+        @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide;
+    }
+
+    .status-current {
+        background: hsl(var(--status-current) / 0.15);
+        color: hsl(var(--status-current));
+    }
+    .status-completed {
+        background: hsl(var(--status-completed) / 0.15);
+        color: hsl(var(--status-completed));
+    }
+    .status-planning {
+        background: hsl(var(--status-planning) / 0.15);
+        color: hsl(var(--status-planning));
+    }
+    .status-dropped {
+        background: hsl(var(--status-dropped) / 0.15);
+        color: hsl(var(--status-dropped));
+    }
+    .status-paused {
+        background: hsl(var(--status-paused) / 0.15);
+        color: hsl(var(--status-paused));
+    }
+    .status-repeating {
+        background: hsl(var(--status-repeating) / 0.15);
+        color: hsl(var(--status-repeating));
+    }
+
+    /* Media card hover effect */
+    .media-card {
+        @apply relative overflow-hidden rounded-xl transition-all duration-300;
+        box-shadow: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    }
+    .media-card:hover {
+        @apply scale-[1.04];
+        box-shadow:
+            0 20px 40px -12px hsl(0 0% 0% / 0.6),
+            0 0 20px -4px hsl(var(--primary) / 0.15);
+    }
+    .media-card .media-overlay {
+        @apply absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 transition-all duration-300;
+    }
+    .media-card:hover .media-overlay {
+        @apply opacity-100;
+    }
+
+    /* Heatmap cell */
+    .heatmap-cell {
+        @apply rounded-sm transition-all duration-150;
+    }
+    .heatmap-cell:hover {
+        @apply ring-1 ring-primary;
+    }
+
+    /* Hide scrollbar utility */
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Filter chip */
+    .filter-chip {
+        @apply px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 cursor-pointer select-none;
+        @apply border border-border/50 text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-primary/10;
+    }
+    .filter-chip.active {
+        @apply bg-primary/15 text-primary border-primary/40;
+    }
+
+    /* Tier row */
+    .tier-row {
+        @apply flex items-stretch gap-2 min-h-[100px] rounded-lg overflow-hidden;
+    }
+    .tier-label {
+        @apply w-20 shrink-0 flex items-center justify-center font-bold text-lg;
+        font-family: "Outfit", sans-serif;
+    }
+
+    /* Premium section */
+    .section-header {
+        @apply flex items-center justify-between mb-4;
+    }
+    .section-title {
+        @apply text-lg font-bold text-foreground flex items-center gap-2.5;
+        font-family: "Outfit", sans-serif;
+    }
+
+    /* Stat card - Premium styling */
+    .stat-card {
+        @apply relative overflow-hidden;
+    }
+
+    .stat-value {
+        @apply font-bold;
+    }
+
+    /* Glow effects */
+    .glow-primary {
+        box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.3);
+    }
+    .glow-accent {
+        box-shadow: 0 0 20px -4px hsl(var(--accent) / 0.3);
+    }
+
+    /* Tier badges */
+    .tier-s {
+        background: hsl(var(--tier-s) / 0.15);
+        color: hsl(var(--tier-s));
+    }
+    .tier-a {
+        background: hsl(var(--tier-a) / 0.15);
+        color: hsl(var(--tier-a));
+    }
+    .tier-b {
+        background: hsl(var(--tier-b) / 0.15);
+        color: hsl(var(--tier-b));
+    }
+    .tier-c {
+        background: hsl(var(--tier-c) / 0.15);
+        color: hsl(var(--tier-c));
+    }
+    .tier-d {
+        background: hsl(var(--tier-d) / 0.15);
+        color: hsl(var(--tier-d));
+    }
+    .tier-f {
+        background: hsl(var(--tier-f) / 0.15);
+        color: hsl(var(--tier-f));
+    }
+
+    /* Rich scroll divider */
+    .section-divider {
+        @apply relative my-8;
+    }
+    .section-divider::after {
+        content: "";
+        @apply absolute inset-x-0 h-px bg-gradient-to-r from-transparent via-border to-transparent;
+    }
+}
+
+@layer utilities {
+    /* Responsive spacing rhythm */
+    .space-section {
+        @apply space-y-8 md:space-y-12;
+    }
+
+    .space-subsection {
+        @apply space-y-4 md:space-y-6;
+    }
+
+    .space-item {
+        @apply space-y-2 md:space-y-3;
+    }
+
+    /* Consistent padding for cards and sections */
+    .p-section {
+        @apply p-4 md:p-6 lg:p-8;
+    }
+
+    .p-card {
+        @apply p-4 md:p-5;
+    }
+
+    /* Typography hierarchy improvements */
+    .text-display {
+        @apply text-4xl md:text-5xl font-extrabold tracking-tight;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .text-heading {
+        @apply text-2xl md:text-3xl font-bold tracking-tight;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .text-subheading {
+        @apply text-lg font-semibold;
+        font-family: "Outfit", sans-serif;
+    }
+
+    .text-body {
+        @apply text-base font-normal;
+        font-family: "Overpass", sans-serif;
+    }
+
+    .text-body-sm {
+        @apply text-sm font-normal;
+    }
+
+    .text-caption {
+        @apply text-xs font-medium;
+    }
+
+    .text-shadow-sm {
+        text-shadow: 0 1px 3px hsl(0 0% 0% / 0.5);
+    }
+    .text-shadow-md {
+        text-shadow: 0 2px 8px hsl(0 0% 0% / 0.7);
+    }
+    .text-gradient {
+        background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* Stat card animations */
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes sparkle {
+        0%,
+        100% {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fade-in 0.5s ease-out;
+    }
+
+    .animate-sparkle {
+        animation: sparkle 0.6s ease-in-out;
+    }
+}
