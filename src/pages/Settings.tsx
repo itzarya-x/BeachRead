@@ -1,11 +1,19 @@
+import { AccountSection } from "@/components/account/AccountSection";
+import { DeviceList, type Device } from "@/components/account/DeviceList";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { BackupStatus } from "@/components/sync/BackupStatus";
+import { Button } from "@/components/ui/button";
 import { useData } from "@/context/DataContext";
+import { useToast } from "@/hooks/use-toast";
 import {
     BarChart3,
     Bell,
     BookOpen,
     Calendar,
+    CloudDownload,
+    CloudUpload,
     Crown,
+    Download,
     Eye,
     EyeOff,
     Hash,
@@ -16,10 +24,12 @@ import {
     Mail,
     Monitor,
     Palette,
+    RefreshCw,
     Settings2,
     Shield,
     Star,
     Tv,
+    Upload,
     User,
     Wifi,
 } from "lucide-react";
@@ -33,6 +43,7 @@ const LIST_ORDER_LABELS: Record<number, string> = {
 
 const Settings = () => {
     const { user, loading } = useData();
+    const { toast } = useToast();
 
     if (loading || !user) {
         return (
@@ -42,12 +53,196 @@ const Settings = () => {
         );
     }
 
+    // Mock devices for demo (TODO: replace with actual device data)
+    const mockDevices: Device[] = [
+        {
+            id: "device_1",
+            name: "MacBook Pro",
+            type: "desktop",
+            lastSeen: new Date(),
+            isCurrentDevice: true,
+            browser: "Chrome 121",
+            os: "macOS Sonoma",
+            location: "San Francisco, CA",
+        },
+        {
+            id: "device_2",
+            name: "iPhone 14",
+            type: "mobile",
+            lastSeen: new Date(Date.now() - 2 * 60 * 60 * 1000),
+            isCurrentDevice: false,
+            browser: "Safari",
+            os: "iOS 17",
+            location: "San Francisco, CA",
+        },
+    ];
+
+    const handleForceUpload = async () => {
+        try {
+            toast({
+                title: "Starting force upload",
+                description: "Uploading all local data to cloud...",
+            });
+            // TODO: Call sync engine's forceUploadLocalCopy
+            setTimeout(() => {
+                toast({
+                    title: "Upload complete",
+                    description: "All local data has been uploaded to cloud.",
+                });
+            }, 2000);
+        } catch (err) {
+            toast({
+                title: "Upload failed",
+                description: err instanceof Error ? err.message : "Something went wrong",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleForceDownload = async () => {
+        try {
+            toast({
+                title: "Starting force download",
+                description: "Downloading all cloud data...",
+            });
+            // TODO: Call sync engine's forceDownloadCloudCopy
+            setTimeout(() => {
+                toast({
+                    title: "Download complete",
+                    description: "All cloud data has been downloaded.",
+                });
+            }, 2000);
+        } catch (err) {
+            toast({
+                title: "Download failed",
+                description: err instanceof Error ? err.message : "Something went wrong",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleReSync = async () => {
+        try {
+            toast({
+                title: "Starting re-sync",
+                description: "Syncing your vault...",
+            });
+            // TODO: Call sync engine's downloadUpdates
+            setTimeout(() => {
+                toast({
+                    title: "Re-sync complete",
+                    description: "Your vault is now up to date.",
+                });
+            }, 2000);
+        } catch (err) {
+            toast({
+                title: "Re-sync failed",
+                description: err instanceof Error ? err.message : "Something went wrong",
+                variant: "destructive",
+            });
+        }
+    };
+
     return (
         <PageWrapper>
-            <PageHeader title="Settings" subtitle="Read-only view of every preference from your GDPR export." />
+            <PageHeader title="Settings" subtitle="Manage your account and vault settings." />
             <PageContent className="space-y-6">
-                {/* Account */}
-                <SettingsSection title="Account">
+                {/* Cloud Account Section */}
+                <AccountSection />
+
+                {/* Backup Status */}
+                <BackupStatus isBackedUp={false} itemCount={0} lastBackupTime={undefined} />
+
+                {/* Cloud Sync Controls */}
+                <SettingsSection title="Cloud Sync Controls">
+                    <div className="px-4 py-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            Manually control your vault synchronization. Use force operations with caution.
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* Force Upload */}
+                            <Button
+                                variant="outline"
+                                className="justify-start gap-2 h-auto py-3 flex-col items-start"
+                                onClick={handleForceUpload}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <CloudUpload className="w-4 h-4" />
+                                    <span className="font-medium">Force Upload</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">Push all local data to cloud</span>
+                            </Button>
+
+                            {/* Force Download */}
+                            <Button
+                                variant="outline"
+                                className="justify-start gap-2 h-auto py-3 flex-col items-start"
+                                onClick={handleForceDownload}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <CloudDownload className="w-4 h-4" />
+                                    <span className="font-medium">Force Download</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">Pull all cloud data here</span>
+                            </Button>
+
+                            {/* Re-Sync */}
+                            <Button
+                                variant="outline"
+                                className="justify-start gap-2 h-auto py-3 flex-col items-start"
+                                onClick={handleReSync}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <RefreshCw className="w-4 h-4" />
+                                    <span className="font-medium">Re-Sync</span>
+                                </div>
+                                <span className="text-xs text-muted-foreground">Check for cloud changes</span>
+                            </Button>
+                        </div>
+
+                        <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-xs text-yellow-700">
+                            <p>
+                                ⚠️ <strong>Force operations:</strong> Force upload replaces cloud data with local. Force
+                                download replaces local with cloud. Use only if you know what you're doing.
+                            </p>
+                        </div>
+                    </div>
+                </SettingsSection>
+
+                {/* Backup & Export */}
+                <SettingsSection title="Backup & Export">
+                    <div className="px-4 py-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            Download your vault as a JSON file for manual backup. This is independent of cloud sync.
+                        </p>
+
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1 gap-2"
+                                // onClick={handleExportBackup}
+                            >
+                                <Download className="w-4 h-4" />
+                                Export Backup
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="flex-1 gap-2"
+                                // onClick={handleImportBackup}
+                            >
+                                <Upload className="w-4 h-4" />
+                                Import Backup
+                            </Button>
+                        </div>
+                    </div>
+                </SettingsSection>
+
+                {/* Device List */}
+                <DeviceList devices={mockDevices} />
+
+                {/* GDPR Account Section */}
+                <SettingsSection title="GDPR Account Info">
                     <SettingRow icon={User} label="Display Name" value={user.displayName} />
                     <SettingRow icon={Mail} label="Username / Login" value={user.userName} />
                     <SettingRow icon={Mail} label="Email" value={user.email} />

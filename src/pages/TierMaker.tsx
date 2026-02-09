@@ -40,7 +40,19 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Copy, Download, Edit2, Filter, Plus, Settings, Trash2 } from "lucide-react";
+import {
+    ArrowDown,
+    ArrowUp,
+    Copy,
+    Download,
+    Edit2,
+    Filter,
+    Plus,
+    Settings,
+    SortDesc,
+    Trash2,
+    Type,
+} from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function TierMaker() {
@@ -53,6 +65,8 @@ export default function TierMaker() {
     const [loading, setLoading] = useState(true);
     const [activeId, setActiveId] = useState<number | null>(null);
     const [showFilters, setShowFilters] = useState(false);
+    const [showRankings, setShowRankings] = useState(true);
+    const [autoScroll, setAutoScroll] = useState(false);
     const [filters, setFilters] = useState<{
         mediaType: "all" | "anime" | "manga" | "manhua" | "manhwa";
         genres: string[];
@@ -181,7 +195,7 @@ export default function TierMaker() {
         [assignments, allMedia],
     );
 
-    // Handle drag end (PHASE 3.1 & 3.2: Auto-save)
+    // Handle drag end (PHASE 3.1 & 3.2: Auto-save with position handling)
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || !currentBoardId) {
@@ -201,30 +215,49 @@ export default function TierMaker() {
 
         // Determine target tier
         let targetTierId: number | null = null;
+        let insertIndex: number | undefined = undefined;
+
         if (overId.startsWith("tier-")) {
             targetTierId = parseInt(overId.replace("tier-", ""));
         } else if (overId === "pool" || overId.startsWith("pool-")) {
             targetTierId = null; // Unassigned pool
         } else {
-            // Dropped on another media item - find its tier
+            // Dropped on another media item - find its tier and position
             const targetMediaId = parseInt(overId);
             const targetAssignment = assignments.find(a => a.mediaId === targetMediaId && a.boardId === currentBoardId);
             if (targetAssignment) {
                 targetTierId = targetAssignment.tierId;
+                insertIndex = targetAssignment.position;
             } else {
                 // Dropped on unassigned media
                 targetTierId = null;
+                insertIndex = assignments.find(
+                    a => a.mediaId === targetMediaId && a.boardId === currentBoardId,
+                )?.position;
             }
         }
 
         // Find existing assignment for this board
         const existingAssignment = assignments.find(a => a.mediaId === activeId && a.boardId === currentBoardId);
 
-        // Calculate new position
-        const tierAssignments = assignments.filter(
+        // Get current tier assignments
+        let tierAssignments = assignments.filter(
             a => a.tierId === targetTierId && a.boardId === currentBoardId && a.id !== existingAssignment?.id,
         );
-        const newPosition = tierAssignments.length;
+        tierAssignments = tierAssignments.sort((a, b) => a.position - b.position);
+
+        // Calculate insertion position (default to end)
+        let newPosition = tierAssignments.length;
+        if (insertIndex !== undefined && insertIndex <= tierAssignments.length) {
+            newPosition = insertIndex;
+            // Shift positions for items at and after insertion point
+            for (let i = insertIndex; i < tierAssignments.length; i++) {
+                await saveAssignment({
+                    ...tierAssignments[i],
+                    position: i + 1,
+                });
+            }
+        }
 
         if (existingAssignment) {
             // Update existing assignment
@@ -306,17 +339,19 @@ export default function TierMaker() {
             // Copy tiers from original board
             const tiersToCopy = await getTiersForBoard(currentBoardId);
             for (const tier of tiersToCopy) {
-                const tierId = await createTier(newId, {
+                const tierId = await createTier({
+                    boardId: newId,
                     name: tier.name,
                     color: tier.color,
-                    position: tier.position,
+                    order: tier.order,
                 });
 
                 // Copy assignments
                 const assignmentsToCopy = await getAssignmentsForBoard(currentBoardId);
                 const tierAssignments = assignmentsToCopy.filter(a => a.tierId === tier.id);
                 for (const assignment of tierAssignments) {
-                    await saveAssignment(newId, {
+                    await saveAssignment({
+                        boardId: newId,
                         mediaId: assignment.mediaId,
                         tierId: tierId,
                         position: assignment.position,
@@ -422,6 +457,15 @@ export default function TierMaker() {
                         {/* Actions */}
                         <div className="flex items-center gap-2">
                             <button
+                                onClick={() => setShowRankings(!showRankings)}
+                                className={`p-2 rounded-lg transition-colors ${
+                                    showRankings ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
+                                }`}
+                                title="Show ranking badges"
+                            >
+                                <Type className="w-4 h-4" />
+                            </button>
+                            <button
                                 onClick={() => setShowFilters(!showFilters)}
                                 className={`p-2 rounded-lg transition-colors ${
                                     showFilters ? "bg-primary text-primary-foreground" : "hover:bg-secondary"
@@ -514,6 +558,32 @@ export default function TierMaker() {
                                 boardId={currentBoardId}
                                 assignments={assignments}
                                 setAssignments={setAssignments}
+                                tiers={tiers}
+                                showRankings={showRankings}
+                                onReorder={async (tierId: number, direction: "up" | "down") => {
+                                    const tierToMove = tiers.find(t => t.id === tierId);
+                                    const tierIndex = tiers.indexOf(tierToMove!);
+                                    if (tierIndex === -1) return;
+
+                                    const swapIndex = direction === "up" ? tierIndex - 1 : tierIndex + 1;
+                                    if (swapIndex < 0 || swapIndex >= tiers.length) return;
+
+                                    const tierToSwap = tiers[swapIndex];
+                                    const tierToMoveOrder = tierToMove!.order;
+                                    const tierToSwapOrder = tierToSwap.order;
+
+                                    try {
+                                        await Promise.all([
+                                            updateTier(tierId, { order: tierToSwapOrder }),
+                                            updateTier(tierToSwap.id!, { order: tierToMoveOrder }),
+                                        ]);
+
+                                        const updated = await getTiersForBoard(currentBoardId!);
+                                        setTiers(updated);
+                                    } catch (err) {
+                                        console.error("Failed to reorder tier:", err);
+                                    }
+                                }}
                                 onDelete={async () => {
                                     if (!tier.id) return;
                                     if (!confirm(`Delete tier "${tier.name}"? Items will move to unassigned.`)) return;
@@ -538,6 +608,7 @@ export default function TierMaker() {
                             boardId={currentBoardId}
                             assignments={assignments}
                             setAssignments={setAssignments}
+                            showRankings={showRankings}
                         />
                     </div>
 
@@ -559,6 +630,9 @@ function TierRow({
     assignments,
     setAssignments,
     onDelete,
+    onReorder,
+    tiers,
+    showRankings = false,
 }: {
     tier: Tier;
     media: DisplayMedia[];
@@ -567,27 +641,48 @@ function TierRow({
     assignments: TierAssignment[];
     setAssignments: (assignments: TierAssignment[]) => void;
     onDelete: () => void;
+    onReorder: (tierId: number, direction: "up" | "down") => void;
+    tiers: Tier[];
+    showRankings?: boolean;
 }) {
     const { getTitle } = useData();
-    const [isEditing, setIsEditing] = useState(false);
+    const [isRenamingTier, setIsRenamingTier] = useState(false);
     const [tierName, setTierName] = useState(tier.name);
+    const [tierColor, setTierColor] = useState(tier.color);
+    const [showColorPicker, setShowColorPicker] = useState(false);
+    const [innerDragActive, setInnerDragActive] = useState<number | null>(null);
 
-    const handleUpdateTier = async () => {
-        if (!tier.id) return;
+    const handleUpdateTierName = async () => {
+        if (!tier.id || !tierName.trim()) return;
         try {
             await updateTier(tier.id, { name: tierName });
-            setIsEditing(false);
+            setIsRenamingTier(false);
         } catch (err) {
-            console.error("Failed to update tier:", err);
+            console.error("Failed to update tier name:", err);
+            setTierName(tier.name);
         }
     };
 
-    const handleReorder = async (oldIndex: number, newIndex: number) => {
+    const handleUpdateTierColor = async (newColor: string) => {
+        if (!tier.id) return;
+        try {
+            setTierColor(newColor);
+            await updateTier(tier.id, { color: newColor });
+            setShowColorPicker(false);
+        } catch (err) {
+            console.error("Failed to update tier color:", err);
+            setTierColor(tier.color);
+        }
+    };
+
+    const handleMoveItem = async (oldIndex: number, newIndex: number) => {
         if (!tier.id || !boardId) return;
 
         const tierAssignments = assignments
             .filter(a => a.tierId === tier.id && a.boardId === boardId)
             .sort((a, b) => a.position - b.position);
+
+        if (newIndex < 0 || newIndex >= tierAssignments.length) return;
 
         const reordered = arrayMove(tierAssignments, oldIndex, newIndex);
 
@@ -603,41 +698,252 @@ function TierRow({
         setAssignments(updated);
     };
 
+    const colorPresets = [
+        "#FF6B6B",
+        "#4ECDC4",
+        "#45B7D1",
+        "#FFA07A",
+        "#98D8C8",
+        "#95A5A6",
+        "#F7DC6F",
+        "#BB8FCE",
+        "#85C1E2",
+        "#F8B88B",
+        "#52BE80",
+        "#E59866",
+    ];
+
+    const isFirstTier = tier.order === 0;
+    const isLastTier = tier.order === tiers.length - 1;
+
     return (
         <div id={`tier-${tier.id}`} className="bg-card border border-border rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-6 h-6 rounded" style={{ backgroundColor: tier.color }} />
-                {isEditing ? (
+            {/* Tier Header with Controls */}
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                {/* Color Display & Picker */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowColorPicker(!showColorPicker)}
+                        className="w-6 h-6 rounded border border-border hover:border-primary transition-colors"
+                        style={{ backgroundColor: tierColor }}
+                        title="Change color"
+                    />
+                    {showColorPicker && (
+                        <div className="absolute top-8 left-0 z-50 bg-card border border-border rounded-lg p-3 shadow-lg">
+                            <div className="grid grid-cols-6 gap-2">
+                                {colorPresets.map(color => (
+                                    <button
+                                        key={color}
+                                        onClick={() => handleUpdateTierColor(color)}
+                                        className={`w-6 h-6 rounded border-2 transition-all ${
+                                            tierColor === color ? "border-primary" : "border-border"
+                                        }`}
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="mt-2 flex gap-2">
+                                <input
+                                    type="color"
+                                    value={tierColor}
+                                    onChange={e => handleUpdateTierColor(e.target.value)}
+                                    className="w-full h-8 rounded cursor-pointer"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Tier Name */}
+                {isRenamingTier ? (
                     <input
                         value={tierName}
                         onChange={e => setTierName(e.target.value)}
-                        onBlur={handleUpdateTier}
-                        onKeyDown={e => e.key === "Enter" && handleUpdateTier()}
-                        className="px-2 py-1 bg-background border border-border rounded"
+                        onBlur={handleUpdateTierName}
+                        onKeyDown={e => {
+                            if (e.key === "Enter") handleUpdateTierName();
+                            if (e.key === "Escape") {
+                                setTierName(tier.name);
+                                setIsRenamingTier(false);
+                            }
+                        }}
+                        className="px-2 py-1 bg-background border border-border rounded font-semibold"
                         autoFocus
                     />
                 ) : (
-                    <h3 className="text-lg font-semibold cursor-pointer" onClick={() => setIsEditing(true)}>
+                    <h3
+                        className="text-lg font-semibold cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => setIsRenamingTier(true)}
+                        title="Click to rename"
+                    >
                         {tier.name}
                     </h3>
                 )}
                 <span className="text-sm text-muted-foreground">({media.length})</span>
-                <button
-                    onClick={onDelete}
-                    className="ml-auto p-1 hover:bg-destructive/20 rounded text-destructive"
-                    title="Delete Tier"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </button>
+
+                {/* Action Buttons */}
+                <div className="ml-auto flex items-center gap-2">
+                    {/* Quick Sort Menu */}
+                    <div className="relative group">
+                        <button className="p-1 hover:bg-secondary rounded transition-colors" title="Quick sort options">
+                            <SortDesc className="w-4 h-4" />
+                        </button>
+                        <div className="absolute right-0 top-8 z-50 bg-card border border-border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap">
+                            <button
+                                onClick={async () => {
+                                    if (!tier.id || !boardId) return;
+                                    const tierAssignments = assignments
+                                        .filter(a => a.tierId === tier.id && a.boardId === boardId)
+                                        .sort((a, b) => a.position - b.position);
+
+                                    const sorted = tierAssignments.sort((a, b) => {
+                                        const mediaA = allMedia.find(m => m._entryId === a.mediaId);
+                                        const mediaB = allMedia.find(m => m._entryId === b.mediaId);
+                                        return (mediaB?.score || 0) - (mediaA?.score || 0);
+                                    });
+
+                                    for (let i = 0; i < sorted.length; i++) {
+                                        await saveAssignment({ ...sorted[i], position: i });
+                                    }
+                                    const updated = await getAssignmentsForBoard(boardId!);
+                                    setAssignments(updated);
+                                }}
+                                className="block w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                                Sort by Score
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!tier.id || !boardId) return;
+                                    const tierAssignments = assignments
+                                        .filter(a => a.tierId === tier.id && a.boardId === boardId)
+                                        .sort((a, b) => a.position - b.position);
+
+                                    const sorted = tierAssignments.sort((a, b) => {
+                                        const mediaA = allMedia.find(m => m._entryId === a.mediaId);
+                                        const mediaB = allMedia.find(m => m._entryId === b.mediaId);
+                                        const titleA = (
+                                            mediaA?.title?.english ||
+                                            mediaA?.title?.romaji ||
+                                            ""
+                                        ).toLowerCase();
+                                        const titleB = (
+                                            mediaB?.title?.english ||
+                                            mediaB?.title?.romaji ||
+                                            ""
+                                        ).toLowerCase();
+                                        return titleA.localeCompare(titleB);
+                                    });
+
+                                    for (let i = 0; i < sorted.length; i++) {
+                                        await saveAssignment({ ...sorted[i], position: i });
+                                    }
+                                    const updated = await getAssignmentsForBoard(boardId!);
+                                    setAssignments(updated);
+                                }}
+                                className="block w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                                Sort A-Z
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!tier.id || !boardId) return;
+                                    const tierAssignments = assignments
+                                        .filter(a => a.tierId === tier.id && a.boardId === boardId)
+                                        .sort((a, b) => a.position - b.position);
+
+                                    tierAssignments.reverse();
+
+                                    for (let i = 0; i < tierAssignments.length; i++) {
+                                        await saveAssignment({ ...tierAssignments[i], position: i });
+                                    }
+                                    const updated = await getAssignmentsForBoard(boardId!);
+                                    setAssignments(updated);
+                                }}
+                                className="block w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                                Reverse Order
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!tier.id || !boardId) return;
+                                    const tierAssignments = assignments
+                                        .filter(a => a.tierId === tier.id && a.boardId === boardId)
+                                        .sort((a, b) => a.position - b.position);
+
+                                    // Fisher-Yates shuffle
+                                    for (let i = tierAssignments.length - 1; i > 0; i--) {
+                                        const j = Math.floor(Math.random() * (i + 1));
+                                        [tierAssignments[i], tierAssignments[j]] = [
+                                            tierAssignments[j],
+                                            tierAssignments[i],
+                                        ];
+                                    }
+
+                                    for (let i = 0; i < tierAssignments.length; i++) {
+                                        await saveAssignment({ ...tierAssignments[i], position: i });
+                                    }
+                                    const updated = await getAssignmentsForBoard(boardId!);
+                                    setAssignments(updated);
+                                }}
+                                className="block w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                                Randomize
+                            </button>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={() => onReorder(tier.id!, "up")}
+                        disabled={isFirstTier}
+                        className="p-1 hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                        title="Move tier up"
+                    >
+                        <ArrowUp className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => onReorder(tier.id!, "down")}
+                        disabled={isLastTier}
+                        className="p-1 hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+                        title="Move tier down"
+                    >
+                        <ArrowDown className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={() => setIsRenamingTier(true)}
+                        className="p-1 hover:bg-secondary rounded transition-colors"
+                        title="Rename Tier"
+                    >
+                        <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={onDelete}
+                        className="p-1 hover:bg-destructive/20 rounded text-destructive transition-colors"
+                        title="Delete Tier"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
+            {/* Tier Items Container */}
             <DroppableTier tierId={tier.id!}>
                 <SortableContext items={media.map(m => m._entryId)} strategy={horizontalListSortingStrategy}>
                     <div className="flex flex-wrap gap-3 min-h-[120px] p-2 bg-secondary/20 rounded">
                         {media.length === 0 ? (
                             <div className="w-full text-center text-muted-foreground py-8 text-sm">Drop items here</div>
                         ) : (
-                            media.map(item => <SortableMediaCard key={item._entryId} media={item} />)
+                            media.map((item, index) => (
+                                <SortableMediaCard
+                                    key={item._entryId}
+                                    media={item}
+                                    index={index}
+                                    totalItems={media.length}
+                                    onMove={handleMoveItem}
+                                    showRank={showRankings}
+                                    tierName={tier.name}
+                                />
+                            ))
                         )}
                     </div>
                 </SortableContext>
@@ -647,15 +953,29 @@ function TierRow({
 }
 
 // Sortable Media Card
-function SortableMediaCard({ media }: { media: DisplayMedia }) {
+function SortableMediaCard({
+    media,
+    index,
+    totalItems,
+    onMove,
+    showRank = false,
+    tierName = "",
+}: {
+    media: DisplayMedia;
+    index: number;
+    totalItems: number;
+    onMove?: (oldIndex: number, newIndex: number) => void;
+    showRank?: boolean;
+    tierName?: string;
+}) {
     const { getTitle } = useData();
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
         id: media._entryId,
     });
 
     const style = {
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: transition || "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
         opacity: isDragging ? 0.5 : 1,
     };
 
@@ -665,9 +985,37 @@ function SortableMediaCard({ media }: { media: DisplayMedia }) {
             style={style}
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing"
+            className="cursor-grab active:cursor-grabbing group relative"
         >
             <MediaCardPreview media={media} />
+
+            {/* Rank Badge */}
+            {showRank && (
+                <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-lg">
+                    {index + 1}
+                </div>
+            )}
+
+            {onMove && totalItems > 1 && (
+                <div className="absolute -bottom-8 left-0 right-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary rounded p-1">
+                    <button
+                        onClick={() => index > 0 && onMove(index, index - 1)}
+                        disabled={index === 0}
+                        className="p-0.5 hover:bg-primary/20 disabled:opacity-50 rounded text-xs"
+                        title="Move left"
+                    >
+                        ←
+                    </button>
+                    <button
+                        onClick={() => index < totalItems - 1 && onMove(index, index + 1)}
+                        disabled={index === totalItems - 1}
+                        className="p-0.5 hover:bg-primary/20 disabled:opacity-50 rounded text-xs"
+                        title="Move right"
+                    >
+                        →
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -709,15 +1057,39 @@ function UnassignedPool({
     boardId,
     assignments,
     setAssignments,
+    showRankings = false,
 }: {
     media: DisplayMedia[];
     boardId: number | null;
     assignments: TierAssignment[];
     setAssignments: (assignments: TierAssignment[]) => void;
+    showRankings?: boolean;
 }) {
     const { getTitle } = useData();
 
     if (!boardId) return null;
+
+    const handleMovePoolItem = async (oldIndex: number, newIndex: number) => {
+        if (newIndex < 0 || newIndex >= media.length) return;
+
+        // Get pool assignments sorted by position
+        const poolAssignments = assignments
+            .filter(a => a.tierId === null && a.boardId === boardId)
+            .sort((a, b) => a.position - b.position);
+
+        const reordered = arrayMove(poolAssignments, oldIndex, newIndex);
+
+        // Update positions
+        for (let i = 0; i < reordered.length; i++) {
+            await saveAssignment({
+                ...reordered[i],
+                position: i,
+            });
+        }
+
+        const updated = await getAssignmentsForBoard(boardId);
+        setAssignments(updated);
+    };
 
     const { setNodeRef, isOver } = useDroppable({
         id: "pool",
@@ -737,7 +1109,17 @@ function UnassignedPool({
                             All items are ranked
                         </div>
                     ) : (
-                        media.map(item => <SortableMediaCard key={item._entryId} media={item} />)
+                        media.map((item, index) => (
+                            <SortableMediaCard
+                                key={item._entryId}
+                                media={item}
+                                index={index}
+                                totalItems={media.length}
+                                onMove={handleMovePoolItem}
+                                showRank={showRankings}
+                                tierName="Unranked"
+                            />
+                        ))
                     )}
                 </div>
             </SortableContext>

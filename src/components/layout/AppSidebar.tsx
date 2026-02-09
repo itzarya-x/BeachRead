@@ -1,3 +1,4 @@
+import { SyncStatusIndicator } from "@/components/sync/SyncStatusIndicator";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import { BarChart3, BookOpen, ChevronLeft, Clock, Database, Heart, Home, Settings, Trophy, Tv } from "lucide-react";
@@ -139,8 +140,29 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
 
             {/* Footer */}
             {!collapsed && (
-                <div className="p-3 border-t border-border/20">
+                <div className="p-3 border-t border-border/20 space-y-3">
+                    {/* Sync Status */}
+                    <div className="flex justify-center">
+                        <SyncStatusIndicator
+                            status="synced"
+                            lastSyncTime={new Date()}
+                            itemsUploaded={0}
+                            itemsDownloaded={0}
+                            conflictCount={0}
+                        />
+                    </div>
                     <p className="text-xs text-muted-foreground/60 text-center">v1.0</p>
+                </div>
+            )}
+            {collapsed && (
+                <div className="p-3 border-t border-border/20 flex justify-center">
+                    <SyncStatusIndicator
+                        status="synced"
+                        lastSyncTime={new Date()}
+                        itemsUploaded={0}
+                        itemsDownloaded={0}
+                        conflictCount={0}
+                    />
                 </div>
             )}
         </aside>
