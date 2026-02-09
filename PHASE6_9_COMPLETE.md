@@ -11,6 +11,7 @@
 ### Tasks Completed
 
 #### PHASE 6: Auto Login Behavior
+
 - ✅ Session valid → user restored automatically (invisible)
 - ✅ Never ask for login again (until manual logout)
 - ✅ Works on app start, refresh, tab switch
@@ -21,6 +22,7 @@
 **Key Principle:** If you were logged in before, you're still logged in now.
 
 #### PHASE 7: Sync Requires Login
+
 - ✅ Cloud sync disabled if not logged in
 - ✅ Cloud operations guarded by auth check
 - ✅ Clear hint shown to users: "Sign in to enable cloud sync"
@@ -31,10 +33,11 @@
 **Key Principle:** You need an identity to use cloud features.
 
 #### PHASE 8: UI Feedback (Small & Informative)
+
 - ✅ Status indicator shows:
-  - 🟢 "Cloud backup enabled" (when logged in + Supabase configured)
-  - ⚪ "Sign in to enable cloud sync" (when not logged in but Supabase configured)
-  - (nothing) If Supabase not configured
+    - 🟢 "Cloud backup enabled" (when logged in + Supabase configured)
+    - ⚪ "Sign in to enable cloud sync" (when not logged in but Supabase configured)
+    - (nothing) If Supabase not configured
 - ✅ Always visible, small, non-intrusive
 - ✅ Clickable hint to sign in
 - ✅ Animated pulse when syncing
@@ -44,6 +47,7 @@
 **Key Principle:** Users always know if cloud backup is working.
 
 #### PHASE 9: Error States
+
 - ✅ Login fails → Toast with error message
 - ✅ Logout fails → Toast with error message
 - ✅ Sync operation fails → Toast + UI feedback
@@ -139,14 +143,14 @@ Sync operation fails:
 
 ## Files Created
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| [src/hooks/useCloudSyncStatus.ts](src/hooks/useCloudSyncStatus.ts) | 76 | Cloud sync status hook (PHASE 7-8) |
-| [src/components/sync/CloudSyncStatusIndicator.tsx](src/components/sync/CloudSyncStatusIndicator.tsx) | 50 | Status indicator (PHASE 8) |
-| [PHASE6_AUTO_LOGIN.md](PHASE6_AUTO_LOGIN.md) | - | PHASE 6 details |
-| [PHASE7_SYNC_GUARD.md](PHASE7_SYNC_GUARD.md) | - | PHASE 7 details |
-| [PHASE8_UI_FEEDBACK.md](PHASE8_UI_FEEDBACK.md) | - | PHASE 8 details |
-| [PHASE9_ERROR_STATES.md](PHASE9_ERROR_STATES.md) | - | PHASE 9 details |
+| File                                                                                                 | Lines | Purpose                            |
+| ---------------------------------------------------------------------------------------------------- | ----- | ---------------------------------- |
+| [src/hooks/useCloudSyncStatus.ts](src/hooks/useCloudSyncStatus.ts)                                   | 76    | Cloud sync status hook (PHASE 7-8) |
+| [src/components/sync/CloudSyncStatusIndicator.tsx](src/components/sync/CloudSyncStatusIndicator.tsx) | 50    | Status indicator (PHASE 8)         |
+| [PHASE6_AUTO_LOGIN.md](PHASE6_AUTO_LOGIN.md)                                                         | -     | PHASE 6 details                    |
+| [PHASE7_SYNC_GUARD.md](PHASE7_SYNC_GUARD.md)                                                         | -     | PHASE 7 details                    |
+| [PHASE8_UI_FEEDBACK.md](PHASE8_UI_FEEDBACK.md)                                                       | -     | PHASE 8 details                    |
+| [PHASE9_ERROR_STATES.md](PHASE9_ERROR_STATES.md)                                                     | -     | PHASE 9 details                    |
 
 ## Integration Points
 
@@ -216,12 +220,12 @@ export function MyCloudFeature() {
 
 ```typescript
 export interface CloudSyncStatus {
-    isEnabled: boolean;           // Can sync to cloud (PHASE 7)
-    isConfigured: boolean;        // Supabase configured (PHASE 8)
-    isAuthenticated: boolean;     // User logged in (PHASE 6)
-    requiresLogin: boolean;       // Sync blocked by auth
+    isEnabled: boolean; // Can sync to cloud (PHASE 7)
+    isConfigured: boolean; // Supabase configured (PHASE 8)
+    isAuthenticated: boolean; // User logged in (PHASE 6)
+    requiresLogin: boolean; // Sync blocked by auth
     status: "connected" | "not-connected" | "not-configured";
-    message: string;              // User-friendly message (PHASE 8)
+    message: string; // User-friendly message (PHASE 8)
 }
 ```
 
@@ -230,99 +234,99 @@ export interface CloudSyncStatus {
 ### PHASE 6: Auto Login
 
 - [ ] **First time:**
-  - [ ] Open app (no login)
-  - [ ] See "Sign in to enable cloud sync" hint
-  - [ ] No login screen shown
-  - [ ] Can use app locally
+    - [ ] Open app (no login)
+    - [ ] See "Sign in to enable cloud sync" hint
+    - [ ] No login screen shown
+    - [ ] Can use app locally
 
 - [ ] **After login:**
-  - [ ] Click "Sign in"
-  - [ ] Complete login
-  - [ ] Redirect to home
-  - [ ] See "Cloud backup enabled"
+    - [ ] Click "Sign in"
+    - [ ] Complete login
+    - [ ] Redirect to home
+    - [ ] See "Cloud backup enabled"
 
 - [ ] **Reload page (Cmd+R / Ctrl+R):**
-  - [ ] No login screen
-  - [ ] See "Cloud backup enabled" immediately
-  - [ ] User still logged in
-  - [ ] localStorage checked
+    - [ ] No login screen
+    - [ ] See "Cloud backup enabled" immediately
+    - [ ] User still logged in
+    - [ ] localStorage checked
 
 - [ ] **Close tab and reopen:**
-  - [ ] User still logged in
-  - [ ] No login prompt
-  - [ ] Session restored
+    - [ ] User still logged in
+    - [ ] No login prompt
+    - [ ] Session restored
 
 - [ ] **New device:**
-  - [ ] Open app on different browser/device
-  - [ ] See "Sign in" hint (new device, no session)
-  - [ ] Click hint → Login
-  - [ ] Can sync across devices
+    - [ ] Open app on different browser/device
+    - [ ] See "Sign in" hint (new device, no session)
+    - [ ] Click hint → Login
+    - [ ] Can sync across devices
 
 ### PHASE 7: Sync Requires Login
 
 - [ ] **Not logged in:**
-  - [ ] Try to access cloud features
-  - [ ] See: "Sign in to enable cloud sync"
-  - [ ] Can't sync
-  - [ ] Local features work
+    - [ ] Try to access cloud features
+    - [ ] See: "Sign in to enable cloud sync"
+    - [ ] Can't sync
+    - [ ] Local features work
 
 - [ ] **After login:**
-  - [ ] Same cloud features now work
-  - [ ] Sync happens automatically
-  - [ ] Can push to cloud
+    - [ ] Same cloud features now work
+    - [ ] Sync happens automatically
+    - [ ] Can push to cloud
 
 - [ ] **After logout:**
-  - [ ] Cloud sync disabled again
-  - [ ] See: "Sign in to enable cloud sync"
-  - [ ] Local data unaffected
+    - [ ] Cloud sync disabled again
+    - [ ] See: "Sign in to enable cloud sync"
+    - [ ] Local data unaffected
 
 ### PHASE 8: UI Feedback
 
 - [ ] **Not logged in:**
-  - [ ] See: "Sign in to enable cloud sync" (button style)
-  - [ ] Click button → Goes to login
-  - [ ] Small, non-intrusive
+    - [ ] See: "Sign in to enable cloud sync" (button style)
+    - [ ] Click button → Goes to login
+    - [ ] Small, non-intrusive
 
 - [ ] **Logged in:**
-  - [ ] See: "Cloud backup enabled" (green indicator)
-  - [ ] Animated pulse
-  - [ ] Clear at a glance
-  - [ ] No flashing/annoying
+    - [ ] See: "Cloud backup enabled" (green indicator)
+    - [ ] Animated pulse
+    - [ ] Clear at a glance
+    - [ ] No flashing/annoying
 
 - [ ] **Not configured:**
-  - [ ] See: Nothing (no indicator at all)
-  - [ ] App works normally
-  - [ ] No error messages
+    - [ ] See: Nothing (no indicator at all)
+    - [ ] App works normally
+    - [ ] No error messages
 
 - [ ] **During sync:**
-  - [ ] Indicator pulses while syncing
-  - [ ] Smooth animation
-  - [ ] Stops after sync completes
+    - [ ] Indicator pulses while syncing
+    - [ ] Smooth animation
+    - [ ] Stops after sync completes
 
 ### PHASE 9: Error States
 
 - [ ] **Login fails:**
-  - [ ] Invalid password
-  - [ ] See toast: "Login failed: Invalid credentials"
-  - [ ] Can retry
-  - [ ] Still on login page
+    - [ ] Invalid password
+    - [ ] See toast: "Login failed: Invalid credentials"
+    - [ ] Can retry
+    - [ ] Still on login page
 
 - [ ] **Logout fails:**
-  - [ ] Network error
-  - [ ] See toast: "Logout failed: Network error"
-  - [ ] Can retry
-  - [ ] Not actually logged out (safe)
+    - [ ] Network error
+    - [ ] See toast: "Logout failed: Network error"
+    - [ ] Can retry
+    - [ ] Not actually logged out (safe)
 
 - [ ] **Magic link fails:**
-  - [ ] Send to non-existent email
-  - [ ] See toast: "Email not found"
-  - [ ] Can try again
+    - [ ] Send to non-existent email
+    - [ ] See toast: "Email not found"
+    - [ ] Can try again
 
 - [ ] **Sync fails:**
-  - [ ] Network disconnects during sync
-  - [ ] See toast: "Sync failed: Offline"
-  - [ ] Queued for retry when online
-  - [ ] Shows: "Will sync when online"
+    - [ ] Network disconnects during sync
+    - [ ] See toast: "Sync failed: Offline"
+    - [ ] Queued for retry when online
+    - [ ] Shows: "Will sync when online"
 
 ## Acceptance Test
 
@@ -356,13 +360,14 @@ export interface CloudSyncStatus {
 ✅ **Local-First** - Works offline, cloud optional  
 ✅ **Safe** - Cloud requires login, data protected  
 ✅ **Transparent** - Status always visible  
-✅ **Not a Social Network** - Just cloud sync, nothing more  
+✅ **Not a Social Network** - Just cloud sync, nothing more
 
 ## Philosophy
 
 Login should feel like **background infrastructure**, not a feature.
 
 Users should never think about authentication. They should:
+
 1. Open app
 2. If logged in → just works (session restored)
 3. If not logged in → see small hint, click to login
@@ -389,7 +394,7 @@ You now have:
 ✔ **Safe Cloud** - Cloud sync requires login  
 ✔ **Multi-Device** - Sync across devices with same user ID  
 ✔ **Background** - Auth feels invisible  
-✔ **Not Social** - No profiles, likes, follows, etc.  
+✔ **Not Social** - No profiles, likes, follows, etc.
 
 Without turning Yura into a social network.
 

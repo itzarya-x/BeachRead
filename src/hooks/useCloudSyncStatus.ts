@@ -7,16 +7,16 @@
  */
 
 import { useAuth } from "@/context/AuthContext";
-import { useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
+import { useEffect, useState } from "react";
 
 export interface CloudSyncStatus {
-    isEnabled: boolean;           // Can sync to cloud
-    isConfigured: boolean;        // Supabase configured
-    isAuthenticated: boolean;     // User logged in
-    requiresLogin: boolean;       // Sync blocked by auth
+    isEnabled: boolean; // Can sync to cloud
+    isConfigured: boolean; // Supabase configured
+    isAuthenticated: boolean; // User logged in
+    requiresLogin: boolean; // Sync blocked by auth
     status: "connected" | "not-connected" | "not-configured";
-    message: string;              // User-friendly message
+    message: string; // User-friendly message
 }
 
 /**

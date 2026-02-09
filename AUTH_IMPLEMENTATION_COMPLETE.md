@@ -4,45 +4,50 @@
 
 ### Phases Implemented
 
-| Phase | Name | Status | Key Deliverable |
-|-------|------|--------|-----------------|
-| **1** | Supabase Auth Integration | ✅ | Session restoration + OAuth + Magic link |
-| **2** | Login UI (Magic Link + OAuth) | ✅ | Modal login with multiple auth options |
-| **3** | Logout UI | ✅ | Confirmation dialog + status display |
-| **4** | userId Linking | ⏳ | Cloud tables schema (coming) |
-| **5** | First-Login Flow | ⏳ | Upload/download/merge choices (coming) |
-| **6** | Auto Login Behavior | ✅ | Session auto-restored (invisible) |
-| **7** | Sync Requires Login | ✅ | Cloud sync guarded by auth |
-| **8** | UI Feedback | ✅ | Status indicator (small, informative) |
-| **9** | Error States | ✅ | Toast errors, graceful handling |
+| Phase | Name                          | Status | Key Deliverable                          |
+| ----- | ----------------------------- | ------ | ---------------------------------------- |
+| **1** | Supabase Auth Integration     | ✅     | Session restoration + OAuth + Magic link |
+| **2** | Login UI (Magic Link + OAuth) | ✅     | Modal login with multiple auth options   |
+| **3** | Logout UI                     | ✅     | Confirmation dialog + status display     |
+| **4** | userId Linking                | ⏳     | Cloud tables schema (coming)             |
+| **5** | First-Login Flow              | ⏳     | Upload/download/merge choices (coming)   |
+| **6** | Auto Login Behavior           | ✅     | Session auto-restored (invisible)        |
+| **7** | Sync Requires Login           | ✅     | Cloud sync guarded by auth               |
+| **8** | UI Feedback                   | ✅     | Status indicator (small, informative)    |
+| **9** | Error States                  | ✅     | Toast errors, graceful handling          |
 
 ---
 
 ## What You Get
 
 ### Identity ✔
+
 - User has unique `id` from Supabase
 - JWT token for secure API calls
 - Email + optional name/avatar
 - Persisted across sessions
 
 ### Safe Cloud ✔
+
 - Cloud sync only works if logged in
 - User can't accidentally lose cloud access
 - Local data always safe regardless of auth
 
 ### Multi-Device ✔
+
 - Login on Device A → data stored with user ID
 - Login on Device B with same email → same data
 - Cross-device sync ready (PHASE 4-5 will implement sync)
 
 ### Background Infrastructure ✔
+
 - No login screens interrupting workflow
 - Session auto-restored on reload
 - Status always visible but not intrusive
 - Errors are clear but not blocking
 
 ### NOT a Social Network ✔
+
 - No profiles, likes, follows
 - No social feed
 - No monetization
@@ -54,36 +59,36 @@
 
 ### Core Authentication
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| [src/lib/supabase-client.ts](src/lib/supabase-client.ts) | 45 | Supabase client factory |
-| [src/context/AuthContext.tsx](src/context/AuthContext.tsx) | 280+ | Global auth state + methods |
-| [src/hooks/useCloudSyncStatus.ts](src/hooks/useCloudSyncStatus.ts) | 76 | Cloud sync status hook |
+| File                                                               | Lines | Purpose                     |
+| ------------------------------------------------------------------ | ----- | --------------------------- |
+| [src/lib/supabase-client.ts](src/lib/supabase-client.ts)           | 45    | Supabase client factory     |
+| [src/context/AuthContext.tsx](src/context/AuthContext.tsx)         | 280+  | Global auth state + methods |
+| [src/hooks/useCloudSyncStatus.ts](src/hooks/useCloudSyncStatus.ts) | 76    | Cloud sync status hook      |
 
 ### UI Components
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| [src/pages/Login.tsx](src/pages/Login.tsx) | 180+ | Login page (password + magic link + OAuth) |
-| [src/components/account/AccountSection.tsx](src/components/account/AccountSection.tsx) | 130+ | Account + logout UI |
-| [src/components/sync/CloudSyncStatusIndicator.tsx](src/components/sync/CloudSyncStatusIndicator.tsx) | 50 | Cloud sync status indicator |
+| File                                                                                                 | Lines | Purpose                                    |
+| ---------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------ |
+| [src/pages/Login.tsx](src/pages/Login.tsx)                                                           | 180+  | Login page (password + magic link + OAuth) |
+| [src/components/account/AccountSection.tsx](src/components/account/AccountSection.tsx)               | 130+  | Account + logout UI                        |
+| [src/components/sync/CloudSyncStatusIndicator.tsx](src/components/sync/CloudSyncStatusIndicator.tsx) | 50    | Cloud sync status indicator                |
 
 ### Configuration
 
-| File | Purpose |
-|------|---------|
+| File                         | Purpose                       |
+| ---------------------------- | ----------------------------- |
 | [.env.example](.env.example) | Supabase credentials template |
 
 ### Documentation
 
-| File | Pages | Purpose |
-|------|-------|---------|
-| [PHASE1_SUPABASE_AUTH.md](PHASE1_SUPABASE_AUTH.md) | 6 | PHASE 1 deep dive |
-| [PHASE2_LOGIN_UI.md](PHASE2_LOGIN_UI.md) | 5 | PHASE 2 deep dive |
-| [PHASE3_LOGOUT_UI.md](PHASE3_LOGOUT_UI.md) | 5 | PHASE 3 deep dive |
-| [PHASE6_9_COMPLETE.md](PHASE6_9_COMPLETE.md) | 10 | PHASE 6-9 deep dive |
-| [AUTH_QUICK_REFERENCE.md](AUTH_QUICK_REFERENCE.md) | 10 | Quick reference guide |
-| [ACCEPTANCE_TESTS_AUTH.md](ACCEPTANCE_TESTS_AUTH.md) | 12 | 10 acceptance tests |
+| File                                                 | Pages | Purpose               |
+| ---------------------------------------------------- | ----- | --------------------- |
+| [PHASE1_SUPABASE_AUTH.md](PHASE1_SUPABASE_AUTH.md)   | 6     | PHASE 1 deep dive     |
+| [PHASE2_LOGIN_UI.md](PHASE2_LOGIN_UI.md)             | 5     | PHASE 2 deep dive     |
+| [PHASE3_LOGOUT_UI.md](PHASE3_LOGOUT_UI.md)           | 5     | PHASE 3 deep dive     |
+| [PHASE6_9_COMPLETE.md](PHASE6_9_COMPLETE.md)         | 10    | PHASE 6-9 deep dive   |
+| [AUTH_QUICK_REFERENCE.md](AUTH_QUICK_REFERENCE.md)   | 10    | Quick reference guide |
+| [ACCEPTANCE_TESTS_AUTH.md](ACCEPTANCE_TESTS_AUTH.md) | 12    | 10 acceptance tests   |
 
 ---
 
@@ -157,14 +162,14 @@ Multi-device sync ready
 import { useAuth } from "@/context/AuthContext";
 
 const {
-    user,              // AuthUser | null
-    isAuthenticated,   // boolean
-    loading,           // boolean (during operations)
-    error,             // string | null
-    login,             // (email, password) => Promise<void>
-    loginWithOAuth,    // (provider) => Promise<void>
-    loginWithMagicLink,// (email) => Promise<void>
-    logout,            // () => Promise<void>
+    user, // AuthUser | null
+    isAuthenticated, // boolean
+    loading, // boolean (during operations)
+    error, // string | null
+    login, // (email, password) => Promise<void>
+    loginWithOAuth, // (provider) => Promise<void>
+    loginWithMagicLink, // (email) => Promise<void>
+    logout, // () => Promise<void>
 } = useAuth();
 ```
 
@@ -174,12 +179,12 @@ const {
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
 
 const {
-    isEnabled,         // Can sync to cloud (requires login + Supabase)
-    isConfigured,      // Supabase credentials present
-    isAuthenticated,   // User logged in
-    requiresLogin,     // Sync blocked by missing auth
-    status,            // "connected" | "not-connected" | "not-configured"
-    message,           // "Cloud backup enabled" | "Sign in to enable..."
+    isEnabled, // Can sync to cloud (requires login + Supabase)
+    isConfigured, // Supabase credentials present
+    isAuthenticated, // User logged in
+    requiresLogin, // Sync blocked by missing auth
+    status, // "connected" | "not-connected" | "not-configured"
+    message, // "Cloud backup enabled" | "Sign in to enable..."
 } = useCloudSyncStatus();
 ```
 
@@ -198,12 +203,14 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
 **Get these from:**
+
 1. Go to [supabase.com](https://supabase.com)
 2. Create/open project
 3. Settings → API → Copy URL + anon key
 4. Add to `.env.local`
 
 **If not configured:**
+
 - App uses mock authentication (works offline)
 - All features work locally
 - Cloud sync disabled but no errors
@@ -216,11 +223,11 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ```typescript
 export interface AuthUser {
-    id: string;              // UUID from Supabase
+    id: string; // UUID from Supabase
     email: string;
     displayName?: string;
     avatar?: string;
-    accessToken?: string;    // JWT token
+    accessToken?: string; // JWT token
 }
 
 export interface CloudSyncStatus {
@@ -240,31 +247,32 @@ export interface CloudSyncStatus {
 ### Quick Manual Tests
 
 1. **Login works:**
-   - Click "Sign In" in Settings
-   - Enter credentials
-   - See "Cloud backup enabled"
+    - Click "Sign In" in Settings
+    - Enter credentials
+    - See "Cloud backup enabled"
 
 2. **Session persists:**
-   - Refresh page (F5)
-   - Still logged in (no login screen)
+    - Refresh page (F5)
+    - Still logged in (no login screen)
 
 3. **Logout works:**
-   - Click "Logout" in Settings
-   - See "Sign in to enable cloud sync"
+    - Click "Logout" in Settings
+    - See "Sign in to enable cloud sync"
 
 4. **Multi-device:**
-   - Login on Device A
-   - Login on Device B with same email
-   - Both show same user ID
+    - Login on Device A
+    - Login on Device B with same email
+    - Both show same user ID
 
 5. **Errors handled:**
-   - Try wrong password
-   - See error toast
-   - Can retry
+    - Try wrong password
+    - See error toast
+    - Can retry
 
 ### Automated Tests
 
 10 comprehensive acceptance tests in [ACCEPTANCE_TESTS_AUTH.md](ACCEPTANCE_TESTS_AUTH.md):
+
 - Test 1: Login → User ID available
 - Test 2: Reload → Still logged
 - Test 3: Logout → Cloud disabled
@@ -294,31 +302,34 @@ npm run dev
 ### Production (Vercel/Netlify)
 
 1. Set env vars in deployment settings:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+    - `VITE_SUPABASE_URL`
+    - `VITE_SUPABASE_ANON_KEY`
 
 2. No code changes needed
 
 3. Deploy normally:
-   ```bash
-   git push origin main
-   ```
+    ```bash
+    git push origin main
+    ```
 
 ---
 
 ## Known Limitations & Next Steps
 
 ### PHASE 4: userId Linking (Coming)
+
 - Add `user_id` column to all cloud tables
 - Filter queries by `user_id`
 - Ensure data isolation between users
 
 ### PHASE 5: First-Login Flow (Coming)
+
 - If cloud empty + local has data → Ask to upload
 - If cloud has data + local empty → Ask to download
 - If both have data → Offer merge or choose
 
 ### PHASE 10: Error Recovery (Coming)
+
 - Handle session expiry gracefully
 - Auto-refresh tokens
 - Offline queue management
@@ -334,7 +345,7 @@ npm run dev
 ✔ **Frictionless** - Multiple easy login options  
 ✔ **Safe** - Cloud requires login, local always safe  
 ✔ **Transparent** - Status always visible  
-✔ **Not Social** - No profiles, likes, follows, etc.  
+✔ **Not Social** - No profiles, likes, follows, etc.
 
 ---
 
@@ -363,7 +374,7 @@ You now have a **minimal, invisible, frictionless authentication system** that:
 ✔ **Enables cloud sync** safely  
 ✔ **Supports multi-device** cross-sync  
 ✔ **Feels like background infrastructure** (not a feature)  
-✔ **Doesn't turn Yura into social network**  
+✔ **Doesn't turn Yura into social network**
 
 **Without requiring Supabase** (works offline with mock auth).
 
@@ -372,23 +383,23 @@ You now have a **minimal, invisible, frictionless authentication system** that:
 ## Next Actions
 
 1. **Configure Supabase** (optional):
-   - Create project at supabase.com
-   - Add credentials to `.env.local`
-   - Test cloud login
+    - Create project at supabase.com
+    - Add credentials to `.env.local`
+    - Test cloud login
 
 2. **Implement PHASE 4-5**:
-   - Link cloud data to userId
-   - Implement first-login migration flow
+    - Link cloud data to userId
+    - Implement first-login migration flow
 
 3. **Deploy**:
-   - Set env vars in production
-   - Push to GitHub
-   - App works
+    - Set env vars in production
+    - Push to GitHub
+    - App works
 
 4. **Monitor**:
-   - Test multi-device sync
-   - Verify error handling
-   - Check performance
+    - Test multi-device sync
+    - Verify error handling
+    - Check performance
 
 ---
 

@@ -1,3 +1,4 @@
+import { SidebarAccountBlock } from "@/components/account/SidebarAccountBlock";
 import { CloudSyncStatusIndicator } from "@/components/sync/CloudSyncStatusIndicator";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatusIndicator";
 import { useData } from "@/context/DataContext";
@@ -142,7 +143,12 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             {/* Footer */}
             {!collapsed && (
                 <div className="p-3 border-t border-border/20 space-y-3">
-                    {/* Cloud Sync Status (PHASE 8) */}
+                    {/* Account Block (PHASE 1) */}
+                    <div>
+                        <SidebarAccountBlock collapsed={false} />
+                    </div>
+
+                    {/* Cloud Sync Status */}
                     <div className="flex justify-center">
                         <CloudSyncStatusIndicator />
                     </div>
@@ -162,7 +168,13 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             )}
             {collapsed && (
                 <div className="p-3 border-t border-border/20 space-y-3 flex flex-col items-center justify-center">
+                    {/* Account Block (collapsed) */}
+                    <SidebarAccountBlock collapsed={true} />
+
+                    {/* Cloud Sync Status */}
                     <CloudSyncStatusIndicator />
+
+                    {/* Sync Status */}
                     <SyncStatusIndicator
                         status="synced"
                         lastSyncTime={new Date()}

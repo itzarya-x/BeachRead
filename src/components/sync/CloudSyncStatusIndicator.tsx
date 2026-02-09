@@ -7,8 +7,8 @@
  * PHASE 8: Show "Cloud backup enabled" or "Not connected"
  */
 
-import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
 import { useAuth } from "@/context/AuthContext";
+import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
 import { useNavigate } from "react-router-dom";
 
 export function CloudSyncStatusIndicator() {

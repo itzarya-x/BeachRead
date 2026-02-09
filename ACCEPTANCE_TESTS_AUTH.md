@@ -5,11 +5,13 @@
 **Objective:** Verify that login produces a user ID available to the app.
 
 ### Setup
+
 1. Open Yura in browser
 2. Not currently logged in
 3. See "Sign in to enable cloud sync" hint in sidebar
 
 ### Steps
+
 1. Navigate to Settings
 2. Click "Sign In"
 3. Enter email: `test@example.com`
@@ -17,6 +19,7 @@
 5. Click "Login with Email"
 
 ### Expected Result
+
 - ✅ Login succeeds
 - ✅ Redirected to home
 - ✅ See "Cloud backup enabled" in sidebar (green indicator)
@@ -26,9 +29,10 @@
 - ✅ Account section shows "Signed in as: test@example.com"
 
 ### Verification
+
 ```javascript
 // In browser console:
-const user = JSON.parse(localStorage.getItem('yura_auth_user'));
+const user = JSON.parse(localStorage.getItem("yura_auth_user"));
 console.log(user.id); // Should print UUID
 console.log(user.email); // Should print test@example.com
 ```
@@ -40,16 +44,19 @@ console.log(user.email); // Should print test@example.com
 **Objective:** Verify that session auto-restores on page reload.
 
 ### Setup
+
 1. Logged in from Test 1
 2. See "Cloud backup enabled" indicator
 3. Settings shows "Signed in as: email"
 
 ### Steps
+
 1. Press F5 or Cmd+R (refresh page)
 2. Wait for app to load
 3. Check sidebar for status indicator
 
 ### Expected Result
+
 - ✅ Page reloads (no login screen shown)
 - ✅ Immediately see "Cloud backup enabled" indicator
 - ✅ No loading state blocking the page
@@ -58,6 +65,7 @@ console.log(user.email); // Should print test@example.com
 - ✅ Sidebar shows green indicator (not warning)
 
 ### Key Principle (PHASE 6)
+
 User should never see a login screen after reloading if they were logged in before.
 
 ---
@@ -67,11 +75,13 @@ User should never see a login screen after reloading if they were logged in befo
 **Objective:** Verify that logout disables cloud sync.
 
 ### Setup
+
 1. Logged in from Test 2
 2. See "Cloud backup enabled"
 3. Have local media in database
 
 ### Steps
+
 1. Open Settings
 2. Find Account section
 3. Click "Logout"
@@ -79,6 +89,7 @@ User should never see a login screen after reloading if they were logged in befo
 5. Click "Yes, logout"
 
 ### Expected Result
+
 - ✅ Logout succeeds
 - ✅ Toast shows: "Logged out - You've been safely logged out. Local data remains intact."
 - ✅ Sidebar now shows "Sign in to enable cloud sync" (clickable button)
@@ -87,12 +98,14 @@ User should never see a login screen after reloading if they were logged in befo
 - ✅ All local media still present (unaffected)
 
 ### Verification
+
 ```javascript
 // In console after logout:
-console.log(localStorage.getItem('yura_auth_user')); // Should be null
+console.log(localStorage.getItem("yura_auth_user")); // Should be null
 ```
 
 ### Key Principle (PHASE 7)
+
 Cloud sync is disabled when user is not authenticated. Local data is always safe.
 
 ---
@@ -102,12 +115,14 @@ Cloud sync is disabled when user is not authenticated. Local data is always safe
 **Objective:** Verify that logged-in user can access data across different devices.
 
 ### Setup - Device A
+
 1. Login with email: `multidevice@example.com`
 2. Add 5-10 anime to list
 3. Verify they appear in cloud
 4. Close browser (but don't logout)
 
 ### Steps - Device B
+
 1. Open Yura in different browser/device
 2. Not logged in (new device)
 3. See "Sign in to enable cloud sync" hint
@@ -118,6 +133,7 @@ Cloud sync is disabled when user is not authenticated. Local data is always safe
 8. Wait for app to load
 
 ### Expected Result - Device B
+
 - ✅ Login succeeds
 - ✅ Redirected to home
 - ✅ See same 5-10 anime you added on Device A
@@ -126,13 +142,14 @@ Cloud sync is disabled when user is not authenticated. Local data is always safe
 - ✅ Settings shows "Signed in as: multidevice@example.com"
 
 ### Advanced: Verify User ID Consistency
+
 ```javascript
 // On Device A (after login):
-const userA = JSON.parse(localStorage.getItem('yura_auth_user'));
+const userA = JSON.parse(localStorage.getItem("yura_auth_user"));
 console.log("Device A User ID:", userA.id);
 
 // On Device B (after login):
-const userB = JSON.parse(localStorage.getItem('yura_auth_user'));
+const userB = JSON.parse(localStorage.getItem("yura_auth_user"));
 console.log("Device B User ID:", userB.id);
 
 // Should be SAME
@@ -140,6 +157,7 @@ console.log(userA.id === userB.id); // true
 ```
 
 ### Key Principle (PHASE 6 + 7)
+
 Same user ID across devices = same cloud data. This is the foundation of multi-device sync.
 
 ---
@@ -149,10 +167,12 @@ Same user ID across devices = same cloud data. This is the foundation of multi-d
 **Objective:** Verify email magic link authentication works.
 
 ### Setup
+
 1. Logged out
 2. See "Sign in to enable cloud sync"
 
 ### Steps
+
 1. Navigate to Settings
 2. Click "Sign In"
 3. Enter email: `magiclink@example.com`
@@ -162,6 +182,7 @@ Same user ID across devices = same cloud data. This is the foundation of multi-d
 7. Click link in email
 
 ### Expected Result
+
 - ✅ Magic link sent message shown: "Check your email"
 - ✅ Email received with login link
 - ✅ Click link → auto-logged in
@@ -170,6 +191,7 @@ Same user ID across devices = same cloud data. This is the foundation of multi-d
 - ✅ Settings shows "Signed in as: magiclink@example.com"
 
 ### Key Principle (PHASE 2)
+
 Magic link is frictionless: no password needed, just email.
 
 ---
@@ -179,10 +201,12 @@ Magic link is frictionless: no password needed, just email.
 **Objective:** Verify Google OAuth authentication works.
 
 ### Setup
+
 1. Logged out
 2. See "Sign in to enable cloud sync"
 
 ### Steps
+
 1. Navigate to Settings
 2. Click "Sign In"
 3. Click "Continue with Google"
@@ -191,6 +215,7 @@ Magic link is frictionless: no password needed, just email.
 6. Grant permission to Yura
 
 ### Expected Result
+
 - ✅ Redirected back to Yura
 - ✅ Auto-logged in (no additional steps)
 - ✅ See "Cloud backup enabled"
@@ -198,6 +223,7 @@ Magic link is frictionless: no password needed, just email.
 - ✅ Avatar may show Google profile picture
 
 ### Key Principle (PHASE 2)
+
 OAuth is one-click frictionless login.
 
 ---
@@ -207,15 +233,18 @@ OAuth is one-click frictionless login.
 **Objective:** Verify proper error handling on login failure.
 
 ### Setup
+
 1. Logged out
 2. Email/password login form visible
 
 ### Steps
+
 1. Enter email: `test@example.com`
 2. Enter wrong password: `wrongpassword123`
 3. Click "Login with Email"
 
 ### Expected Result
+
 - ✅ Login fails
 - ✅ Error message shown: "Login failed: [Supabase error message]"
 - ✅ User stays on login form
@@ -223,6 +252,7 @@ OAuth is one-click frictionless login.
 - ✅ Not logged in
 
 ### Key Principle (PHASE 9)
+
 Errors are actionable and non-destructive.
 
 ---
@@ -232,10 +262,12 @@ Errors are actionable and non-destructive.
 **Objective:** Verify logout error handling.
 
 ### Setup
+
 1. Logged in
 2. Network connection working
 
 ### Steps - Simulate Network Error
+
 1. Open DevTools (F12)
 2. Go to Network tab
 3. Throttle to "Offline"
@@ -244,6 +276,7 @@ Errors are actionable and non-destructive.
 6. Resume network
 
 ### Expected Result
+
 - ✅ Logout fails with error message
 - ✅ User still logged in (safe)
 - ✅ Toast shows: "Logout failed: Network error"
@@ -251,6 +284,7 @@ Errors are actionable and non-destructive.
 - ✅ After reconnecting, logout succeeds
 
 ### Key Principle (PHASE 9)
+
 Errors don't cause data loss. User stays logged in until logout succeeds.
 
 ---
@@ -262,27 +296,32 @@ Errors don't cause data loss. User stays logged in until logout succeeds.
 ### States to Verify
 
 **State 1: Not Configured (No Supabase)**
+
 - Remove `VITE_SUPABASE_*` env vars
 - Restart app
 - Result: No indicator shown
 
 **State 2: Configured, Not Logged In**
+
 - Set Supabase env vars
 - Logout
 - Result: ⚪ "Sign in to enable cloud sync" (clickable)
 - Click: Goes to login
 
 **State 3: Configured, Logged In**
+
 - Login
 - Result: 🟢 "Cloud backup enabled"
 - Indicator pulses if syncing
 
 **State 4: Auto-Logged In After Reload**
+
 - Login
 - Reload page
 - Result: 🟢 "Cloud backup enabled" shows immediately (no loading)
 
 ### Key Principle (PHASE 8)
+
 Status is always visible and accurate. One glance tells you cloud backup state.
 
 ---
@@ -292,29 +331,33 @@ Status is always visible and accurate. One glance tells you cloud backup state.
 **Objective:** Verify that session restoration is invisible (PHASE 6).
 
 ### Setup
+
 1. Login with email: `autotest@example.com`
 2. Verify logged in
 3. Open DevTools Console (F12)
 4. Add this code:
+
 ```javascript
 const observer = new PerformanceObserver(entryList => {
     const entries = entryList.getEntries();
     entries.forEach(entry => {
-        if (entry.name.includes('supabase')) {
-            console.log('Auth API call:', entry.name, entry.duration + 'ms');
+        if (entry.name.includes("supabase")) {
+            console.log("Auth API call:", entry.name, entry.duration + "ms");
         }
     });
 });
-observer.observe({ entryTypes: ['resource'] });
+observer.observe({ entryTypes: ["resource"] });
 ```
 
 ### Steps
+
 1. Reload page (Cmd+R)
 2. Immediately open Settings
 3. Check if "Signed in as" appears
 4. Monitor console for API calls
 
 ### Expected Result
+
 - ✅ No login screen shown
 - ✅ Settings loaded
 - ✅ "Signed in as: autotest@example.com" visible
@@ -323,24 +366,25 @@ observer.observe({ entryTypes: ['resource'] });
 - ✅ Page is responsive immediately
 
 ### Key Principle (PHASE 6)
+
 Session restoration happens silently in background. User never waits for login.
 
 ---
 
 ## Summary: What Each Test Verifies
 
-| Test | Phase | Verifies |
-|------|-------|----------|
-| Test 1 | 1 | User ID created on login |
-| Test 2 | 6 | Auto login, session persistence |
-| Test 3 | 7 | Cloud sync disabled on logout |
-| Test 4 | 1,6,7 | Multi-device identity consistency |
-| Test 5 | 2 | Magic link frictionless auth |
-| Test 6 | 2 | OAuth frictionless auth |
-| Test 7 | 9 | Error handling on auth fail |
-| Test 8 | 9 | Error handling on sync fail |
-| Test 9 | 8 | UI feedback accuracy |
-| Test 10 | 6 | Background session restoration |
+| Test    | Phase | Verifies                          |
+| ------- | ----- | --------------------------------- |
+| Test 1  | 1     | User ID created on login          |
+| Test 2  | 6     | Auto login, session persistence   |
+| Test 3  | 7     | Cloud sync disabled on logout     |
+| Test 4  | 1,6,7 | Multi-device identity consistency |
+| Test 5  | 2     | Magic link frictionless auth      |
+| Test 6  | 2     | OAuth frictionless auth           |
+| Test 7  | 9     | Error handling on auth fail       |
+| Test 8  | 9     | Error handling on sync fail       |
+| Test 9  | 8     | UI feedback accuracy              |
+| Test 10 | 6     | Background session restoration    |
 
 ---
 
@@ -382,7 +426,7 @@ After passing all 10 acceptance tests, you have:
 ✔ **Cloud Ready** - Multi-device sync ready  
 ✔ **Safe** - Cloud requires login  
 ✔ **Invisible** - Auth never interrupts  
-✔ **Transparent** - Status always visible  
+✔ **Transparent** - Status always visible
 
 Without a social network.
 
