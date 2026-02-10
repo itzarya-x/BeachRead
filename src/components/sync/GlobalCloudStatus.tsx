@@ -1,142 +1,125 @@
 /**
  * Global Cloud Status (PHASE 4-5)
  *
- * Persistent indicator showing sync state.
- * States: 🟢 synced, 🟡 syncing, 🔴 error, ⚫ offline
- * Click to open sync details drawer.
- *
- * DESIGN: Small, always visible, build trust through transparency
+ * Persistent cloud sync status indicator.
+ * - Shows sync state: Connected, Not Connected, Not Configured
+ * - Click to open drawer with sync details
+ * - Displays user email and sync status
  */
 
 import { useAuth } from "@/context/AuthContext";
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
-import { ChevronRight, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, CloudOff, RefreshCw, X, XCircle } from "lucide-react";
 import { useState } from "react";
 
+type SyncState = "connected" | "not-connected" | "not-configured";
+
+interface SyncConfig {
+    state: SyncState;
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+    bgColor: string;
+}
+
+const SYNC_CONFIG: Record<SyncState, SyncConfig> = {
+    connected: {
+        state: "connected",
+        icon: <CheckCircle2 size={14} />,
+        label: "Synced",
+        color: "text-green-700",
+        bgColor: "bg-green-50 border-green-200",
+    },
+    "not-connected": {
+        state: "not-connected",
+        icon: <XCircle size={14} />,
+        label: "Not connected",
+        color: "text-amber-700",
+        bgColor: "bg-amber-50 border-amber-200",
+    },
+    "not-configured": {
+        state: "not-configured",
+        icon: <CloudOff size={14} />,
+        label: "Not configured",
+        color: "text-gray-700",
+        bgColor: "bg-gray-50 border-gray-200",
+    },
+};
+
 export function GlobalCloudStatus() {
+    const { user, isAuthenticated } = useAuth();
     const syncStatus = useCloudSyncStatus();
-    const { user } = useAuth();
     const [showDetails, setShowDetails] = useState(false);
 
-    // Show nothing if not configured or not logged in
-    if (!syncStatus.isConfigured || !syncStatus.isAuthenticated) {
+    if (!isAuthenticated) {
         return null;
     }
 
-    const isSyncing = false; // TODO: connect to actual sync state
-    const syncState = syncStatus.status === "connected" ? (isSyncing ? "syncing" : "synced") : syncStatus.status;
-
-    const statusConfig = {
-        synced: {
-            icon: "🟢",
-            label: "Synced",
-            color: "text-green-600",
-            bg: "bg-green-50 border-green-200",
-        },
-        syncing: {
-            icon: "🟡",
-            label: "Syncing",
-            color: "text-yellow-600",
-            bg: "bg-yellow-50 border-yellow-200",
-        },
-        error: {
-            icon: "🔴",
-            label: "Error",
-            color: "text-red-600",
-            bg: "bg-red-50 border-red-200",
-        },
-        "not-connected": {
-            icon: "⚫",
-            label: "Offline",
-            color: "text-gray-600",
-            bg: "bg-gray-50 border-gray-200",
-        },
-    };
-
-    const config = statusConfig[syncState as keyof typeof statusConfig];
+    // Use status from hook
+    const state: SyncState = syncStatus.status as SyncState;
+    const config = SYNC_CONFIG[state];
 
     return (
         <>
-            {/* Indicator */}
             <button
                 onClick={() => setShowDetails(true)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border transition-all hover:opacity-80 ${config.bg}`}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors hover:opacity-80 ${config.color} ${config.bgColor}`}
+                title={config.label}
             >
-                <span className="text-sm">{config.icon}</span>
-                <span className={config.color}>{config.label}</span>
-                <ChevronRight size={14} className={config.color} />
+                {config.icon}
+                <span className="hidden sm:inline">{config.label}</span>
             </button>
 
             {/* Details Drawer */}
             {showDetails && (
-                <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-end sm:justify-center z-50 p-4">
-                    <div className="bg-surface-1 border border-border/30 rounded-t-lg sm:rounded-lg w-full sm:max-w-sm max-h-96 overflow-y-auto flex flex-col">
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+                    <div className="bg-surface-1 rounded-t-lg sm:rounded-lg shadow-lg w-full sm:max-w-md border border-surface-2">
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-border/20 sticky top-0 bg-surface-1">
-                            <h2 className="text-lg font-semibold text-foreground">Sync Details</h2>
+                        <div className="flex items-center justify-between p-4 border-b border-surface-2">
+                            <h2 className="text-lg font-semibold">Cloud Sync Status</h2>
                             <button
                                 onClick={() => setShowDetails(false)}
-                                className="p-1 hover:bg-surface-2 rounded transition-colors"
+                                className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
                             >
-                                <X size={20} className="text-muted-foreground" />
+                                <X size={20} />
                             </button>
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 p-4 space-y-4">
+                        <div className="p-4 space-y-4">
+                            {/* User info */}
+                            <div className="p-3 rounded-lg bg-surface-2 border border-surface-3">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">ACCOUNT</p>
+                                <p className="text-sm font-medium text-foreground">{user?.email}</p>
+                            </div>
+
                             {/* Status */}
-                            <div className={`${config.bg} border rounded p-3 space-y-1`}>
-                                <p className="text-xs font-medium text-muted-foreground">Status</p>
-                                <p className={`text-sm font-semibold ${config.color}`}>{config.label}</p>
+                            <div className={`p-3 rounded-lg border ${config.bgColor}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {config.icon}
+                                    <p className="text-sm font-medium">{config.label}</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{syncStatus.message}</p>
                             </div>
 
-                            {/* Stats */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-surface-2 rounded p-3">
-                                    <p className="text-xs text-muted-foreground">Uploads</p>
-                                    <p className="text-lg font-semibold text-foreground">0</p>
-                                </div>
-                                <div className="bg-surface-2 rounded p-3">
-                                    <p className="text-xs text-muted-foreground">Downloads</p>
-                                    <p className="text-lg font-semibold text-foreground">0</p>
-                                </div>
-                                <div className="bg-surface-2 rounded p-3">
-                                    <p className="text-xs text-muted-foreground">Pending</p>
-                                    <p className="text-lg font-semibold text-foreground">0</p>
-                                </div>
-                                <div className="bg-surface-2 rounded p-3">
-                                    <p className="text-xs text-muted-foreground">Conflicts</p>
-                                    <p className="text-lg font-semibold text-foreground">0</p>
+                            {/* Enabled status */}
+                            <div className="p-3 rounded-lg bg-surface-2 border border-surface-3">
+                                <p className="text-xs font-medium text-muted-foreground mb-2">CLOUD SYNC</p>
+                                <div className="space-y-1">
+                                    <div className="flex justify-between text-sm">
+                                        <span>Configured:</span>
+                                        <span className="font-medium">{syncStatus.isConfigured ? "Yes" : "No"}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span>Authenticated:</span>
+                                        <span className="font-medium">{syncStatus.isAuthenticated ? "Yes" : "No"}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span>Enabled:</span>
+                                        <span className="font-medium">{syncStatus.isEnabled ? "Yes" : "No"}</span>
+                                    </div>
                                 </div>
                             </div>
-
-                            {/* User Info */}
-                            {user && (
-                                <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                                    <p className="text-xs font-medium text-muted-foreground">User</p>
-                                    <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
-                                </div>
-                            )}
-
-                            {/* Info */}
-                            <p className="text-xs text-muted-foreground pt-2 border-t border-border/20">
-                                Your data is securely synced to Supabase. All changes are tracked and synced
-                                automatically.
-                            </p>
-                        </div>
-
-                        {/* Footer */}
-                        <div className="p-4 border-t border-border/20 sticky bottom-0 bg-surface-1">
-                            <button
-                                onClick={() => {
-                                    setShowDetails(false);
-                                    // TODO: trigger sync
-                                }}
-                                className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
-                            >
-                                <RefreshCw size={16} />
-                                Sync Now
-                            </button>
                         </div>
                     </div>
                 </div>

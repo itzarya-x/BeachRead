@@ -144,11 +144,9 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             {!collapsed && (
                 <div className="p-3 border-t border-border/20 space-y-3">
                     {/* Account Block (PHASE 1) */}
-                    <div>
-                        <SidebarAccountBlock collapsed={false} />
-                    </div>
+                    <SidebarAccountBlock collapsed={false} />
 
-                    {/* Cloud Sync Status */}
+                    {/* Cloud Sync Status (PHASE 8) */}
                     <div className="flex justify-center">
                         <CloudSyncStatusIndicator />
                     </div>
@@ -168,13 +166,10 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             )}
             {collapsed && (
                 <div className="p-3 border-t border-border/20 space-y-3 flex flex-col items-center justify-center">
-                    {/* Account Block (collapsed) */}
+                    {/* Account Block (PHASE 1) */}
                     <SidebarAccountBlock collapsed={true} />
 
-                    {/* Cloud Sync Status */}
                     <CloudSyncStatusIndicator />
-
-                    {/* Sync Status */}
                     <SyncStatusIndicator
                         status="synced"
                         lastSyncTime={new Date()}

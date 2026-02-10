@@ -4,6 +4,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { GlobalCloudStatus } from "@/components/sync/GlobalCloudStatus";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import { BarChart3, BookOpen, Clock, Database, Home, List, MoreHorizontal, Settings, Trophy, Tv } from "lucide-react";
@@ -95,6 +96,9 @@ export function AppHeader() {
                     {/* User area */}
                     {user && (
                         <div className="flex items-center gap-3 shrink-0">
+                            {/* Cloud Status (PHASE 4-5) */}
+                            <GlobalCloudStatus />
+
                             {enriching && (
                                 <div className="text-xs text-muted-foreground hidden md:block">
                                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-glow-pulse mr-1.5" />
