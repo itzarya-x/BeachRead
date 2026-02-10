@@ -184,6 +184,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     setMangaList(finalManga);
                     setLoading(false);
 
+                    // Set identity from Auth
+                    setUser({
+                        id: authUser.id,
+                        displayName: authUser.displayName || authUser.email.split("@")[0],
+                        userName: authUser.email,
+                        email: authUser.email,
+                        about: "",
+                        avatarUrl: authUser.avatar || null,
+                        bannerUrl: null,
+                        profileColor: "blue",
+                        scoreFormat: "POINT_10",
+                        titleLanguage: "ROMAJI",
+                        customListNames: { anime: [], manga: [] },
+                        statistics: {
+                            anime: { count: 0, minutesWatched: 0, progress: 0, progressVolumes: 0, meanScore: 0, standardDeviation: 0 },
+                            manga: { count: 0, chaptersRead: 0, progress: 0, progressVolumes: 0, meanScore: 0, standardDeviation: 0 } as any,
+                        },
+                        activityHistory: {},
+                        activityHistoryTotal: 0,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        listOrder: 0,
+                        forumHomepage: 0,
+                        adultContent: false,
+                        legacyLists: false,
+                        donator: 0,
+                        donatorBadge: null,
+                        notifications: 0,
+                        airingNotifications: false,
+                        privacy: false,
+                        notificationOptions: "",
+                        modRoles: 0,
+                        ip: "",
+                        animeWatched: 0,
+                        chaptersRead: 0,
+                        advancedScoresActive: false,
+                        advancedScoresNames: [],
+                        hiddenCategories: [],
+                        statusDistribution: { anime: [], manga: [] },
+                        scoreDistribution: { anime: [], manga: [] },
+                        favourites: { anime: [], manga: [], characters: [], staff: [], studios: [] }
+                    });
+
                     // Trigger enrichment for these entries
                     setEnriching(true);
                     const allIds = cloudEntries.map(e => e._seriesId);
