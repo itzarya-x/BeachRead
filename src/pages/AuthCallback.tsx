@@ -4,6 +4,7 @@
  * Purpose: Handle OAuth redirect from Supabase
  * - Reads session from URL
  * - Finalizes authentication
+ * - Checks if vault migration is needed
  * - Redirects to home or intended path
  * - Shows error if callback fails
  *
@@ -13,36 +14,59 @@
  * 3. User authorizes app
  * 4. Redirected back to /auth/callback
  * 5. This component validates session
- * 6. Redirects to home (or intended path)
+ * 6. Checks if vault migration is needed
+ * 7. Redirects to home (or intended path)
  */
 
+import { useSyncUIContext } from "@/context/SyncUIContext";
 import { useAuth } from "@/context/AuthContext";
+import { isMigrationNeeded, getLocalVaultCount, getCloudVaultCount } from "@/lib/vault-migration";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function AuthCallback() {
     const navigate = useNavigate();
     const { loading, user, error } = useAuth();
+    const syncUI = useSyncUIContext();
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
     useEffect(() => {
         // Give Supabase client time to process session from URL
-        const timer = setTimeout(() => {
+        const timer = setTimeout(async () => {
             if (user) {
                 setStatus("success");
-                // Get intended path from sessionStorage
-                const intendedPath = sessionStorage.getItem("intendedPath");
-                sessionStorage.removeItem("intendedPath");
 
-                // Redirect to intended path or home
-                navigate(intendedPath || "/", { replace: true });
+                // Check if vault migration is needed
+                try {
+                    const migrationNeeded = await isMigrationNeeded(user.id);
+                    
+                    if (migrationNeeded) {
+                        // Get counts for dialog
+                        const localCount = getLocalVaultCount();
+                        const cloudCount = await getCloudVaultCount(user.id);
+
+                        // Show first login dialog with migration options
+                        syncUI.showFirstLogin(localCount, cloudCount);
+                    } else {
+                        // No migration needed, proceed to intended path
+                        const intendedPath = sessionStorage.getItem("intendedPath");
+                        sessionStorage.removeItem("intendedPath");
+                        navigate(intendedPath || "/", { replace: true });
+                    }
+                } catch (err) {
+                    console.error("Migration check failed:", err);
+                    // Continue anyway - user can do migration later
+                    const intendedPath = sessionStorage.getItem("intendedPath");
+                    sessionStorage.removeItem("intendedPath");
+                    navigate(intendedPath || "/", { replace: true });
+                }
             } else if (error) {
                 setStatus("error");
             }
         }, 1000);
 
         return () => clearTimeout(timer);
-    }, [user, error, navigate]);
+    }, [user, error, navigate, syncUI]);
 
     if (status === "loading") {
         return (

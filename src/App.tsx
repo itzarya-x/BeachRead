@@ -11,6 +11,13 @@ import { AuthProvider } from "@/context/AuthContext";
 import { DataProvider, useData } from "@/context/DataContext";
 import { StatsFilterProvider } from "@/context/StatsFilterContext";
 import { SyncUIProvider, useSyncUIContext } from "@/context/SyncUIContext";
+import {
+    downloadVaultFromCloud,
+    mergeVaults,
+    migrateVaultToCloud,
+    markVaultSkipped,
+} from "@/lib/vault-migration";
+import { useAuth } from "@/context/AuthContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -33,6 +40,7 @@ const queryClient = new QueryClient();
 const AppContent = () => {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const { loading, user, error } = useData();
+    const { user: authUser } = useAuth();
     const syncUI = useSyncUIContext();
 
     // Show loading state
@@ -124,20 +132,56 @@ const AppContent = () => {
             {/* Global Dialogs */}
             <FirstLoginDialog
                 isOpen={syncUI.showFirstLoginDialog}
-                onClose={syncUI.hideFirstLogin}
+                onClose={() => {
+                    // Mark as skipped when user closes dialog without action
+                    if (authUser) {
+                        markVaultSkipped(authUser.id);
+                    }
+                    syncUI.hideFirstLogin();
+                }}
                 localItemCount={syncUI.localItemCount}
                 cloudItemCount={syncUI.cloudItemCount}
                 onUpload={async () => {
-                    // TODO: Connect to actual sync engine
-                    console.log("Upload local vault");
+                    if (!authUser) throw new Error("No user authenticated");
+
+                    const result = await migrateVaultToCloud(authUser.id, {
+                        onStatus: (status) => console.log("Migration:", status),
+                        onProgress: (current, total) => {
+                            console.log(`Progress: ${current}/${total}`);
+                        },
+                    });
+
+                    if (!result.success) {
+                        throw new Error(result.error || "Migration failed");
+                    }
                 }}
                 onDownload={async () => {
-                    // TODO: Connect to actual sync engine
-                    console.log("Download from cloud");
+                    if (!authUser) throw new Error("No user authenticated");
+
+                    const result = await downloadVaultFromCloud(authUser.id, {
+                        onStatus: (status) => console.log("Download:", status),
+                        onProgress: (current, total) => {
+                            console.log(`Progress: ${current}/${total}`);
+                        },
+                    });
+
+                    if (!result.success) {
+                        throw new Error(result.error || "Download failed");
+                    }
                 }}
                 onMerge={async () => {
-                    // TODO: Connect to actual sync engine
-                    console.log("Merge local and cloud");
+                    if (!authUser) throw new Error("No user authenticated");
+
+                    const result = await mergeVaults(authUser.id, {
+                        onStatus: (status) => console.log("Merge:", status),
+                        onProgress: (current, total) => {
+                            console.log(`Progress: ${current}/${total}`);
+                        },
+                    });
+
+                    if (!result.success) {
+                        throw new Error(result.error || "Merge failed");
+                    }
                 }}
             />
 
