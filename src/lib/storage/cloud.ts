@@ -12,6 +12,7 @@
 
 import { assertCloud, DataLog } from "@/lib/storage-mode";
 import { createClient } from "@supabase/supabase-js";
+import { LocalStorageProvider } from "./local";
 import type { IStorageProvider, SyncRecord, Tier, TierAssignment, TierBoard, UserEntry } from "./types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -21,10 +22,12 @@ export class CloudStorageProvider implements IStorageProvider {
     private supabase: any;
     private userId: string | null = null;
     private ready = false;
+    private local: LocalStorageProvider;
     private subscriptions: Map<string, any> = new Map();
 
     constructor(userId?: string) {
         this.userId = userId || null;
+        this.local = new LocalStorageProvider();
 
         if (supabaseUrl && supabaseAnonKey) {
             this.supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -32,6 +35,9 @@ export class CloudStorageProvider implements IStorageProvider {
     }
 
     async initialize(): Promise<void> {
+        // Initialize local provider first (for cache/ephemeral data)
+        await this.local.initialize();
+
         // Only cloud operations if Supabase is configured
         if (!this.supabase || !this.userId) {
             this.ready = true;
@@ -63,22 +69,21 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.ready && !!this.supabase;
     }
 
-    // ============= Media Cache =============
+    // ============= Media Cache (Local Ephemeral) =============
     async getMediaCache(id: number): Promise<any | null> {
-        // Media cache is local-only (ephemeral)
-        return null;
+        return this.local.getMediaCache(id);
     }
 
     async getAllMediaCache(): Promise<Map<number, any>> {
-        return new Map();
+        return this.local.getAllMediaCache();
     }
 
     async saveMediaCache(id: number, data: any): Promise<void> {
-        // Media cache is local-only
+        return this.local.saveMediaCache(id, data);
     }
 
     async deleteMediaCache(id: number): Promise<void> {
-        // Media cache is local-only
+        return this.local.deleteMediaCache(id);
     }
 
     // ============= User Entries (Cloud-First) =============
@@ -103,7 +108,7 @@ export class CloudStorageProvider implements IStorageProvider {
 
             return this.mapToUserEntry(data);
         } catch (err) {
-            DataLog.error("getAllUserEntries", err);
+            DataLog.error("getUserEntry", err);
             throw err;
         }
     }
@@ -161,7 +166,7 @@ export class CloudStorageProvider implements IStorageProvider {
 
             if (error) throw error;
 
-            // PHASE 3: Verify write succeeded by fetching back
+            // Verification
             const { data: verifyData, error: verifyError } = await this.supabase
                 .from("user_media")
                 .select("*")
@@ -189,7 +194,6 @@ export class CloudStorageProvider implements IStorageProvider {
         }
 
         try {
-            // Soft delete in cloud
             DataLog.deleted("SUPABASE", entryId, true);
             const { error } = await this.supabase
                 .from("user_media")
@@ -212,7 +216,6 @@ export class CloudStorageProvider implements IStorageProvider {
         }
 
         try {
-            // Hard delete from cloud
             DataLog.deleted("SUPABASE", entryId, false);
             const { error } = await this.supabase
                 .from("user_media")
@@ -221,26 +224,23 @@ export class CloudStorageProvider implements IStorageProvider {
                 .eq("user_id", this.userId);
 
             if (error) throw error;
-            await this.local.hardDeleteUserEntry(entryId);
         } catch (err) {
-            console.warn("Failed to hard delete entry from cloud, deleting from local:", err);
-            await this.local.hardDeleteUserEntry(entryId);
+            DataLog.error("hardDeleteUserEntry", err);
+            throw err;
         }
     }
 
-    // ============= Tier Boards =============
+    // ============= Tier Boards (Local-only for now) =============
     async getTierBoard(id: number): Promise<TierBoard | null> {
         return this.local.getTierBoard(id);
     }
 
     async getAllTierBoards(userId?: number): Promise<TierBoard[]> {
-        // Tier boards are local-only for now
         return this.local.getAllTierBoards(userId);
     }
 
     async createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<number> {
-        const id = await this.local.createTierBoard(board);
-        return id;
+        return this.local.createTierBoard(board);
     }
 
     async updateTierBoard(id: number, updates: Partial<TierBoard>): Promise<void> {
@@ -251,7 +251,7 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.local.deleteTierBoard(id);
     }
 
-    // ============= Tiers =============
+    // ============= Tiers (Local-only for now) =============
     async getTier(id: number): Promise<Tier | null> {
         return this.local.getTier(id);
     }
@@ -272,49 +272,47 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.local.deleteTier(id);
     }
 
-    // ============= Tier Assignments =============
-    async getTierAssignment(id: number): Promise<TierAssignment | null> {
-        return this.local.getTierAssignment(id);
+    // ============= Tier Assignments (Local-only for now) =============
+    async getAssignment(id: number): Promise<TierAssignment | null> {
+        return this.local.getAssignment(id);
     }
 
-    async getTierAssignmentsByBoard(boardId: number): Promise<TierAssignment[]> {
-        return this.local.getTierAssignmentsByBoard(boardId);
+    async getAssignmentsForBoard(boardId: number): Promise<TierAssignment[]> {
+        return this.local.getAssignmentsForBoard(boardId);
     }
 
-    async createTierAssignment(assignment: Omit<TierAssignment, "id">): Promise<number> {
-        return this.local.createTierAssignment(assignment);
+    async getAssignmentsForMedia(mediaId: number): Promise<TierAssignment[]> {
+        return this.local.getAssignmentsForMedia(mediaId);
     }
 
-    async updateTierAssignment(id: number, updates: Partial<TierAssignment>): Promise<void> {
-        return this.local.updateTierAssignment(id, updates);
+    async saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<number> {
+        return this.local.saveAssignment(assignment);
     }
 
-    async deleteTierAssignment(id: number): Promise<void> {
-        return this.local.deleteTierAssignment(id);
+    async updateAssignment(id: number, updates: Partial<TierAssignment>): Promise<void> {
+        return this.local.updateAssignment(id, updates);
+    }
+
+    async deleteAssignment(id: number): Promise<void> {
+        return this.local.deleteAssignment(id);
     }
 
     // ============= Sync Tracking =============
-    async recordSync(table: string, recordId: number, operation: string): Promise<void> {
-        return this.local.recordSync(table, recordId, operation);
+    async recordSync(record: Omit<SyncRecord, "id">): Promise<void> {
+        return this.local.recordSync(record);
     }
 
-    async getSyncRecords(): Promise<SyncRecord[]> {
-        return this.local.getSyncRecords();
+    async getPendingSyncs(userId: number): Promise<SyncRecord[]> {
+        return this.local.getPendingSyncs(userId);
     }
 
-    async clearSyncRecords(): Promise<void> {
-        return this.local.clearSyncRecords();
+    async markSynced(recordId: number): Promise<void> {
+        return this.local.markSynced(recordId);
     }
 
     // ============= Real-time Subscriptions =============
-    /**
-     * Subscribe to real-time changes for user's media entries
-     * Enables multi-device sync
-     */
     subscribeToUserMedia(userId: string, callback: (payload: any) => void): (() => void) | null {
-        if (!this.supabase || !userId) {
-            return null;
-        }
+        if (!this.supabase || !userId) return null;
 
         try {
             const channel = this.supabase
@@ -331,11 +329,9 @@ export class CloudStorageProvider implements IStorageProvider {
                 )
                 .subscribe();
 
-            // Store subscription for cleanup
             const key = `user_media:${userId}`;
             this.subscriptions.set(key, channel);
 
-            // Return unsubscribe function
             return () => {
                 this.supabase.removeChannel(channel);
                 this.subscriptions.delete(key);
@@ -346,9 +342,6 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    /**
-     * Unsubscribe from all real-time subscriptions
-     */
     unsubscribeAll(): void {
         this.subscriptions.forEach(channel => {
             try {
