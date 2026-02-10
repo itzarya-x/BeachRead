@@ -907,7 +907,7 @@ function StatCard({ icon: Icon, label, metric, subtext, onClick }: StatCardProps
                 <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
                 <Icon className="w-4 h-4 text-primary/60" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{metric.value.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">{metric.value?.toLocaleString() ?? "0"}</div>
             <div className="text-xs text-muted-foreground mt-1">{subtext}</div>
         </div>
     );
@@ -942,7 +942,7 @@ function StatRow({ label, metric, secondary, onClick }: StatRowProps) {
             ? metric.value % 1 === 0
                 ? metric.value.toString()
                 : metric.value.toFixed(2)
-            : metric.value.toString();
+            : String(metric.value || "0");
 
     const content = (
         <div

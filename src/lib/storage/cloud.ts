@@ -152,7 +152,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
 
         try {
-            const record = {
+            const record: any = {
                 id: entry.entryId,
                 user_id: this.userId,
                 series_id: entry.seriesId,
@@ -160,6 +160,7 @@ export class CloudStorageProvider implements IStorageProvider {
                 edited_at: new Date(entry.editedAt).toISOString(),
                 deleted: entry.deleted,
                 updated_at: new Date().toISOString(),
+                media_type: entry.data.mediaType || "ANIME",
             };
 
             DataLog.inserted("SUPABASE", entry.entryId);
@@ -361,7 +362,7 @@ export class CloudStorageProvider implements IStorageProvider {
             seriesId: row.series_id,
             userId: row.user_id,
             data: row.data,
-            editedAt: new Date(row.edited_at).getTime(),
+            editedAt: new Date(row.edited_at || row.updated_at || row.created_at || new Date()).getTime(),
             deleted: row.deleted || false,
         };
     }

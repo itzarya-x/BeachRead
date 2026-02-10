@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.user_media (
     deleted BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    media_type TEXT NOT NULL DEFAULT 'ANIME',
     UNIQUE(user_id, series_id)
 );
 
@@ -34,6 +35,21 @@ BEGIN
     -- Add media_type if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='media_type') THEN
         ALTER TABLE public.user_media ADD COLUMN media_type TEXT NOT NULL DEFAULT 'ANIME';
+    END IF;
+
+    -- Add edited_at if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='edited_at') THEN
+        ALTER TABLE public.user_media ADD COLUMN edited_at TIMESTAMPTZ NOT NULL DEFAULT now();
+    END IF;
+
+    -- Add created_at if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='created_at') THEN
+        ALTER TABLE public.user_media ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+    END IF;
+
+    -- Add updated_at if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='updated_at') THEN
+        ALTER TABLE public.user_media ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
     END IF;
 END $$;
 

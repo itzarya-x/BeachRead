@@ -394,24 +394,24 @@ const Settings = () => {
                             <StatRow label="Count" value={user.statistics.anime.count} />
                             <StatRow
                                 label="Minutes Watched"
-                                value={user.statistics.anime.minutesWatched.toLocaleString()}
+                                value={(user.statistics.anime.minutesWatched || 0).toLocaleString()}
                             />
-                            <StatRow label="Episodes" value={user.statistics.anime.progress.toLocaleString()} />
-                            <StatRow label="Volumes" value={user.statistics.anime.progressVolumes} />
-                            <StatRow label="Mean Score" value={user.statistics.anime.meanScore.toFixed(1)} />
-                            <StatRow label="Std Deviation" value={user.statistics.anime.standardDeviation.toFixed(1)} />
+                            <StatRow label="Episodes" value={(user.statistics.anime.progress || 0).toLocaleString()} />
+                            <StatRow label="Volumes" value={user.statistics.anime.progressVolumes || 0} />
+                            <StatRow label="Mean Score" value={(user.statistics.anime.meanScore || 0).toFixed(1)} />
+                            <StatRow label="Std Deviation" value={(user.statistics.anime.standardDeviation || 0).toFixed(1)} />
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground font-medium mb-2">Manga</p>
                             <StatRow label="Count" value={user.statistics.manga.count} />
                             <StatRow
                                 label="Minutes Watched"
-                                value={user.statistics.manga.minutesWatched.toLocaleString()}
+                                value={(user.statistics.manga.minutesWatched || 0).toLocaleString()}
                             />
-                            <StatRow label="Chapters" value={user.statistics.manga.progress.toLocaleString()} />
-                            <StatRow label="Volumes" value={user.statistics.manga.progressVolumes.toLocaleString()} />
-                            <StatRow label="Mean Score" value={user.statistics.manga.meanScore.toFixed(1)} />
-                            <StatRow label="Std Deviation" value={user.statistics.manga.standardDeviation.toFixed(1)} />
+                            <StatRow label="Chapters" value={(user.statistics.manga.progress || 0).toLocaleString()} />
+                            <StatRow label="Volumes" value={(user.statistics.manga.progressVolumes || 0).toLocaleString()} />
+                            <StatRow label="Mean Score" value={(user.statistics.manga.meanScore || 0).toFixed(1)} />
+                            <StatRow label="Std Deviation" value={(user.statistics.manga.standardDeviation || 0).toFixed(1)} />
                         </div>
                     </div>
                 </SettingsSection>

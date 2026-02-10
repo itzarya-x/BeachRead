@@ -183,8 +183,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
                     setAnimeList(finalAnime);
                     setMangaList(finalManga);
-                    setLoading(false);
-
                     // Set identity from Auth
                     setUser({
                         id: authUser.id,
@@ -200,7 +198,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         customListNames: { anime: [], manga: [] },
                         statistics: {
                             anime: { count: 0, minutesWatched: 0, progress: 0, progressVolumes: 0, meanScore: 0, standardDeviation: 0 },
-                            manga: { count: 0, chaptersRead: 0, progress: 0, progressVolumes: 0, meanScore: 0, standardDeviation: 0 } as any,
+                            manga: { count: 0, minutesWatched: 0, progress: 0, progressVolumes: 0, meanScore: 0, standardDeviation: 0 },
                         },
                         activityHistory: {},
                         activityHistoryTotal: 0,
@@ -227,6 +225,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         scoreDistribution: { anime: [], manga: [] },
                         favourites: { anime: [], manga: [], characters: [], staff: [], studios: [] }
                     });
+
+                    setLoading(false);
 
                     // Trigger enrichment for these entries
                     setEnriching(true);
@@ -650,6 +650,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     seriesId: existingEntry._seriesId,
                     userId: user.id,
                     data: {
+                        mediaType: updated.mediaType,
                         status: updated.status,
                         score: updated.score,
                         progress: updated.progress,

@@ -24,7 +24,7 @@ export function StatsOverview() {
         },
         {
             label: "Episodes Watched",
-            value: anime.progress.toLocaleString(),
+            value: (anime.progress || 0).toLocaleString(),
             icon: Hash,
             color: "text-primary",
             gradient: "from-primary/20 to-primary/5",
@@ -32,7 +32,7 @@ export function StatsOverview() {
         },
         {
             label: "Time Watched",
-            value: formatMinutes(anime.minutesWatched),
+            value: formatMinutes(anime.minutesWatched || 0),
             icon: Clock,
             color: "text-status-current",
             gradient: "from-status-current/20 to-status-current/5",
@@ -40,7 +40,7 @@ export function StatsOverview() {
         },
         {
             label: "Mean Score (Anime)",
-            value: anime.meanScore.toFixed(1),
+            value: (anime.meanScore || 0).toFixed(1),
             icon: BarChart3,
             color: "text-score-mid",
             gradient: "from-score-mid/20 to-score-mid/5",
@@ -56,7 +56,7 @@ export function StatsOverview() {
         },
         {
             label: "Chapters Read",
-            value: manga.progress.toLocaleString(),
+            value: (manga.progress || 0).toLocaleString(),
             icon: Hash,
             color: "text-primary",
             gradient: "from-primary/20 to-primary/5",
@@ -64,7 +64,7 @@ export function StatsOverview() {
         },
         {
             label: "Volumes Read",
-            value: manga.progressVolumes.toLocaleString(),
+            value: (manga.progressVolumes || 0).toLocaleString(),
             icon: TrendingUp,
             color: "text-status-current",
             gradient: "from-status-current/20 to-status-current/5",
@@ -72,7 +72,7 @@ export function StatsOverview() {
         },
         {
             label: "Mean Score (Manga)",
-            value: manga.meanScore.toFixed(1),
+            value: (manga.meanScore || 0).toFixed(1),
             icon: BarChart3,
             color: "text-score-mid",
             gradient: "from-score-mid/20 to-score-mid/5",
