@@ -77,7 +77,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 updateStorageMode(isAuthenticated, authUser?.id);
                 setStorageMode(mode);
 
-                const modeLabel = isAuthenticated ? "Cloud Mode ☁️" : "Guest Mode 👤";
+                const modeLabel = isAuthenticated ? "CLOUD MODE ☁️" : "GUEST MODE (Local) 👤";
                 console.log(`%c📊 ${modeLabel}`, "font-weight: bold; color: #4dabf7; font-size: 14px;");
                 console.log("%c" + displayStorageStatus(), "font-weight: bold; color: #4dabf7; font-size: 14px;");
 

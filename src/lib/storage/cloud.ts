@@ -47,10 +47,9 @@ export class CloudStorageProvider implements IStorageProvider {
         // Test connection by fetching user's first entry
         try {
             DataLog.reading("SUPABASE");
-            const { data, error } = await this.supabase
+            const { error } = await this.supabase
                 .from("user_media")
-                .select("count")
-                .eq("user_id", this.userId)
+                .select("id")
                 .limit(1);
 
             if (error && error.code !== "PGRST116") {

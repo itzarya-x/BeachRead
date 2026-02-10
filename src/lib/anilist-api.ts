@@ -75,14 +75,16 @@ async function initializeCacheFromDB(): Promise<void> {
             storage = getStorageProvider();
         }
 
-        if (isCloudProvider()) console.log("[DATA] source = CLOUD");
+        if (isCloudProvider()) {
+            console.log("%c[DATA] Cloud Provider Active", "color: #4dabf7; font-weight: bold;");
+        }
 
         const cached = await storage.getAllMediaCache();
         for (const [id, media] of cached.entries()) {
             mediaCache.set(id, media);
         }
         cacheInitialized = true;
-        console.log(`Loaded ${cached.size} media entries from IndexedDB cache`);
+        console.log(`%c[CACHE] Loaded ${cached.size} media entries from IndexedDB`, "color: #868e96; font-style: italic;");
     } catch (err) {
         console.warn("Failed to load cache from IndexedDB:", err);
         cacheInitialized = true; // Mark as initialized even on error to prevent retries
