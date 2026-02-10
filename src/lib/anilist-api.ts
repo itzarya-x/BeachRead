@@ -64,11 +64,10 @@ let cacheInitialized = false;
 async function initializeCacheFromDB(): Promise<void> {
     if (cacheInitialized) return;
 
-    // TASK 6: HARD BLOCK - If authenticated & cache read attempted → error.
+    // TASK 6: ULTRA-HARD BLOCK - If authenticated (Cloud Provider active), we MUST NOT touch IndexedDB
     if (isCloudProvider()) {
-        console.log("%c[BOOT] loading from SUPABASE", "color: #4dabf7; font-weight: bold; font-size: 14px;");
-        // We do NOT load from IndexedDB in cloud mode. 
-        // We will rely on AniList API + Supabase stored metadata.
+        console.log("%c🚀 [SUPABASE-AUTH-BOOT] Media cache reading from IndexedDB is DISABLED.", "color: #1c7ed6; font-weight: bold; font-size: 16px;");
+        // debugger; // Uncomment to catch rogue calls in browser
         cacheInitialized = true;
         return;
     }

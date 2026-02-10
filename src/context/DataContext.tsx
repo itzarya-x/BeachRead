@@ -163,6 +163,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
                     // Load EVERYTHING from Supabase
                     const cloudEdits = await storage.getAllUserEntries(authUser.id);
+                    console.log(`%c[BOOT] Found ${cloudEdits.size} entries in Supabase.`, "color: #1c7ed6;");
                     setUserEdits(cloudEdits);
 
                     // For cloud users, the Supabase data is the ONLY source.

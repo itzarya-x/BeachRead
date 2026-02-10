@@ -32,6 +32,7 @@ import TierMaker from "./pages/TierMaker";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
+    console.log("%c🔥 Yura App V2 (Cloud-Only Boot) Active", "color: #ff922b; font-weight: bold;");
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const { loading, user, error } = useData();
     const { user: authUser } = useAuth();
