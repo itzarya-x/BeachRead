@@ -9,7 +9,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
-import { CheckCircle2, CloudOff, RefreshCw, X, XCircle } from "lucide-react";
+import { CheckCircle2, CloudOff, X, XCircle } from "lucide-react";
 import { useState } from "react";
 
 type SyncState = "connected" | "not-connected" | "not-configured";

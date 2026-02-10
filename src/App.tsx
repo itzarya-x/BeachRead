@@ -1,6 +1,6 @@
-import { AppSidebar } from "@/components/layout/AppSidebar";
 import { FirstLoginPrompt } from "@/components/account/FirstLoginPrompt";
 import { SessionRestoreToast } from "@/components/account/SessionRestoreToast";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 import { ConflictResolver } from "@/components/sync/ConflictResolver";
 import { FirstLoginDialog } from "@/components/sync/FirstLoginDialog";
 import { OfflineBanner } from "@/components/sync/OfflineBanner";

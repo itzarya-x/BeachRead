@@ -8,7 +8,7 @@
  */
 
 import { useAuth } from "@/context/AuthContext";
-import { Cloud, CheckCircle2, X } from "lucide-react";
+import { CheckCircle2, Cloud, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const FIRST_LOGIN_STORAGE_KEY = "yura_first_login_shown";
@@ -40,10 +40,7 @@ export function FirstLoginPrompt() {
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-surface-2">
                     <h2 className="text-xl font-bold">Welcome to Cloud Sync!</h2>
-                    <button
-                        onClick={handleDismiss}
-                        className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
-                    >
+                    <button onClick={handleDismiss} className="p-1 hover:bg-surface-2 rounded-lg transition-colors">
                         <X size={20} />
                     </button>
                 </div>
@@ -59,9 +56,7 @@ export function FirstLoginPrompt() {
 
                     {/* Message */}
                     <div className="text-center space-y-2">
-                        <p className="text-foreground">
-                            Your anime library is now synced to the cloud.
-                        </p>
+                        <p className="text-foreground">Your anime library is now synced to the cloud.</p>
                         <p className="text-sm text-muted-foreground">
                             Your data is automatically backed up and secured.
                         </p>
@@ -86,7 +81,8 @@ export function FirstLoginPrompt() {
                     {/* Callout */}
                     <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
                         <p className="text-xs text-blue-900">
-                            💡 Your local data stays on this device. Cloud is completely optional and can be disabled anytime.
+                            💡 Your local data stays on this device. Cloud is completely optional and can be disabled
+                            anytime.
                         </p>
                     </div>
                 </div>

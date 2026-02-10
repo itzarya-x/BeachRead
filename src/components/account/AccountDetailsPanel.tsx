@@ -9,8 +9,8 @@
  */
 
 import { useAuth } from "@/context/AuthContext";
-import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
 import { useToast } from "@/hooks/use-toast";
+import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
 import { ChevronRight, LogOut, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 

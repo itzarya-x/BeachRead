@@ -8,7 +8,7 @@
  */
 
 import { useAuth } from "@/context/AuthContext";
-import { Cloud, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const SESSION_RESTORE_STORAGE_KEY = "yura_session_restored";
@@ -47,10 +47,7 @@ export function SessionRestoreToast() {
                         <p className="text-xs text-green-700">Your data is synced.</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowToast(false)}
-                    className="text-green-600 hover:text-green-700 shrink-0"
-                >
+                <button onClick={() => setShowToast(false)} className="text-green-600 hover:text-green-700 shrink-0">
                     ✕
                 </button>
             </div>

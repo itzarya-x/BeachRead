@@ -29,9 +29,7 @@ export function EmptyStateHint({ onSignInClick }: EmptyStateHintProps) {
             <div className="flex items-start gap-3">
                 <Cloud className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">
-                        Sign in to enable cloud sync
-                    </p>
+                    <p className="text-sm font-medium text-blue-900">Sign in to enable cloud sync</p>
                     <p className="text-xs text-blue-700 mt-1">
                         Sync your anime and manga lists across all your devices. Your data stays safe.
                     </p>

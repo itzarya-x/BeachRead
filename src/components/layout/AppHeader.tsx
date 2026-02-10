@@ -1,10 +1,10 @@
+import { GlobalCloudStatus } from "@/components/sync/GlobalCloudStatus";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GlobalCloudStatus } from "@/components/sync/GlobalCloudStatus";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import { BarChart3, BookOpen, Clock, Database, Home, List, MoreHorizontal, Settings, Trophy, Tv } from "lucide-react";

@@ -8,10 +8,10 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
-import { Cloud, LogIn, User } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { useState } from "react";
-import { LoginModal } from "./LoginModal";
 import { AccountDetailsPanel } from "./AccountDetailsPanel";
+import { LoginModal } from "./LoginModal";
 
 interface SidebarAccountBlockProps {
     collapsed?: boolean;
@@ -55,11 +55,7 @@ export function SidebarAccountBlock({ collapsed = false }: SidebarAccountBlockPr
                     title={`${user?.email || "Account"} — Click to manage`}
                 >
                     {user?.avatar ? (
-                        <img
-                            src={user.avatar}
-                            alt={user.email}
-                            className="w-6 h-6 rounded-full object-cover"
-                        />
+                        <img src={user.avatar} alt={user.email} className="w-6 h-6 rounded-full object-cover" />
                     ) : (
                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
                             {(user?.email?.[0] || "U").toUpperCase()}
@@ -82,11 +78,7 @@ export function SidebarAccountBlock({ collapsed = false }: SidebarAccountBlockPr
             >
                 <div className="relative">
                     {user?.avatar ? (
-                        <img
-                            src={user.avatar}
-                            alt={user.email}
-                            className="w-10 h-10 rounded-full object-cover"
-                        />
+                        <img src={user.avatar} alt={user.email} className="w-10 h-10 rounded-full object-cover" />
                     ) : (
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
                             {(user?.email?.[0] || "U").toUpperCase()}
