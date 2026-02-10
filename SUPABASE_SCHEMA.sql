@@ -1,5 +1,4 @@
--- SUPABASE REPAIR/SETUP SCHEMA
--- This script ensures the table exists AND has all required columns.
+-- SUPABASE REPAIR/SETUP SCHEMA (FIXED SYNTAX)
 -- Run this in your Supabase SQL Editor: https://supabase.com/dashboard/project/utcoxardgtuzufroeuey/sql
 
 -- 1. Ensure the table exists
@@ -23,7 +22,7 @@ BEGIN
         ALTER TABLE public.user_media ADD COLUMN deleted BOOLEAN NOT NULL DEFAULT false;
     END IF;
 
-    -- Add series_id if missing (just in case)
+    -- Add series_id if missing
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='series_id') THEN
         ALTER TABLE public.user_media ADD COLUMN series_id INTEGER NOT NULL DEFAULT 0;
     END IF;
@@ -49,17 +48,17 @@ CREATE INDEX IF NOT EXISTS idx_user_media_user_id ON public.user_media(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_media_deleted ON public.user_media(deleted);
 
 -- 6. Enable real-time synchronization
+-- Note: We check if the publication exists before trying to add the table
 DO $$
 BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-        AND schemaname = 'public' 
-        AND tablename = 'user_media'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE user_media;
-    EXCEPTION WHEN OTHERS THEN
-        -- Publication might not exist yet in some Supabase projects
-        NULL;
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables 
+            WHERE pubname = 'supabase_realtime' 
+            AND schemaname = 'public' 
+            AND tablename = 'user_media'
+        ) THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE user_media;
+        END IF;
     END IF;
 END $$;
