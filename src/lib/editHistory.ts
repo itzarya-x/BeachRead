@@ -10,7 +10,7 @@ import type { DisplayMedia } from "@/types/display";
 export interface EditHistoryEntry {
     id: string;
     entryId: number;
-    userId: number;
+    userId: string | number;
     timestamp: number;
     action: "create" | "update" | "delete";
     before: Partial<DisplayMedia> | null;
@@ -34,7 +34,7 @@ class EditHistoryManager {
      */
     recordEdit(
         entryId: number,
-        userId: number,
+        userId: string | number,
         action: "create" | "update" | "delete",
         before: Partial<DisplayMedia> | null,
         after: Partial<DisplayMedia> | null,
@@ -82,7 +82,7 @@ class EditHistoryManager {
     /**
      * Get history by user
      */
-    getUserHistory(userId: number, limit: number = 50): EditHistoryEntry[] {
+    getUserHistory(userId: string | number, limit: number = 50): EditHistoryEntry[] {
         return this.history.filter(e => e.userId === userId).slice(0, limit);
     }
 

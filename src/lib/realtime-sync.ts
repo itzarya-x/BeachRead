@@ -283,7 +283,7 @@ export class RealtimeSyncManager {
                 originType: cached?.countryOfOrigin ? this.mapCountryToOriginType(cached.countryOfOrigin) : "manga",
 
                 // Metadata
-                mediaType: record.media_type || "ANIME",
+                mediaType: record.data?.mediaType || "ANIME",
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 _seriesId: record.series_id,

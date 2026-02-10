@@ -31,6 +31,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='data') THEN
         ALTER TABLE public.user_media ADD COLUMN data JSONB NOT NULL DEFAULT '{}'::jsonb;
     END IF;
+    -- Add media_type if missing
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='media_type') THEN
+        ALTER TABLE public.user_media ADD COLUMN media_type TEXT NOT NULL DEFAULT 'ANIME';
+    END IF;
 END $$;
 
 -- 3. Enable Row Level Security (RLS)

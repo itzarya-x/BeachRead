@@ -149,42 +149,77 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
-                // Authenticated users: ensure storage provider matches auth state
-                // Force a switch so we don't accidentally keep an earlier local provider
-                await switchStorageProvider(isAuthenticated, authUser?.id);
-                const storage = getStorageProvider();
-                // Log data source when using cloud
-                try {
-                    const { isCloudProvider } = await import("@/lib/storage");
-                    if (isCloudProvider && isCloudProvider()) {
-                        console.log("[DATA] source = CLOUD");
-                    }
-                } catch (e) {
-                    // ignore
+                // TASK 1 & 2 & 3: Cloud must load FIRST if authenticated
+                if (isAuthenticated && authUser?.id) {
+                    console.log("%c[BOOT] loading from SUPABASE", "color: #1c7ed6; font-weight: bold; font-size: 16px;");
+                    
+                    // TASK 3 — Clear local state in cloud mode
+                    setAnimeList([]);
+                    setMangaList([]);
+                    setLoading(true);
+
+                    await switchStorageProvider(true, authUser.id);
+                    const storage = getStorageProvider();
+
+                    // Load EVERYTHING from Supabase
+                    const cloudEdits = await storage.getAllUserEntries(authUser.id);
+                    setUserEdits(cloudEdits);
+
+                    // For cloud users, the Supabase data is the ONLY source.
+                    // We don't even load the GDPR JSON baseline unless they trigger an import.
+                    const cloudEntries = Array.from(cloudEdits.values()).map(edit => {
+                        return {
+                            ...edit.data,
+                            _entryId: edit.entryId,
+                            _seriesId: edit.seriesId,
+                            _userId: edit.userId,
+                            _enriched: false,
+                        } as DisplayMedia;
+                    });
+
+                    const finalAnime = cloudEntries.filter(e => e.mediaType === "ANIME");
+                    const finalManga = cloudEntries.filter(e => e.mediaType === "MANGA");
+
+                    setAnimeList(finalAnime);
+                    setMangaList(finalManga);
+                    setLoading(false);
+
+                    // Trigger enrichment for these entries
+                    setEnriching(true);
+                    const allIds = cloudEntries.map(e => e._seriesId);
+                    fetchMediaBatched(allIds, (loaded, total) => {
+                        setEnrichProgress({ loaded, total });
+                    }).then(() => {
+                        setEnriching(false);
+                        // Re-sync after enrichment to ensure data is fresh
+                        const syncManager = getRealtimeSyncManager();
+                        syncManager.startSync({
+                            userId: authUser.id,
+                            onError: error => console.error("[SYNC] error:", error),
+                        });
+                    });
+
+                    return; // EXIT EARLY - Cloud boot for cloud users
                 }
 
-                // Initialize cache from IndexedDB (for media enrichment, not user data)
+                // GUEST MODE - Original loading logic (GDPR + Local)
+                await switchStorageProvider(false);
+                const storage = getStorageProvider();
                 await initializeCache();
 
-                // Load GDPR base data
                 DataLog.reading("GDPR");
                 const response = await fetch("/data/gdpr_data.json");
                 if (!response.ok) {
                     throw new Error(`Failed to fetch GDPR data: ${response.status} ${response.statusText}`);
                 }
                 const data: GdprData = await response.json();
-
                 setRawData(data);
-
                 const parsed = parseGdprData(data);
                 setUser(parsed.user);
 
-                // TASK 3: Load user edits from Storage Provider (now from cloud if authenticated)
                 let edits = new Map<number, UserEntry>();
-                if (parsed.user.id) {
-                    edits = await storage.getAllUserEntries(parsed.user.id);
-                    setUserEdits(edits);
-                }
+                edits = await storage.getAllUserEntries(parsed.user.id);
+                setUserEdits(edits);
 
                 // applyUserEdits merges database edits into base JSON entries
                 const applyUserEdits = (

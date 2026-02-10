@@ -31,7 +31,7 @@ export interface MediaCacheEntry {
 export interface UserEntry {
     entryId: number;
     seriesId: number;
-    userId: number;
+    userId: string | number;
     data: any; // DisplayMedia (partial - only user-editable fields)
     editedAt: number; // timestamp
     deleted: boolean; // TASK 4: Soft delete
@@ -188,7 +188,7 @@ export async function getUserEntry(entryId: number): Promise<UserEntry | null> {
 /**
  * TASK 3: Get all user entries for a user
  */
-export async function getAllUserEntries(userId: number): Promise<Map<number, UserEntry>> {
+export async function getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_USER_ENTRIES], "readonly");
     const store = transaction.objectStore(STORE_USER_ENTRIES);

@@ -62,23 +62,21 @@ const mediaCache = new Map<number, AniListMediaResponse>();
 // TASK 2: Initialize cache from IndexedDB
 let cacheInitialized = false;
 async function initializeCacheFromDB(): Promise<void> {
-    if (cacheInitialized) return; // Only initialize once
+    if (cacheInitialized) return;
+
+    // TASK 6: HARD BLOCK - If authenticated & cache read attempted → error.
+    if (isCloudProvider()) {
+        console.log("%c[BOOT] loading from SUPABASE", "color: #4dabf7; font-weight: bold; font-size: 14px;");
+        // We do NOT load from IndexedDB in cloud mode. 
+        // We will rely on AniList API + Supabase stored metadata.
+        cacheInitialized = true;
+        return;
+    }
 
     try {
-        // Use the active storage provider for media cache reads.
-        let storage: any;
-        try {
-            storage = getStorageProvider();
-        } catch (err) {
-            // If storage not initialized, fall back to local-only init for cache
-            await initializeStorageProvider(false);
-            storage = getStorageProvider();
-        }
-
-        if (isCloudProvider()) {
-            console.log("%c[DATA] Cloud Provider Active", "color: #4dabf7; font-weight: bold;");
-        }
-
+        await initializeStorageProvider(false);
+        const storage = getStorageProvider();
+        
         const cached = await storage.getAllMediaCache();
         for (const [id, media] of cached.entries()) {
             mediaCache.set(id, media);
@@ -87,7 +85,7 @@ async function initializeCacheFromDB(): Promise<void> {
         console.log(`%c[CACHE] Loaded ${cached.size} media entries from IndexedDB`, "color: #868e96; font-style: italic;");
     } catch (err) {
         console.warn("Failed to load cache from IndexedDB:", err);
-        cacheInitialized = true; // Mark as initialized even on error to prevent retries
+        cacheInitialized = true;
     }
 }
 
@@ -127,9 +125,11 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
         // TASK 2: Cache results in memory and IndexedDB
         for (const m of media) {
             mediaCache.set(m.id, m);
-            // Save to active storage provider (async, don't wait)
+            // Save to active storage provider (skip if cloud to satisfy strict policy)
             (async () => {
                 try {
+                    if (isCloudProvider()) return;
+                    
                     let storage: any;
                     try {
                         storage = getStorageProvider();
@@ -234,6 +234,8 @@ export async function searchAniListMedia(
             mediaCache.set(m.id, m);
             (async () => {
                 try {
+                    if (isCloudProvider()) return;
+
                     let storage: any;
                     try {
                         storage = getStorageProvider();

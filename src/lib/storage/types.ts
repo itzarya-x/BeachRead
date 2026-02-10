@@ -19,7 +19,7 @@ export interface MediaCacheEntry {
 export interface UserEntry {
     entryId: number;
     seriesId: number;
-    userId: number;
+    userId: string | number;
     data: any; // DisplayMedia (partial - only user-editable fields)
     editedAt: number;
     deleted: boolean; // Soft delete
@@ -102,7 +102,7 @@ export interface IStorageProvider {
      * User Entry Operations (List Items)
      */
     getUserEntry(entryId: number): Promise<UserEntry | null>;
-    getAllUserEntries(userId: number): Promise<Map<number, UserEntry>>;
+    getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>>;
     saveUserEntry(entry: UserEntry): Promise<void>;
     deleteUserEntry(entryId: number): Promise<void>;
     hardDeleteUserEntry(entryId: number): Promise<void>;
@@ -139,7 +139,7 @@ export interface IStorageProvider {
      * Sync Operations (for cloud provider)
      */
     recordSync?(record: Omit<SyncRecord, "id">): Promise<void>;
-    getPendingSyncs?(userId: number): Promise<SyncRecord[]>;
+    getPendingSyncs?(userId: string | number): Promise<SyncRecord[]>;
     markSynced?(recordId: number): Promise<void>;
 
     /**

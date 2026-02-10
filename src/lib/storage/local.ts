@@ -84,7 +84,7 @@ export class LocalStorageProvider implements IStorageProvider {
         return dbGetUserEntry(entryId);
     }
 
-    async getAllUserEntries(userId: number): Promise<Map<number, UserEntry>> {
+    async getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>> {
         assertNotCloud("LocalStorage.getAllUserEntries");
         return dbGetAllUserEntries(userId);
     }
@@ -180,7 +180,7 @@ export class LocalStorageProvider implements IStorageProvider {
         // Local storage doesn't need sync tracking
     }
 
-    async getPendingSyncs(userId: number): Promise<SyncRecord[]> {
+    async getPendingSyncs(userId: string | number): Promise<SyncRecord[]> {
         // No pending syncs for local storage
         return [];
     }

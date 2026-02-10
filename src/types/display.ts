@@ -27,7 +27,7 @@ export interface MediaStatistics {
 }
 
 export interface DisplayUser {
-  id: number; // User ID from GDPR
+  id: string | number; // User ID (GDPR or Supabase)
   displayName: string;
   userName: string; // login email / username
   email: string;
@@ -136,7 +136,7 @@ export interface DisplayMedia {
   // Internal only - never shown in UI
   _seriesId: number;
   _entryId: number; // GDPR entry ID
-  _userId: number; // GDPR user ID
+  _userId: string | number; // GDPR user ID or Supabase UUID
   _enriched: boolean;
 }
 

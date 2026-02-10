@@ -68,21 +68,23 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.ready && !!this.supabase;
     }
 
-    // ============= Media Cache (Local Ephemeral) =============
+    // ============= Media Cache (HARD BLOCK in Cloud Mode) =============
     async getMediaCache(id: number): Promise<any | null> {
-        return this.local.getMediaCache(id);
+        throw new Error("❌ CLOUD SECURITY VIOLATION: IndexedDB cache read blocked in authenticated mode.");
     }
 
     async getAllMediaCache(): Promise<Map<number, any>> {
-        return this.local.getAllMediaCache();
+        throw new Error("❌ CLOUD SECURITY VIOLATION: IndexedDB cache read blocked in authenticated mode.");
     }
 
     async saveMediaCache(id: number, data: any): Promise<void> {
-        return this.local.saveMediaCache(id, data);
+        // We allow saving in-memory, but not to IndexedDB if strict
+        // For now, satisfy the "Hard Block" requirement
+        throw new Error("❌ CLOUD SECURITY VIOLATION: IndexedDB cache write blocked in authenticated mode.");
     }
 
     async deleteMediaCache(id: number): Promise<void> {
-        return this.local.deleteMediaCache(id);
+        throw new Error("❌ CLOUD SECURITY VIOLATION: IndexedDB cache delete blocked in authenticated mode.");
     }
 
     // ============= User Entries (Cloud-First) =============
@@ -112,7 +114,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    async getAllUserEntries(userId: number): Promise<Map<number, UserEntry>> {
+    async getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>> {
         assertCloud("CloudStorage.getAllUserEntries");
 
         if (!this.supabase || !this.userId) {
@@ -301,7 +303,7 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.local.recordSync(record);
     }
 
-    async getPendingSyncs(userId: number): Promise<SyncRecord[]> {
+    async getPendingSyncs(userId: string | number): Promise<SyncRecord[]> {
         return this.local.getPendingSyncs(userId);
     }
 
