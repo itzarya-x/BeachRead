@@ -1,4 +1,6 @@
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { FirstLoginPrompt } from "@/components/account/FirstLoginPrompt";
+import { SessionRestoreToast } from "@/components/account/SessionRestoreToast";
 import { ConflictResolver } from "@/components/sync/ConflictResolver";
 import { FirstLoginDialog } from "@/components/sync/FirstLoginDialog";
 import { OfflineBanner } from "@/components/sync/OfflineBanner";
@@ -112,6 +114,10 @@ const AppContent = () => {
                     </main>
                 </div>
             </div>
+
+            {/* Auth UI Components (PHASE 6-9) */}
+            <FirstLoginPrompt />
+            <SessionRestoreToast />
 
             {/* Global Dialogs */}
             <FirstLoginDialog
