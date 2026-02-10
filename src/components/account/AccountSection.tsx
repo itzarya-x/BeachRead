@@ -48,7 +48,8 @@ export function AccountSection({ onLoginClick }: AccountSectionProps) {
         if (onLoginClick) {
             onLoginClick();
         } else {
-            navigate("/login");
+            // Store current location as intended path before opening login
+            sessionStorage.setItem("intendedPath", window.location.pathname);
         }
     };
 

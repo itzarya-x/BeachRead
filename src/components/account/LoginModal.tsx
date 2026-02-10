@@ -5,32 +5,60 @@
  * - Option 1: Google OAuth
  * - Option 2: Email magic link
  * - Auto-closes after successful login
+ * - OFFLINE: Shows helpful message when offline
+ * - ERROR: Shows comprehensive error UI with next steps
  */
 
+import { OAuthErrorScreen } from "@/components/account/OAuthErrorScreen";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, X } from "lucide-react";
-import { useState } from "react";
+import { useOAuthRetry } from "@/hooks/useOAuthRetry";
+import { Mail, Wifi, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface LoginModalProps {
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
 }
 
-type LoginMode = "methods" | "magic-link-sent" | "error";
+type LoginMode = "methods" | "magic-link-sent" | "oauth-error" | "offline";
+
+// Store intended path before login starts
+function storeIntendedPath() {
+    // If not already set, store current location
+    if (!sessionStorage.getItem("intendedPath")) {
+        sessionStorage.setItem("intendedPath", window.location.pathname || "/");
+    }
+}
 
 export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
-    const { loginWithOAuth, loginWithMagicLink } = useAuth();
+    const { loginWithOAuth, loginWithMagicLink, isOnline, errorDetail } = useAuth();
     const { toast } = useToast();
+    const {
+        retry,
+        recordAttempt,
+        reset: resetRetry,
+    } = useOAuthRetry({
+        maxAttempts: 5,
+        onlineAutoRetry: true,
+    });
+
     const [mode, setMode] = useState<LoginMode>("methods");
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+
+    // Watch for error detail changes and show error screen
+    useEffect(() => {
+        if (errorDetail && loading) {
+            setMode("oauth-error");
+        }
+    }, [errorDetail, loading]);
 
     const handleOAuthLogin = async () => {
+        storeIntendedPath();
         try {
             setLoading(true);
-            setError(null);
+            recordAttempt();
 
             await loginWithOAuth("google");
 
@@ -39,26 +67,31 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                 description: "You've been signed in.",
             });
 
+            resetRetry();
             onOpenChange(false);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "OAuth login failed");
-            setMode("error");
+            // Error is handled by the useEffect watching errorDetail
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleRetryOAuth = async () => {
+        retry();
+        await handleOAuthLogin();
     };
 
     const handleMagicLinkSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!email) {
-            setError("Please enter your email");
             return;
         }
 
+        storeIntendedPath();
         try {
             setLoading(true);
-            setError(null);
+            recordAttempt();
 
             await loginWithMagicLink(email);
 
@@ -69,8 +102,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                 description: "We sent you a magic link to sign in.",
             });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to send magic link");
-            setMode("error");
+            // Error is handled by the useEffect watching errorDetail
         } finally {
             setLoading(false);
         }
@@ -88,7 +120,6 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                         onClick={() => {
                             onOpenChange(false);
                             setMode("methods");
-                            setError(null);
                             setEmail("");
                         }}
                         className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
@@ -181,20 +212,62 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                         </div>
                     )}
 
-                    {mode === "error" && (
-                        <div className="space-y-4">
-                            <div className="p-3 rounded-lg bg-red-100 border border-red-300">
-                                <p className="text-sm text-red-800">{error}</p>
+                    {mode === "oauth-error" && errorDetail && (
+                        <OAuthErrorScreen
+                            reason={errorDetail.reason}
+                            isOnline={isOnline}
+                            isRetrying={loading}
+                            onRetry={() => {
+                                if (errorDetail.reason === "offline") {
+                                    handleRetryOAuth();
+                                } else {
+                                    handleRetryOAuth();
+                                }
+                            }}
+                        />
+                    )}
+
+                    {mode === "offline" && !errorDetail && (
+                        <div className="text-center space-y-4">
+                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-100">
+                                <Wifi className="w-6 h-6 text-yellow-600 opacity-50" />
                             </div>
-                            <button
-                                onClick={() => {
-                                    setMode("methods");
-                                    setError(null);
-                                }}
-                                className="w-full px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors"
-                            >
-                                Try again
-                            </button>
+                            <div>
+                                <p className="font-semibold">You are offline</p>
+                                <p className="text-sm text-muted-foreground mt-2">Internet is required to sign in.</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Your local vault is still available — all your data is safe here.
+                                </p>
+                            </div>
+                            <div className="space-y-2">
+                                {isOnline ? (
+                                    <button
+                                        onClick={() => {
+                                            setMode("methods");
+                                            resetRetry();
+                                        }}
+                                        className="w-full px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium"
+                                    >
+                                        ✓ You're back online — try again
+                                    </button>
+                                ) : (
+                                    <button
+                                        disabled
+                                        className="w-full px-4 py-2 rounded-lg bg-surface-2 text-muted-foreground cursor-not-allowed opacity-50 font-medium"
+                                    >
+                                        Waiting for connection...
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        onOpenChange(false);
+                                        setMode("methods");
+                                    }}
+                                    className="w-full px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors text-muted-foreground"
+                                >
+                                    Continue offline
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

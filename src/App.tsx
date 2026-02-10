@@ -16,6 +16,7 @@ import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Activity from "./pages/Activity";
 import AnimeList from "./pages/AnimeList";
+import { AuthCallback } from "./pages/AuthCallback";
 import CustomLists from "./pages/CustomLists";
 import Index from "./pages/Index";
 import MangaList from "./pages/MangaList";
@@ -98,6 +99,7 @@ const AppContent = () => {
                     <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-20" : "ml-64"}`}>
                         <Routes>
                             <Route path="/" element={<Index />} />
+                            <Route path="/auth/callback" element={<AuthCallback />} />
                             <Route path="/anime" element={<AnimeList />} />
                             <Route path="/anime/:id" element={<MediaDetail />} />
                             <Route path="/manga" element={<MangaList />} />

@@ -7,17 +7,18 @@
  * PHASE 2.1: Modal in Settings
  * PHASE 2.2: Google OAuth
  * PHASE 2.3: Email magic link
+ * OFFLINE: Shows offline message & continues button
  */
 
 import { useAuth } from "@/context/AuthContext";
 import { isSupabaseConfigured } from "@/lib/supabase-client";
-import { Chrome, Mail } from "lucide-react";
+import { Chrome, Mail, WifiOff } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login, loginWithOAuth, loginWithMagicLink, loading, error } = useAuth();
+    const { login, loginWithOAuth, loginWithMagicLink, loading, error, isOnline } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -44,10 +45,11 @@ export default function Login() {
                     return;
                 }
                 await login(email, password);
-                navigate("/");
+                navigate("/", { replace: true });
             }
         } catch (err) {
-            setLocalError(err instanceof Error ? err.message : "Login failed");
+            const errorMsg = err instanceof Error ? err.message : "Login failed";
+            setLocalError(errorMsg);
         }
     };
 
@@ -56,7 +58,8 @@ export default function Login() {
         try {
             await loginWithOAuth(provider);
         } catch (err) {
-            setLocalError(err instanceof Error ? err.message : `${provider} login failed`);
+            const errorMsg = err instanceof Error ? err.message : `${provider} login failed`;
+            setLocalError(errorMsg);
         }
     };
 
@@ -71,6 +74,20 @@ export default function Login() {
 
                 {/* Card */}
                 <div className="bg-surface-1 border border-border/30 rounded-lg p-6 space-y-6">
+                    {/* Offline Message */}
+                    {!isOnline && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 flex gap-3">
+                            <WifiOff className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-yellow-900 font-medium text-sm">You are offline</p>
+                                <p className="text-yellow-800 text-xs mt-1">
+                                    Internet is required to sign in. Your local vault remains available — all your data
+                                    is safe.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Magic Link Sent Message */}
                     {magicLinkSent && (
                         <div className="bg-accent/10 border border-accent/30 rounded p-3">
@@ -120,7 +137,7 @@ export default function Login() {
 
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || !isOnline}
                                     className="w-full px-4 py-2 bg-primary text-primary-foreground rounded font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                                 >
                                     <Mail size={18} />
@@ -156,10 +173,9 @@ export default function Login() {
                                         </div>
                                     </div>
 
-                                    {/* OAuth Button */}
                                     <button
                                         onClick={() => handleOAuthLogin("google")}
-                                        disabled={loading}
+                                        disabled={loading || !isOnline}
                                         className="w-full px-4 py-2 bg-surface-2 border border-border/30 rounded font-medium text-foreground hover:bg-surface-3 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                                     >
                                         <Chrome size={18} />
@@ -217,6 +233,11 @@ export default function Login() {
                         <strong>💡 Tip:</strong> Skip login to use local-only mode. Your data stays private on your
                         device.
                     </p>
+                    {!isOnline && (
+                        <p className="text-sm text-yellow-700 mt-2 font-medium">
+                            📡 You're currently offline — sign in will be available when you reconnect.
+                        </p>
+                    )}
                 </div>
             </div>
         </div>
