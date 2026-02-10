@@ -7,17 +7,11 @@ import { OfflineBanner } from "@/components/sync/OfflineBanner";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider, useData } from "@/context/DataContext";
 import { StatsFilterProvider } from "@/context/StatsFilterContext";
 import { SyncUIProvider, useSyncUIContext } from "@/context/SyncUIContext";
-import {
-    downloadVaultFromCloud,
-    mergeVaults,
-    migrateVaultToCloud,
-    markVaultSkipped,
-} from "@/lib/vault-migration";
-import { useAuth } from "@/context/AuthContext";
+import { downloadVaultFromCloud, markVaultSkipped, mergeVaults, migrateVaultToCloud } from "@/lib/vault-migration";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -145,7 +139,7 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await migrateVaultToCloud(authUser.id, {
-                        onStatus: (status) => console.log("Migration:", status),
+                        onStatus: status => console.log("Migration:", status),
                         onProgress: (current, total) => {
                             console.log(`Progress: ${current}/${total}`);
                         },
@@ -159,7 +153,7 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await downloadVaultFromCloud(authUser.id, {
-                        onStatus: (status) => console.log("Download:", status),
+                        onStatus: status => console.log("Download:", status),
                         onProgress: (current, total) => {
                             console.log(`Progress: ${current}/${total}`);
                         },
@@ -173,7 +167,7 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await mergeVaults(authUser.id, {
-                        onStatus: (status) => console.log("Merge:", status),
+                        onStatus: status => console.log("Merge:", status),
                         onProgress: (current, total) => {
                             console.log(`Progress: ${current}/${total}`);
                         },

@@ -19,10 +19,16 @@ let storageProvider: IStorageProvider | null = null;
  * Initialize storage provider
  *
  * @param useCloud - Use cloud storage (with local fallback) or local only
+ * @param userId - User ID for cloud provider (required when useCloud is true)
  */
-export async function initializeStorageProvider(useCloud: boolean = false): Promise<IStorageProvider> {
+export async function initializeStorageProvider(useCloud: boolean = false, userId?: string): Promise<IStorageProvider> {
     if (!storageProvider) {
-        storageProvider = useCloud ? new CloudStorageProvider() : new LocalStorageProvider();
+        if (useCloud && !userId) {
+            console.warn("useCloud=true but userId not provided, falling back to local");
+            storageProvider = new LocalStorageProvider();
+        } else {
+            storageProvider = useCloud ? new CloudStorageProvider(userId) : new LocalStorageProvider();
+        }
         await storageProvider.initialize();
     }
     return storageProvider;
@@ -55,7 +61,7 @@ export function resetStorageProvider(): void {
 /**
  * Switch storage provider implementation
  */
-export async function switchStorageProvider(useCloud: boolean): Promise<void> {
+export async function switchStorageProvider(useCloud: boolean, userId?: string): Promise<void> {
     resetStorageProvider();
-    await initializeStorageProvider(useCloud);
+    await initializeStorageProvider(useCloud, userId);
 }

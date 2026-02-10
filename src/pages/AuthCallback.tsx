@@ -18,9 +18,9 @@
  * 7. Redirects to home (or intended path)
  */
 
-import { useSyncUIContext } from "@/context/SyncUIContext";
 import { useAuth } from "@/context/AuthContext";
-import { isMigrationNeeded, getLocalVaultCount, getCloudVaultCount } from "@/lib/vault-migration";
+import { useSyncUIContext } from "@/context/SyncUIContext";
+import { getCloudVaultCount, getLocalVaultCount, isMigrationNeeded } from "@/lib/vault-migration";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -39,7 +39,7 @@ export function AuthCallback() {
                 // Check if vault migration is needed
                 try {
                     const migrationNeeded = await isMigrationNeeded(user.id);
-                    
+
                     if (migrationNeeded) {
                         // Get counts for dialog
                         const localCount = getLocalVaultCount();

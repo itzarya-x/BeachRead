@@ -186,7 +186,10 @@ export function getVaultSyncMetadata(userId: string): {
 /**
  * Execute full vault migration (local → cloud)
  */
-export async function migrateVaultToCloud(userId: string, options?: MigrationOptions): Promise<{
+export async function migrateVaultToCloud(
+    userId: string,
+    options?: MigrationOptions,
+): Promise<{
     success: boolean;
     itemsUploaded: number;
     error?: string;
@@ -239,7 +242,10 @@ export function markVaultSkipped(userId: string): void {
 /**
  * Download cloud vault to local (for when user chooses download on first login)
  */
-export async function downloadVaultFromCloud(userId: string, options?: MigrationOptions): Promise<{
+export async function downloadVaultFromCloud(
+    userId: string,
+    options?: MigrationOptions,
+): Promise<{
     success: boolean;
     itemsDownloaded: number;
     error?: string;
@@ -252,10 +258,7 @@ export async function downloadVaultFromCloud(userId: string, options?: Migration
         options?.onStatus?.("Downloading vault from cloud...");
 
         // Fetch all user media from cloud
-        const { data, error } = await supabase
-            .from("user_media")
-            .select("*")
-            .eq("user_id", userId);
+        const { data, error } = await supabase.from("user_media").select("*").eq("user_id", userId);
 
         if (error) throw error;
         if (!data || data.length === 0) {
@@ -288,7 +291,10 @@ export async function downloadVaultFromCloud(userId: string, options?: Migration
 /**
  * Merge local and cloud vaults (smart merge)
  */
-export async function mergeVaults(userId: string, options?: MigrationOptions): Promise<{
+export async function mergeVaults(
+    userId: string,
+    options?: MigrationOptions,
+): Promise<{
     success: boolean;
     itemsMerged: number;
     error?: string;
@@ -304,10 +310,7 @@ export async function mergeVaults(userId: string, options?: MigrationOptions): P
         const localMedia = [...(animeList || []), ...(mangaList || [])];
 
         // Get cloud data
-        const { data: cloudData, error } = await supabase
-            .from("user_media")
-            .select("*")
-            .eq("user_id", userId);
+        const { data: cloudData, error } = await supabase.from("user_media").select("*").eq("user_id", userId);
 
         if (error) throw error;
 

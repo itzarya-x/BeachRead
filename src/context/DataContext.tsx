@@ -1,12 +1,14 @@
 import { fetchMediaBatched, getCachedMedia, initializeCache, searchAniListMedia } from "@/lib/anilist-api";
 import { editHistory } from "@/lib/editHistory";
 import { mapCountryToOriginType, parseGdprData } from "@/lib/gdpr-parser";
-import { getStorageProvider, initializeStorageProvider } from "@/lib/storage";
+import { getRealtimeSyncManager } from "@/lib/realtime-sync";
+import { getStorageProvider, initializeStorageProvider, switchStorageProvider } from "@/lib/storage";
 import type { UserEntry } from "@/lib/storage/types";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
 import type { GdprData } from "@/types/gdpr";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
 
 interface DataContextValue {
     // Loading states
@@ -51,15 +53,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [userEdits, setUserEdits] = useState<Map<number, UserEntry>>(new Map());
     const [error, setError] = useState<string | null>(null);
 
+    // Get authenticated user from AuthContext
+    const { user: authUser } = useAuth();
+
     // TASK 6 & 7: Use Zustand store for reactive state
     const { animeList, mangaList, setAnimeList, setMangaList } = useMediaStore();
 
     // TASK 2 & 3: Load and parse GDPR data with Storage Provider integration
+    // Also switches storage provider based on authentication status
     useEffect(() => {
         async function load() {
             try {
-                // Initialize Storage Provider (local by default, cloud-capable)
-                await initializeStorageProvider(false); // false = use local storage for now
+                // Switch storage provider based on auth status (Cloud-First for authenticated users)
+                if (authUser?.id) {
+                    // User authenticated → Use cloud storage
+                    await initializeStorageProvider(true, authUser.id);
+                } else {
+                    // User not authenticated → Use local storage
+                    await initializeStorageProvider(false);
+                }
+
                 const storage = getStorageProvider();
 
                 // Initialize cache from IndexedDB
@@ -75,7 +88,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 const parsed = parseGdprData(data);
                 setUser(parsed.user);
 
-                // TASK 3: Load user edits from Storage Provider
+                // TASK 3: Load user edits from Storage Provider (now from cloud if authenticated)
                 let edits = new Map<number, UserEntry>();
                 if (parsed.user.id) {
                     edits = await storage.getAllUserEntries(parsed.user.id);
@@ -141,6 +154,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         setAnimeList(reEnrichedAnime);
                         setMangaList(reEnrichedManga);
                         setEnriching(false);
+
+                        // Start real-time sync if authenticated
+                        if (authUser?.id) {
+                            const syncManager = getRealtimeSyncManager();
+                            syncManager.startSync({
+                                userId: authUser.id,
+                                onError: error => {
+                                    console.error("[SYNC] Real-time sync error:", error);
+                                },
+                            });
+                        }
                     })
                     .catch(err => {
                         console.error("Background enrichment failed:", err);
@@ -155,7 +179,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
 
         load();
-    }, []);
+
+        // Cleanup: Stop real-time sync on unmount or when logged out
+        return () => {
+            if (!authUser?.id) {
+                const syncManager = getRealtimeSyncManager();
+                if (syncManager.isActive()) {
+                    syncManager.stopSync();
+                }
+            }
+        };
+    }, [authUser?.id, setAnimeList, setMangaList]);
 
     const getTitle = useCallback(
         (media: DisplayMedia): string => {
@@ -171,6 +205,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         },
         [user],
     );
+
+    // Handle logout: Switch back to local storage and stop real-time sync
+    useEffect(() => {
+        const handleLogout = async () => {
+            if (!authUser) {
+                // User logged out
+                console.log("[SYNC] User logged out, switching to local storage");
+
+                // Stop real-time sync
+                const syncManager = getRealtimeSyncManager();
+                if (syncManager.isActive()) {
+                    await syncManager.stopSync();
+                }
+
+                // Switch back to local storage
+                try {
+                    await switchStorageProvider(false);
+                } catch (err) {
+                    console.warn("Error switching to local storage on logout:", err);
+                }
+            }
+        };
+
+        handleLogout();
+    }, [authUser]);
 
     const getAnimeByStatus = useCallback((status: MediaStatus) => {
         const { animeList: storeAnimeList } = getMediaStoreState();

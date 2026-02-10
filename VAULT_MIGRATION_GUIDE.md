@@ -9,6 +9,7 @@
 ## Feature Overview
 
 When a user signs in for the first time to a new device:
+
 - **Detect:** Cloud vault is empty AND local vault has items
 - **Ask:** Show dialog with migration options (Upload, Download, Merge, Skip)
 - **Execute:** Perform selected operation
@@ -51,6 +52,7 @@ Proceed to home
 ### ✅ New Files
 
 **[src/lib/vault-migration.ts](src/lib/vault-migration.ts)** (380+ lines)
+
 - Vault migration manager
 - Bulk upload/download functions
 - Smart merge logic
@@ -59,11 +61,13 @@ Proceed to home
 ### ✅ Modified Files
 
 **[src/pages/AuthCallback.tsx](src/pages/AuthCallback.tsx)**
+
 - Added migration check after login
 - Triggers FirstLoginDialog if needed
 - Handles migration status
 
 **[src/App.tsx](src/App.tsx)**
+
 - Imported migration functions
 - Connected FirstLoginDialog callbacks
 - Passed authUser to migration handlers
@@ -78,6 +82,7 @@ Proceed to home
 Checks if migration should be shown.
 
 **Returns true if:**
+
 - Cloud vault is empty (0 items)
 - Local vault has items (> 0)
 - User hasn't already been asked (localStorage check)
@@ -113,11 +118,12 @@ const cloudCount = await getCloudVaultCount(user.id);
 ```typescript
 const result = await migrateVaultToCloud(authUser.id, {
     onProgress: (current, total) => console.log(`${current}/${total}`),
-    onStatus: (status) => console.log(status),
+    onStatus: status => console.log(status),
 });
 ```
 
 **Process:**
+
 1. Verify cloud is empty (safety check)
 2. Iterate through all local media
 3. Upload each item to `user_media` table
@@ -133,6 +139,7 @@ const result = await downloadVaultFromCloud(authUser.id);
 ```
 
 **Process:**
+
 1. Query Supabase for all user media
 2. Mark vault as synced (cloud state restored)
 3. Return count of cloud items
@@ -146,11 +153,12 @@ const result = await mergeVaults(authUser.id);
 ```
 
 **Process:**
+
 1. Get all local items
 2. Get all cloud items
 3. For each local item:
-   - If not in cloud → upload it
-   - If in cloud → skip it
+    - If not in cloud → upload it
+    - If in cloud → skip it
 4. Mark vault as synced
 5. Return count of merged items
 
@@ -195,11 +203,11 @@ useEffect(() => {
     if (user) {
         // Check if migration needed
         const migrationNeeded = await isMigrationNeeded(user.id);
-        
+
         if (migrationNeeded) {
             const localCount = getLocalVaultCount();
             const cloudCount = await getCloudVaultCount(user.id);
-            
+
             // Show dialog
             syncUI.showFirstLogin(localCount, cloudCount);
         } else {
@@ -220,6 +228,7 @@ useEffect(() => {
 - Skip: Don't migrate now (never ask again)
 
 **Each action has:**
+
 - Loading state with spinner
 - Progress indicator
 - Toast notifications
@@ -303,6 +312,7 @@ Each operation returns:
 ```
 
 **Handled Errors:**
+
 - ✅ Supabase not configured (graceful fallback)
 - ✅ Cloud not empty (prevents double-upload)
 - ✅ Network failures (with retry)
@@ -465,6 +475,7 @@ Device C (New items):
 ## Security
 
 ✅ **Safe Practices:**
+
 - Only uploads/downloads user's own data
 - Uses Supabase auth context
 - Validates user_id matches
@@ -488,18 +499,18 @@ Device C (New items):
 
 ## Summary
 
-| Feature | Status |
-|---------|--------|
-| Detection | ✅ Complete |
-| Dialog UI | ✅ Complete |
-| Upload | ✅ Complete |
-| Download | ✅ Complete |
-| Merge | ✅ Complete |
-| Skip | ✅ Complete |
+| Feature        | Status      |
+| -------------- | ----------- |
+| Detection      | ✅ Complete |
+| Dialog UI      | ✅ Complete |
+| Upload         | ✅ Complete |
+| Download       | ✅ Complete |
+| Merge          | ✅ Complete |
+| Skip           | ✅ Complete |
 | State Tracking | ✅ Complete |
 | Error Handling | ✅ Complete |
-| Documentation | ✅ Complete |
-| Testing | ✅ Ready |
+| Documentation  | ✅ Complete |
+| Testing        | ✅ Ready    |
 
 ---
 
