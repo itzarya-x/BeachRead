@@ -3,6 +3,7 @@ import { editHistory } from "@/lib/editHistory";
 import { mapCountryToOriginType, parseGdprData } from "@/lib/gdpr-parser";
 import { getRealtimeSyncManager } from "@/lib/realtime-sync";
 import { getStorageProvider, initializeStorageProvider, switchStorageProvider } from "@/lib/storage";
+import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-mode";
 import type { UserEntry } from "@/lib/storage/types";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
@@ -22,6 +23,9 @@ interface DataContextValue {
     animeList: DisplayMedia[]; // Read from store
     mangaList: DisplayMedia[]; // Read from store
     rawData: GdprData | null;
+
+    // Storage mode (PHASE 5)
+    storageMode: "cloud" | "local";
 
     // Helpers
     getAnimeByStatus: (status: MediaStatus) => DisplayMedia[];
@@ -52,6 +56,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [rawData, setRawData] = useState<GdprData | null>(null);
     const [userEdits, setUserEdits] = useState<Map<number, UserEntry>>(new Map());
     const [error, setError] = useState<string | null>(null);
+    const [storageMode, setStorageMode] = useState<"cloud" | "local">("local");
 
     // Get authenticated user from AuthContext
     const { user: authUser } = useAuth();
@@ -64,25 +69,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function load() {
             try {
-                // Switch storage provider based on auth status (Cloud-First for authenticated users)
-                if (authUser?.id) {
-                    // User authenticated → Use cloud storage
-                    await initializeStorageProvider(true, authUser.id);
-                } else {
-                    // User not authenticated → Use local storage
-                    await initializeStorageProvider(false);
-                }
+                // PHASE 6: Rewrite load flow - IF logged in → ONLY Supabase, ELSE → ONLY IndexedDB
+                const isAuthenticated = !!authUser?.id;
+                const mode = isAuthenticated ? "cloud" : "local";
 
+                // Update storage mode (hard switch)
+                updateStorageMode(isAuthenticated, authUser?.id);
+                setStorageMode(mode);
+
+                console.log("%c" + displayStorageStatus(), "font-weight: bold; color: #4dabf7; font-size: 14px;");
+
+                // Initialize ONLY the required storage provider
+                await initializeStorageProvider(isAuthenticated, authUser?.id);
                 const storage = getStorageProvider();
 
-                // Initialize cache from IndexedDB
+                // Initialize cache from IndexedDB (for media enrichment, not user data)
                 await initializeCache();
 
+                // Load GDPR base data
+                DataLog.reading("GDPR");
                 const response = await fetch("/data/gdpr_data.json");
                 if (!response.ok) {
                     throw new Error(`Failed to fetch GDPR data: ${response.status} ${response.statusText}`);
                 }
                 const data: GdprData = await response.json();
+
                 setRawData(data);
 
                 const parsed = parseGdprData(data);
@@ -297,31 +308,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             // TASK 8: Record edit history
             editHistory.recordEdit(tempEntryId, user.id, "create", null, enriched, "create", null, enriched);
 
-            // Save to Storage Provider
+            // Save to Storage Provider (PHASE 3: All CRUD → cloud)
             const storage = getStorageProvider();
-            await storage.saveUserEntry({
-                entryId: tempEntryId,
-                seriesId: entry._seriesId,
-                userId: user.id,
-                data: {
-                    status: enriched.status,
-                    score: enriched.score,
-                    progress: enriched.progress,
-                    progressVolumes: enriched.progressVolumes,
-                    repeat: enriched.repeat,
-                    priority: enriched.priority,
-                    tierId: enriched.tierId,
-                    isPrivate: enriched.isPrivate,
-                    notes: enriched.notes,
-                    customLists: enriched.customLists,
-                    startedAt: enriched.startedAt,
-                    completedAt: enriched.completedAt,
-                    advancedScores: enriched.advancedScores,
-                    hiddenDefault: enriched.hiddenDefault,
-                },
-                editedAt: Date.now(),
-                deleted: false,
-            });
+            try {
+                await storage.saveUserEntry({
+                    entryId: tempEntryId,
+                    seriesId: entry._seriesId,
+                    userId: user.id,
+                    data: {
+                        status: enriched.status,
+                        score: enriched.score,
+                        progress: enriched.progress,
+                        progressVolumes: enriched.progressVolumes,
+                        repeat: enriched.repeat,
+                        priority: enriched.priority,
+                        tierId: enriched.tierId,
+                        isPrivate: enriched.isPrivate,
+                        notes: enriched.notes,
+                        customLists: enriched.customLists,
+                        startedAt: enriched.startedAt,
+                        completedAt: enriched.completedAt,
+                        advancedScores: enriched.advancedScores,
+                        hiddenDefault: enriched.hiddenDefault,
+                    },
+                    editedAt: Date.now(),
+                    deleted: false,
+                });
+            } catch (err) {
+                DataLog.error("addEntry", err);
+                throw err;
+            }
 
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { addEntry: storeAddEntry } = getMediaStoreState();
@@ -341,7 +357,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const existingEntry = animeEntry || mangaEntry;
 
             if (!existingEntry) return;
-
             // TASK 8: Track what changed for history
             const changedFields: string[] = [];
             const fieldChanges: Record<string, { old: any; new: any }> = {};
@@ -377,31 +392,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 );
             });
 
-            // Save user edits to Storage Provider (TASK 3: Preserve user edits)
+            // Save user edits to Storage Provider (PHASE 3: All CRUD → cloud)
             const storage = getStorageProvider();
-            await storage.saveUserEntry({
-                entryId,
-                seriesId: existingEntry._seriesId,
-                userId: user.id,
-                data: {
-                    status: updated.status,
-                    score: updated.score,
-                    progress: updated.progress,
-                    progressVolumes: updated.progressVolumes,
-                    repeat: updated.repeat,
-                    priority: updated.priority,
-                    tierId: updated.tierId,
-                    isPrivate: updated.isPrivate,
-                    notes: updated.notes,
-                    customLists: updated.customLists,
-                    startedAt: updated.startedAt,
-                    completedAt: updated.completedAt,
-                    advancedScores: updated.advancedScores,
-                    hiddenDefault: updated.hiddenDefault,
-                },
-                editedAt: Date.now(),
-                deleted: false,
-            });
+            try {
+                DataLog.updated("SUPABASE", entryId, changedFields);
+                await storage.saveUserEntry({
+                    entryId,
+                    seriesId: existingEntry._seriesId,
+                    userId: user.id,
+                    data: {
+                        status: updated.status,
+                        score: updated.score,
+                        progress: updated.progress,
+                        progressVolumes: updated.progressVolumes,
+                        repeat: updated.repeat,
+                        priority: updated.priority,
+                        tierId: updated.tierId,
+                        isPrivate: updated.isPrivate,
+                        notes: updated.notes,
+                        customLists: updated.customLists,
+                        startedAt: updated.startedAt,
+                        completedAt: updated.completedAt,
+                        advancedScores: updated.advancedScores,
+                        hiddenDefault: updated.hiddenDefault,
+                    },
+                    editedAt: Date.now(),
+                    deleted: false,
+                });
+            } catch (err) {
+                DataLog.error("updateEntry", err);
+                throw err;
+            }
 
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { updateEntry: storeUpdateEntry } = getMediaStoreState();
@@ -439,8 +460,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 editHistory.recordEdit(entryId, user.id, "delete", existingEntry, null, "delete", existingEntry, null);
             }
 
+            // PHASE 3: All CRUD → cloud
             const storage = getStorageProvider();
-            await storage.deleteUserEntry(entryId);
+            try {
+                DataLog.deleted("SUPABASE", entryId, true);
+                await storage.deleteUserEntry(entryId);
+            } catch (err) {
+                DataLog.error("deleteEntry", err);
+                throw err;
+            }
 
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { deleteEntry: storeDeleteEntry } = getMediaStoreState();
@@ -511,6 +539,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             animeList, // From store hook
             mangaList, // From store hook
             rawData,
+            storageMode, // PHASE 5: Display current mode in UI
             getAnimeByStatus,
             getMangaByStatus,
             getCustomListEntries,
@@ -529,6 +558,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             animeList,
             mangaList,
             rawData,
+            storageMode,
             getAnimeByStatus,
             getMangaByStatus,
             getCustomListEntries,

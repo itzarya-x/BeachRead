@@ -3,6 +3,8 @@
  *
  * Wraps existing IndexedDB logic for the storage abstraction layer.
  * This remains the primary storage - always works offline.
+ *
+ * ENFORCEMENT: Blocks access if user is authenticated (cloud-only).
  */
 
 import {
@@ -17,6 +19,7 @@ import {
     initDatabase as initDB,
     type UserEntry,
 } from "@/lib/database";
+import { assertNotCloud } from "@/lib/storage-mode";
 
 import {
     createTier as dbCreateTier,
@@ -77,22 +80,27 @@ export class LocalStorageProvider implements IStorageProvider {
 
     // ============= User Entries =============
     async getUserEntry(entryId: number): Promise<UserEntry | null> {
+        assertNotCloud("LocalStorage.getUserEntry");
         return dbGetUserEntry(entryId);
     }
 
     async getAllUserEntries(userId: number): Promise<Map<number, UserEntry>> {
+        assertNotCloud("LocalStorage.getAllUserEntries");
         return dbGetAllUserEntries(userId);
     }
 
     async saveUserEntry(entry: UserEntry): Promise<void> {
+        assertNotCloud("LocalStorage.saveUserEntry");
         return dbSaveUserEntry(entry);
     }
 
     async deleteUserEntry(entryId: number): Promise<void> {
+        assertNotCloud("LocalStorage.deleteUserEntry");
         return dbDeleteUserEntry(entryId);
     }
 
     async hardDeleteUserEntry(entryId: number): Promise<void> {
+        assertNotCloud("LocalStorage.hardDeleteUserEntry");
         return dbHardDeleteUserEntry(entryId);
     }
 

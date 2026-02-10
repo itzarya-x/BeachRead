@@ -5,25 +5,25 @@
  * When authenticated, all data reads/writes go to Supabase.
  * Provides real-time subscriptions for multi-device sync.
  *
- * Fallback to local storage when cloud operations fail (offline support).
+ * ENFORCEMENT: NO SILENT FALLBACKS - shows errors instead.
+ * VERIFICATION: Fetches back after write to confirm success.
+ * LOGGING: Loud logs for every operation.
  */
 
+import { assertCloud, DataLog } from "@/lib/storage-mode";
 import { createClient } from "@supabase/supabase-js";
-import { LocalStorageProvider } from "./local";
 import type { IStorageProvider, SyncRecord, Tier, TierAssignment, TierBoard, UserEntry } from "./types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export class CloudStorageProvider implements IStorageProvider {
-    private local: LocalStorageProvider;
     private supabase: any;
     private userId: string | null = null;
     private ready = false;
     private subscriptions: Map<string, any> = new Map();
 
     constructor(userId?: string) {
-        this.local = new LocalStorageProvider();
         this.userId = userId || null;
 
         if (supabaseUrl && supabaseAnonKey) {
@@ -32,9 +32,6 @@ export class CloudStorageProvider implements IStorageProvider {
     }
 
     async initialize(): Promise<void> {
-        // Initialize local first (required for offline support)
-        await this.local.initialize();
-
         // Only cloud operations if Supabase is configured
         if (!this.supabase || !this.userId) {
             this.ready = true;
@@ -43,6 +40,7 @@ export class CloudStorageProvider implements IStorageProvider {
 
         // Test connection by fetching user's first entry
         try {
+            DataLog.reading("SUPABASE");
             const { data, error } = await this.supabase
                 .from("user_media")
                 .select("count")
@@ -50,45 +48,49 @@ export class CloudStorageProvider implements IStorageProvider {
                 .limit(1);
 
             if (error && error.code !== "PGRST116") {
-                console.warn("Cloud provider connection issue, using local fallback:", error);
+                throw error;
             }
+            console.log("%c✅ Cloud connection verified", "color: #51cf66; font-weight: bold;");
         } catch (err) {
-            console.warn("Cloud provider initialization failed, using local fallback:", err);
+            DataLog.error("CloudProvider.initialize", err);
+            throw new Error(`Cloud initialization failed: ${err}`);
         }
 
         this.ready = true;
     }
 
     isReady(): boolean {
-        return this.ready && this.local.isReady();
+        return this.ready && !!this.supabase;
     }
 
     // ============= Media Cache =============
     async getMediaCache(id: number): Promise<any | null> {
         // Media cache is local-only (ephemeral)
-        return this.local.getMediaCache(id);
+        return null;
     }
 
     async getAllMediaCache(): Promise<Map<number, any>> {
-        return this.local.getAllMediaCache();
+        return new Map();
     }
 
     async saveMediaCache(id: number, data: any): Promise<void> {
-        // Save to local only (ephemeral cache)
-        await this.local.saveMediaCache(id, data);
+        // Media cache is local-only
     }
 
     async deleteMediaCache(id: number): Promise<void> {
-        await this.local.deleteMediaCache(id);
+        // Media cache is local-only
     }
 
     // ============= User Entries (Cloud-First) =============
     async getUserEntry(entryId: number): Promise<UserEntry | null> {
+        assertCloud("CloudStorage.getUserEntry");
+
         if (!this.supabase || !this.userId) {
-            return this.local.getUserEntry(entryId);
+            throw new Error("Supabase not configured");
         }
 
         try {
+            DataLog.reading("SUPABASE");
             const { data, error } = await this.supabase
                 .from("user_media")
                 .select("*")
@@ -101,17 +103,20 @@ export class CloudStorageProvider implements IStorageProvider {
 
             return this.mapToUserEntry(data);
         } catch (err) {
-            console.warn("Failed to fetch user entry from cloud, using local:", err);
-            return this.local.getUserEntry(entryId);
+            DataLog.error("getAllUserEntries", err);
+            throw err;
         }
     }
 
     async getAllUserEntries(userId: number): Promise<Map<number, UserEntry>> {
+        assertCloud("CloudStorage.getAllUserEntries");
+
         if (!this.supabase || !this.userId) {
-            return this.local.getAllUserEntries(userId);
+            throw new Error("Supabase not configured");
         }
 
         try {
+            DataLog.reading("SUPABASE");
             const { data, error } = await this.supabase
                 .from("user_media")
                 .select("*")
@@ -125,21 +130,19 @@ export class CloudStorageProvider implements IStorageProvider {
                 entries.set(row.id, this.mapToUserEntry(row));
             });
 
-            // Save to local as cache
-            for (const [, entry] of entries) {
-                await this.local.saveUserEntry(entry);
-            }
-
+            DataLog.reading("SUPABASE", entries.size);
             return entries;
         } catch (err) {
-            console.warn("Failed to fetch all entries from cloud, using local:", err);
-            return this.local.getAllUserEntries(userId);
+            DataLog.error("getAllUserEntries", err);
+            throw err;
         }
     }
 
     async saveUserEntry(entry: UserEntry): Promise<void> {
+        assertCloud("CloudStorage.saveUserEntry");
+
         if (!this.supabase || !this.userId) {
-            return this.local.saveUserEntry(entry);
+            throw new Error("Supabase not configured");
         }
 
         try {
@@ -153,25 +156,41 @@ export class CloudStorageProvider implements IStorageProvider {
                 updated_at: new Date().toISOString(),
             };
 
+            DataLog.inserted("SUPABASE", entry.entryId);
             const { error } = await this.supabase.from("user_media").upsert([record], { onConflict: "id" });
 
             if (error) throw error;
 
-            // Also save locally as cache
-            await this.local.saveUserEntry(entry);
+            // PHASE 3: Verify write succeeded by fetching back
+            const { data: verifyData, error: verifyError } = await this.supabase
+                .from("user_media")
+                .select("*")
+                .eq("id", entry.entryId)
+                .eq("user_id", this.userId)
+                .single();
+
+            if (verifyError || !verifyData) {
+                DataLog.verified(entry.entryId, "SUPABASE", false);
+                throw new Error("Verification failed after insert");
+            }
+
+            DataLog.verified(entry.entryId, "SUPABASE", true);
         } catch (err) {
-            console.warn("Failed to save entry to cloud, saving to local:", err);
-            await this.local.saveUserEntry(entry);
+            DataLog.error("saveUserEntry", err);
+            throw err;
         }
     }
 
     async deleteUserEntry(entryId: number): Promise<void> {
+        assertCloud("CloudStorage.deleteUserEntry");
+
         if (!this.supabase || !this.userId) {
-            return this.local.deleteUserEntry(entryId);
+            throw new Error("Supabase not configured");
         }
 
         try {
             // Soft delete in cloud
+            DataLog.deleted("SUPABASE", entryId, true);
             const { error } = await this.supabase
                 .from("user_media")
                 .update({ deleted: true, updated_at: new Date().toISOString() })
@@ -179,20 +198,22 @@ export class CloudStorageProvider implements IStorageProvider {
                 .eq("user_id", this.userId);
 
             if (error) throw error;
-            await this.local.deleteUserEntry(entryId);
         } catch (err) {
-            console.warn("Failed to delete entry from cloud, deleting from local:", err);
-            await this.local.deleteUserEntry(entryId);
+            DataLog.error("deleteUserEntry", err);
+            throw err;
         }
     }
 
     async hardDeleteUserEntry(entryId: number): Promise<void> {
+        assertCloud("CloudStorage.hardDeleteUserEntry");
+
         if (!this.supabase || !this.userId) {
-            return this.local.hardDeleteUserEntry(entryId);
+            throw new Error("Supabase not configured");
         }
 
         try {
             // Hard delete from cloud
+            DataLog.deleted("SUPABASE", entryId, false);
             const { error } = await this.supabase
                 .from("user_media")
                 .delete()
