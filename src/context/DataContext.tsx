@@ -186,7 +186,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     setUserEdits(edits);
                 }
 
-                // Apply user edits to parsed entries (TASK 3: Preserve user edits)
+                // applyUserEdits merges database edits into base JSON entries
                 const applyUserEdits = (
                     entries: DisplayMedia[],
                     userEditsMap: Map<number, UserEntry>,
@@ -194,50 +194,117 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     return entries.map(entry => {
                         const edit = userEditsMap.get(entry._entryId);
                         if (edit && !edit.deleted) {
-                            // Merge user edits with base entry (user edits take precedence)
                             return {
                                 ...entry,
                                 ...edit.data,
-                                _entryId: entry._entryId, // Preserve entry ID
-                                _seriesId: entry._seriesId, // Preserve series ID
-                                _userId: entry._userId, // Preserve user ID
+                                _entryId: entry._entryId,
+                                _seriesId: entry._seriesId,
+                                _userId: entry._userId,
                             };
                         }
                         return entry;
                     });
                 };
 
+                // identifyStandaloneEdits finds entries in database that are NOT in the base JSON
+                const identifyStandaloneEdits = (
+                    existingIds: Set<number>,
+                    userEditsMap: Map<number, UserEntry>,
+                    type: MediaType,
+                ): DisplayMedia[] => {
+                    const standalone: DisplayMedia[] = [];
+                    userEditsMap.forEach((edit, entryId) => {
+                        if (!existingIds.has(entryId) && !edit.deleted) {
+                            // Only add if it matches the requested type (we use seriesId/data to guess or just add to both and let filter resolve)
+                            // Better: use the stored seriesId to create a skeleton DisplayMedia
+                            const skeleton: DisplayMedia = {
+                                status: edit.data.status || "PLANNING",
+                                score: edit.data.score ?? 0,
+                                progress: edit.data.progress ?? 0,
+                                progressVolumes: edit.data.progressVolumes ?? 0,
+                                repeat: edit.data.repeat ?? 0,
+                                priority: edit.data.priority ?? 0,
+                                tierId: edit.data.tierId ?? null,
+                                isPrivate: edit.data.isPrivate ?? false,
+                                notes: edit.data.notes ?? null,
+                                customLists: edit.data.customLists || [],
+                                startedAt: edit.data.startedAt ?? null,
+                                completedAt: edit.data.completedAt ?? null,
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                                mediaType: type,
+                                advancedScores: edit.data.advancedScores || [],
+                                hiddenDefault: edit.data.hiddenDefault ?? false,
+                                title: { romaji: "Loading...", english: null, native: null },
+                                coverImage: null,
+                                bannerImage: null,
+                                format: null,
+                                episodes: null,
+                                chapters: null,
+                                volumes: null,
+                                genres: [],
+                                season: null,
+                                seasonYear: null,
+                                description: null,
+                                originType: "manga",
+                                _seriesId: edit.seriesId,
+                                _entryId: edit.entryId,
+                                _userId: edit.userId,
+                                _enriched: false,
+                            };
+                            
+                            // Simple heuristic: if the series was cached as manga but we are loading anime, skip
+                            // For now, add to both and we'll filter by mediaType if we had it
+                            if (edit.data.mediaType === type || (!edit.data.mediaType && type === "ANIME")) {
+                                standalone.push(skeleton);
+                            } else if (edit.data.mediaType === type) {
+                                standalone.push(skeleton);
+                            }
+                        }
+                    });
+                    return standalone;
+                };
+
                 let animeEntries = parsed.animeEntries;
                 let mangaEntries = parsed.mangaEntries;
 
-                // Apply user edits
+                // Track existing IDs from JSON
+                const existingAnimeIds = new Set(animeEntries.map(e => e._entryId));
+                const existingMangaIds = new Set(mangaEntries.map(e => e._entryId));
+
+                // 1. Apply edits to existing JSON entries
                 animeEntries = applyUserEdits(animeEntries, edits);
                 mangaEntries = applyUserEdits(mangaEntries, edits);
 
-                // TASK 2: Enrich immediately from cache (non-blocking)
-                // This uses data already stored in IndexedDB
-                const enrichedAnime = animeEntries.map(entry => enrichEntryWithUserEdits(entry, edits));
-                const enrichedManga = mangaEntries.map(entry => enrichEntryWithUserEdits(entry, edits));
+                // 2. Add STANDALONE entries (added via app, not in GDPR)
+                const standaloneAnime = identifyStandaloneEdits(existingAnimeIds, edits, "ANIME");
+                const standaloneManga = identifyStandaloneEdits(existingMangaIds, edits, "MANGA");
 
-                // TASK 6 & 7: Update store with enriched data (triggers stats invalidation)
+                // Combine them
+                const finalAnime = [...animeEntries, ...standaloneAnime];
+                const finalManga = [...mangaEntries, ...standaloneManga];
+
+                // TASK 2: Enrich immediately from cache
+                const enrichedAnime = finalAnime.map(entry => enrichEntryWithUserEdits(entry, edits));
+                const enrichedManga = finalManga.map(entry => enrichEntryWithUserEdits(entry, edits));
+
+                // Update store
                 setAnimeList(enrichedAnime);
                 setMangaList(enrichedManga);
-                setLoading(false); // Show data immediately
+                setLoading(false);
                 setError(null);
 
-                // Start background API enrichment for missing data (non-blocking)
+                // Background enrichment
                 setEnriching(true);
                 const allIds = [
-                    ...parsed.animeEntries.map(e => e._seriesId),
-                    ...parsed.mangaEntries.map(e => e._seriesId),
+                    ...finalAnime.map(e => e._seriesId),
+                    ...finalManga.map(e => e._seriesId),
                 ];
 
-                // Fetch missing data in background (don't block UI)
                 fetchMediaBatched(allIds, (loaded, total) => {
                     setEnrichProgress({ loaded, total });
                 })
                     .then(() => {
-                        // After fetching, re-enrich with new data
                         const currentAnime = getMediaStoreState().animeList;
                         const currentManga = getMediaStoreState().mangaList;
                         const reEnrichedAnime = currentAnime.map(entry => enrichEntryWithUserEdits(entry, edits));
@@ -246,7 +313,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         setMangaList(reEnrichedManga);
                         setEnriching(false);
 
-                        // Start real-time sync if authenticated
                         if (authUser?.id) {
                             const syncManager = getRealtimeSyncManager();
                             syncManager.startSync({
@@ -402,6 +468,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     seriesId: entry._seriesId,
                     userId: user.id,
                     data: {
+                        ...enriched,
+                        mediaType: entry.mediaType, // Critical: store media type for reload identification
                         status: enriched.status,
                         score: enriched.score,
                         progress: enriched.progress,
