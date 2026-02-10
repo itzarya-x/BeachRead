@@ -1,11 +1,11 @@
 /**
  * TASK 11: Conflict Handling
- * 
+ *
  * If reimport: Ask Replace / Merge / Keep Yura edits
  */
 
 import type { DisplayMedia } from "@/types/display";
-import { getAllUserEntries } from "./database";
+import { getStorageProvider, initializeStorageProvider, isCloudProvider } from "./storage";
 
 export type ConflictResolution = "replace" | "merge" | "keep";
 
@@ -21,9 +21,21 @@ export interface ConflictInfo {
  */
 export async function detectConflicts(
     userId: number,
-    anilistEntries: Partial<DisplayMedia>[]
+    anilistEntries: Partial<DisplayMedia>[],
 ): Promise<ConflictInfo[]> {
-    const userEdits = await getAllUserEntries(userId);
+    // Ensure storage provider is available; prefer existing provider.
+    let storage: any = null;
+    try {
+        storage = getStorageProvider();
+    } catch (err) {
+        // Not initialized - initialize local provider to read user edits
+        await initializeStorageProvider(false);
+        storage = getStorageProvider();
+    }
+
+    if (isCloudProvider()) console.log("[DATA] source = CLOUD");
+
+    const userEdits = await storage.getAllUserEntries(userId);
     const conflicts: ConflictInfo[] = [];
 
     for (const anilistEntry of anilistEntries) {
@@ -38,8 +50,17 @@ export async function detectConflicts(
 
         // Check editable fields
         const editableFields: (keyof DisplayMedia)[] = [
-            "status", "score", "progress", "progressVolumes", "repeat",
-            "priority", "tierId", "notes", "customLists", "startedAt", "completedAt"
+            "status",
+            "score",
+            "progress",
+            "progressVolumes",
+            "repeat",
+            "priority",
+            "tierId",
+            "notes",
+            "customLists",
+            "startedAt",
+            "completedAt",
         ];
 
         for (const field of editableFields) {
@@ -66,10 +87,7 @@ export async function detectConflicts(
 /**
  * Resolve conflicts based on user choice
  */
-export function resolveConflict(
-    conflict: ConflictInfo,
-    resolution: ConflictResolution
-): Partial<DisplayMedia> {
+export function resolveConflict(conflict: ConflictInfo, resolution: ConflictResolution): Partial<DisplayMedia> {
     switch (resolution) {
         case "replace":
             // Use AniList data, discard Yura edits

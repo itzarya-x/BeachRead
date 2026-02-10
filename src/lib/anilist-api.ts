@@ -1,5 +1,5 @@
 import type { AniListMediaResponse } from "@/types/display";
-import { saveMediaCache, getMediaCache, getAllMediaCache } from "./database";
+import { getStorageProvider, initializeStorageProvider, isCloudProvider } from "./storage";
 
 const ANILIST_API = "https://graphql.anilist.co";
 const BATCH_SIZE = 50;
@@ -63,9 +63,21 @@ const mediaCache = new Map<number, AniListMediaResponse>();
 let cacheInitialized = false;
 async function initializeCacheFromDB(): Promise<void> {
     if (cacheInitialized) return; // Only initialize once
-    
+
     try {
-        const cached = await getAllMediaCache();
+        // Use the active storage provider for media cache reads.
+        let storage: any;
+        try {
+            storage = getStorageProvider();
+        } catch (err) {
+            // If storage not initialized, fall back to local-only init for cache
+            await initializeStorageProvider(false);
+            storage = getStorageProvider();
+        }
+
+        if (isCloudProvider()) console.log("[DATA] source = CLOUD");
+
+        const cached = await storage.getAllMediaCache();
         for (const [id, media] of cached.entries()) {
             mediaCache.set(id, media);
         }
@@ -113,10 +125,22 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
         // TASK 2: Cache results in memory and IndexedDB
         for (const m of media) {
             mediaCache.set(m.id, m);
-            // Save to IndexedDB (async, don't wait)
-            saveMediaCache(m.id, m).catch(err => 
-                console.warn(`Failed to save media ${m.id} to IndexedDB:`, err)
-            );
+            // Save to active storage provider (async, don't wait)
+            (async () => {
+                try {
+                    let storage: any;
+                    try {
+                        storage = getStorageProvider();
+                    } catch (err) {
+                        await initializeStorageProvider(false);
+                        storage = getStorageProvider();
+                    }
+
+                    await storage.saveMediaCache(m.id, m);
+                } catch (err) {
+                    console.warn(`Failed to save media ${m.id} to storage:`, err);
+                }
+            })();
         }
 
         return media;
@@ -178,7 +202,7 @@ export async function searchAniListMedia(
     query: string,
     type: "ANIME" | "MANGA" = "ANIME",
     page: number = 1,
-    perPage: number = 20
+    perPage: number = 20,
 ): Promise<AniListMediaResponse[]> {
     try {
         const response = await fetch(ANILIST_API, {
@@ -206,9 +230,20 @@ export async function searchAniListMedia(
         // Cache results
         for (const m of media) {
             mediaCache.set(m.id, m);
-            saveMediaCache(m.id, m).catch(err => 
-                console.warn(`Failed to save media ${m.id} to IndexedDB:`, err)
-            );
+            (async () => {
+                try {
+                    let storage: any;
+                    try {
+                        storage = getStorageProvider();
+                    } catch (err) {
+                        await initializeStorageProvider(false);
+                        storage = getStorageProvider();
+                    }
+                    await storage.saveMediaCache(m.id, m);
+                } catch (err) {
+                    console.warn(`Failed to save media ${m.id} to storage:`, err);
+                }
+            })();
         }
 
         return media;

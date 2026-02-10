@@ -2,7 +2,7 @@ import { fetchMediaBatched, getCachedMedia, initializeCache, searchAniListMedia 
 import { editHistory } from "@/lib/editHistory";
 import { mapCountryToOriginType, parseGdprData } from "@/lib/gdpr-parser";
 import { getRealtimeSyncManager } from "@/lib/realtime-sync";
-import { getStorageProvider, initializeStorageProvider, switchStorageProvider } from "@/lib/storage";
+import { getStorageProvider, switchStorageProvider } from "@/lib/storage";
 import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-mode";
 import type { UserEntry } from "@/lib/storage/types";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
@@ -69,7 +69,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         async function load() {
             try {
-                // PHASE 6: Rewrite load flow - IF logged in → ONLY Supabase, ELSE → ONLY IndexedDB
+                // PHASE 1.1: Detect guest mode
                 const isAuthenticated = !!authUser?.id;
                 const mode = isAuthenticated ? "cloud" : "local";
 
@@ -77,11 +77,91 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 updateStorageMode(isAuthenticated, authUser?.id);
                 setStorageMode(mode);
 
+                const modeLabel = isAuthenticated ? "Cloud Mode ☁️" : "Guest Mode 👤";
+                console.log(`%c📊 ${modeLabel}`, "font-weight: bold; color: #4dabf7; font-size: 14px;");
                 console.log("%c" + displayStorageStatus(), "font-weight: bold; color: #4dabf7; font-size: 14px;");
 
-                // Initialize ONLY the required storage provider
-                await initializeStorageProvider(isAuthenticated, authUser?.id);
+                // PHASE 1: For guest users, return empty arrays immediately
+                if (!isAuthenticated) {
+                    console.log("%c✨ Guest experience: showing empty vault", "color: #868e96;");
+                    // Provide a minimal but complete DisplayUser for guest mode
+                    setUser({
+                        id: 0,
+                        displayName: "Guest",
+                        userName: "guest",
+                        email: "",
+                        about: "",
+                        avatarUrl: null,
+                        bannerUrl: null,
+                        profileColor: "#ffffff",
+                        scoreFormat: "POINT_100",
+                        titleLanguage: "ROMAJI",
+                        customListNames: { anime: [], manga: [] },
+                        statistics: {
+                            anime: {
+                                count: 0,
+                                minutesWatched: 0,
+                                progress: 0,
+                                progressVolumes: 0,
+                                meanScore: 0,
+                                standardDeviation: 0,
+                            },
+                            manga: {
+                                count: 0,
+                                minutesWatched: 0,
+                                progress: 0,
+                                progressVolumes: 0,
+                                meanScore: 0,
+                                standardDeviation: 0,
+                            },
+                        },
+                        activityHistory: {},
+                        activityHistoryTotal: 0,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        listOrder: 0,
+                        forumHomepage: 0,
+                        adultContent: false,
+                        legacyLists: false,
+                        donator: 0,
+                        donatorBadge: null,
+                        notifications: 0,
+                        airingNotifications: false,
+                        privacy: false,
+                        notificationOptions: "",
+                        modRoles: 0,
+                        ip: "",
+                        animeWatched: 0,
+                        chaptersRead: 0,
+                        advancedScoresActive: false,
+                        advancedScoresNames: [],
+                        hiddenCategories: null,
+                        statusDistribution: { anime: [], manga: [] },
+                        scoreDistribution: { anime: [], manga: [] },
+                        favourites: { anime: [], manga: [], characters: [], staff: [], studios: [] },
+                    });
+                    setAnimeList([]);
+                    setMangaList([]);
+                    setUserEdits(new Map());
+                    setRawData(null);
+                    setLoading(false);
+                    setError(null);
+                    return;
+                }
+
+                // Authenticated users: ensure storage provider matches auth state
+                // Force a switch so we don't accidentally keep an earlier local provider
+                await switchStorageProvider(isAuthenticated, authUser?.id);
                 const storage = getStorageProvider();
+                // Log data source when using cloud
+                try {
+                    const { isCloudProvider } = await import("@/lib/storage");
+                    if (isCloudProvider && isCloudProvider()) {
+                        console.log("[DATA] source = CLOUD");
+                    }
+                } catch (e) {
+                    // ignore
+                }
 
                 // Initialize cache from IndexedDB (for media enrichment, not user data)
                 await initializeCache();
@@ -263,6 +343,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         async (entry: Partial<DisplayMedia> & { _seriesId: number; mediaType: MediaType }) => {
             if (!user) return;
 
+            // PHASE 4: Block guest users from adding entries
+            if (storageMode === "local") {
+                console.warn("❌ Guest users cannot add entries. Please sign in.");
+                throw new Error("Sign in required to add entries");
+            }
+
             // Generate a temporary entry ID (negative for new entries)
             const tempEntryId = Date.now() * -1;
 
@@ -350,6 +436,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updateEntry = useCallback(
         async (entryId: number, updates: Partial<DisplayMedia>) => {
             if (!user) return;
+
+            // PHASE 4: Block guest users from updating entries
+            if (storageMode === "local") {
+                console.warn("❌ Guest users cannot update entries. Please sign in.");
+                throw new Error("Sign in required to update entries");
+            }
 
             // Find entry in current lists
             const animeEntry = animeList.find(e => e._entryId === entryId);
@@ -449,6 +541,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const deleteEntry = useCallback(
         async (entryId: number) => {
             if (!user) return;
+
+            // PHASE 4: Block guest users from deleting entries
+            if (storageMode === "local") {
+                console.warn("❌ Guest users cannot delete entries. Please sign in.");
+                throw new Error("Sign in required to delete entries");
+            }
 
             // Find entry before deletion for history
             const animeEntry = animeList.find(e => e._entryId === entryId);
