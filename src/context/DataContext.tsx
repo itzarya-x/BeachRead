@@ -215,8 +215,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     const standalone: DisplayMedia[] = [];
                     userEditsMap.forEach((edit, entryId) => {
                         if (!existingIds.has(entryId) && !edit.deleted) {
-                            // Only add if it matches the requested type (we use seriesId/data to guess or just add to both and let filter resolve)
-                            // Better: use the stored seriesId to create a skeleton DisplayMedia
                             const skeleton: DisplayMedia = {
                                 status: edit.data.status || "PLANNING",
                                 score: edit.data.score ?? 0,
@@ -232,7 +230,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                                 completedAt: edit.data.completedAt ?? null,
                                 createdAt: new Date().toISOString(),
                                 updatedAt: new Date().toISOString(),
-                                mediaType: type,
+                                mediaType: edit.data.mediaType || type, // Default to current list type if unknown
                                 advancedScores: edit.data.advancedScores || [],
                                 hiddenDefault: edit.data.hiddenDefault ?? false,
                                 title: { romaji: "Loading...", english: null, native: null },
@@ -253,11 +251,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                                 _enriched: false,
                             };
                             
-                            // Simple heuristic: if the series was cached as manga but we are loading anime, skip
-                            // For now, add to both and we'll filter by mediaType if we had it
-                            if (edit.data.mediaType === type || (!edit.data.mediaType && type === "ANIME")) {
-                                standalone.push(skeleton);
-                            } else if (edit.data.mediaType === type) {
+                            // If we don't know the type, add it to both lists temporarily
+                            // It will be re-sorted after background enrichment
+                            if (!edit.data.mediaType || edit.data.mediaType === type) {
                                 standalone.push(skeleton);
                             }
                         }
@@ -281,12 +277,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 const standaloneManga = identifyStandaloneEdits(existingMangaIds, edits, "MANGA");
 
                 // Combine them
-                const finalAnime = [...animeEntries, ...standaloneAnime];
-                const finalManga = [...mangaEntries, ...standaloneManga];
+                const initialAnime = [...animeEntries, ...standaloneAnime];
+                const initialManga = [...mangaEntries, ...standaloneManga];
 
                 // TASK 2: Enrich immediately from cache
-                const enrichedAnime = finalAnime.map(entry => enrichEntryWithUserEdits(entry, edits));
-                const enrichedManga = finalManga.map(entry => enrichEntryWithUserEdits(entry, edits));
+                const enrichedAnime = initialAnime.map(entry => enrichEntryWithUserEdits(entry, edits));
+                const enrichedManga = initialManga.map(entry => enrichEntryWithUserEdits(entry, edits));
 
                 // Update store
                 setAnimeList(enrichedAnime);
@@ -297,20 +293,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 // Background enrichment
                 setEnriching(true);
                 const allIds = [
-                    ...finalAnime.map(e => e._seriesId),
-                    ...finalManga.map(e => e._seriesId),
+                    ...initialAnime.map(e => e._seriesId),
+                    ...initialManga.map(e => e._seriesId),
                 ];
 
                 fetchMediaBatched(allIds, (loaded, total) => {
                     setEnrichProgress({ loaded, total });
                 })
                     .then(() => {
+                        // After background enrichment, we have the TRUE mediaType for everything
                         const currentAnime = getMediaStoreState().animeList;
                         const currentManga = getMediaStoreState().mangaList;
-                        const reEnrichedAnime = currentAnime.map(entry => enrichEntryWithUserEdits(entry, edits));
-                        const reEnrichedManga = currentManga.map(entry => enrichEntryWithUserEdits(entry, edits));
-                        setAnimeList(reEnrichedAnime);
-                        setMangaList(reEnrichedManga);
+                        
+                        // Combine all unique entries across both lists
+                        const allEntriesMap = new Map<number, DisplayMedia>();
+                        [...currentAnime, ...currentManga].forEach(e => {
+                            const enriched = enrichEntryWithUserEdits(e, edits);
+                            // Real media type comes from enrichment (API) or previously stored data
+                            allEntriesMap.set(enriched._entryId, enriched);
+                        });
+
+                        const allEnriched = Array.from(allEntriesMap.values());
+                        
+                        // Re-sort into correct lists based on real mediaType
+                        const finalAnime = allEnriched.filter(e => e.mediaType === "ANIME");
+                        const finalManga = allEnriched.filter(e => e.mediaType === "MANGA");
+
+                        setAnimeList(finalAnime);
+                        setMangaList(finalManga);
                         setEnriching(false);
 
                         if (authUser?.id) {
