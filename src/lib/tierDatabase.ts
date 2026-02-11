@@ -12,7 +12,7 @@ const STORE_TIER_ASSIGNMENTS = "tier_assignments";
 
 // PHASE 1.1: Tier Board
 export interface TierBoard {
-    id?: number;
+    id?: string | number;
     name: string;
     description: string;
     createdAt: number;
@@ -21,8 +21,8 @@ export interface TierBoard {
 
 // PHASE 1.2: Tier Row
 export interface Tier {
-    id?: number;
-    boardId: number;
+    id?: string | number;
+    boardId: string | number;
     name: string;
     color: string;
     order: number; // Display order
@@ -30,10 +30,10 @@ export interface Tier {
 
 // PHASE 1.3: Media Placement
 export interface TierAssignment {
-    id?: number;
-    boardId: number;
-    mediaId: number; // DisplayMedia._entryId
-    tierId: number | null; // null = unassigned pool
+    id?: string | number;
+    boardId: string | number;
+    mediaId: string | number; // DisplayMedia._entryId
+    tierId: string | number | null; // null = unassigned pool
     position: number; // Order within tier
 }
 
@@ -58,7 +58,7 @@ export async function getAllTierBoards(): Promise<TierBoard[]> {
 /**
  * Get tier board by ID
  */
-export async function getTierBoard(id: number): Promise<TierBoard | null> {
+export async function getTierBoard(id: string | number): Promise<TierBoard | null> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_BOARDS], "readonly");
     const store = transaction.objectStore(STORE_TIER_BOARDS);
@@ -73,7 +73,7 @@ export async function getTierBoard(id: number): Promise<TierBoard | null> {
 /**
  * Create tier board
  */
-export async function createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<number> {
+export async function createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<string | number> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_BOARDS], "readwrite");
     const store = transaction.objectStore(STORE_TIER_BOARDS);
@@ -87,7 +87,7 @@ export async function createTierBoard(board: Omit<TierBoard, "id" | "createdAt" 
 
     return new Promise((resolve, reject) => {
         const request = store.add(boardData);
-        request.onsuccess = () => resolve(request.result as number);
+        request.onsuccess = () => resolve(request.result as string | number);
         request.onerror = () => reject(request.error);
     });
 }
@@ -95,7 +95,7 @@ export async function createTierBoard(board: Omit<TierBoard, "id" | "createdAt" 
 /**
  * Update tier board
  */
-export async function updateTierBoard(id: number, updates: Partial<TierBoard>): Promise<void> {
+export async function updateTierBoard(id: string | number, updates: Partial<TierBoard>): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_BOARDS], "readwrite");
     const store = transaction.objectStore(STORE_TIER_BOARDS);
@@ -126,7 +126,7 @@ export async function updateTierBoard(id: number, updates: Partial<TierBoard>): 
 /**
  * Delete tier board (and all associated tiers and assignments)
  */
-export async function deleteTierBoard(id: number): Promise<void> {
+export async function deleteTierBoard(id: string | number): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_BOARDS, STORE_TIERS, STORE_TIER_ASSIGNMENTS], "readwrite");
     const boardsStore = transaction.objectStore(STORE_TIER_BOARDS);
@@ -164,7 +164,7 @@ export async function deleteTierBoard(id: number): Promise<void> {
 /**
  * Get all tiers for a board
  */
-export async function getTiersForBoard(boardId: number): Promise<Tier[]> {
+export async function getTiersForBoard(boardId: string | number): Promise<Tier[]> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIERS], "readonly");
     const store = transaction.objectStore(STORE_TIERS);
@@ -183,14 +183,14 @@ export async function getTiersForBoard(boardId: number): Promise<Tier[]> {
 /**
  * Create tier
  */
-export async function createTier(tier: Omit<Tier, "id">): Promise<number> {
+export async function createTier(tier: Omit<Tier, "id">): Promise<string | number> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIERS], "readwrite");
     const store = transaction.objectStore(STORE_TIERS);
 
     return new Promise((resolve, reject) => {
         const request = store.add(tier);
-        request.onsuccess = () => resolve(request.result as number);
+        request.onsuccess = () => resolve(request.result as string | number);
         request.onerror = () => reject(request.error);
     });
 }
@@ -198,7 +198,7 @@ export async function createTier(tier: Omit<Tier, "id">): Promise<number> {
 /**
  * Update tier
  */
-export async function updateTier(id: number, updates: Partial<Tier>): Promise<void> {
+export async function updateTier(id: string | number, updates: Partial<Tier>): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIERS], "readwrite");
     const store = transaction.objectStore(STORE_TIERS);
@@ -224,7 +224,7 @@ export async function updateTier(id: number, updates: Partial<Tier>): Promise<vo
 /**
  * Delete tier
  */
-export async function deleteTier(id: number): Promise<void> {
+export async function deleteTier(id: string | number): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIERS, STORE_TIER_ASSIGNMENTS], "readwrite");
     const tiersStore = transaction.objectStore(STORE_TIERS);
@@ -261,9 +261,9 @@ export async function deleteTier(id: number): Promise<void> {
 }
 
 /**
- * Get all assignments for a board
+ * Get assignments for a board
  */
-export async function getAssignmentsForBoard(boardId: number): Promise<TierAssignment[]> {
+export async function getAssignmentsForBoard(boardId: string | number): Promise<TierAssignment[]> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readonly");
     const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
@@ -277,9 +277,25 @@ export async function getAssignmentsForBoard(boardId: number): Promise<TierAssig
 }
 
 /**
+ * Get assignments for a specific media item
+ */
+export async function getAssignmentsForMedia(mediaId: string | number): Promise<TierAssignment[]> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readonly");
+    const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
+    const index = store.index("mediaId");
+
+    return new Promise((resolve, reject) => {
+        const request = index.getAll(mediaId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
  * Get assignments for a tier
  */
-export async function getAssignmentsForTier(tierId: number): Promise<TierAssignment[]> {
+export async function getAssignmentsForTier(tierId: string | number): Promise<TierAssignment[]> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readonly");
     const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
@@ -298,7 +314,7 @@ export async function getAssignmentsForTier(tierId: number): Promise<TierAssignm
 /**
  * Create or update assignment (PHASE 3.2: Auto-save)
  */
-export async function saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<number> {
+export async function saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<string | number> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readwrite");
     const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
@@ -315,12 +331,12 @@ export async function saveAssignment(assignment: Omit<TierAssignment, "id">): Pr
                     ...assignment,
                 };
                 const putRequest = store.put(updated);
-                putRequest.onsuccess = () => resolve(getExisting.result.id);
+                putRequest.onsuccess = () => resolve(getExisting.result.id as string | number);
                 putRequest.onerror = () => reject(putRequest.error);
             } else {
                 // Create new
                 const addRequest = store.add(assignment);
-                addRequest.onsuccess = () => resolve(addRequest.result as number);
+                addRequest.onsuccess = () => resolve(addRequest.result as string | number);
                 addRequest.onerror = () => reject(addRequest.error);
             }
         };
@@ -331,7 +347,7 @@ export async function saveAssignment(assignment: Omit<TierAssignment, "id">): Pr
 /**
  * Delete assignment (move back to pool)
  */
-export async function deleteAssignment(id: number): Promise<void> {
+export async function deleteAssignment(id: string | number): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readwrite");
     const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
@@ -346,7 +362,7 @@ export async function deleteAssignment(id: number): Promise<void> {
 /**
  * PHASE 1.4: Create default board
  */
-export async function createDefaultBoard(): Promise<number> {
+export async function createDefaultBoard(): Promise<string | number> {
     const boards = await getAllTierBoards();
     if (boards.length > 0) {
         return boards[0].id!;
@@ -380,7 +396,7 @@ export async function createDefaultBoard(): Promise<number> {
 /**
  * Get unassigned items for a board (items in pool)
  */
-export async function getUnassignedForBoard(boardId: number): Promise<TierAssignment[]> {
+export async function getUnassignedForBoard(boardId: string | number): Promise<TierAssignment[]> {
     const assignments = await getAssignmentsForBoard(boardId);
     return assignments.filter(a => a.tierId === null).sort((a, b) => a.position - b.position);
 }

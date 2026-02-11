@@ -59,11 +59,11 @@ export default function TierMaker() {
     const { user, loading: dataLoading } = useData();
     const { animeList, mangaList } = useMediaStore();
     const [boards, setBoards] = useState<TierBoard[]>([]);
-    const [currentBoardId, setCurrentBoardId] = useState<number | null>(null);
+    const [currentBoardId, setCurrentBoardId] = useState<string | number | null>(null);
     const [tiers, setTiers] = useState<Tier[]>([]);
     const [assignments, setAssignments] = useState<TierAssignment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeId, setActiveId] = useState<number | null>(null);
+    const [activeId, setActiveId] = useState<string | number | null>(null);
     const [showFilters, setShowFilters] = useState(false);
     const [showRankings, setShowRankings] = useState(true);
     const [autoScroll, setAutoScroll] = useState(false);
@@ -171,7 +171,7 @@ export default function TierMaker() {
 
     // Get assigned media IDs
     const assignedMediaIds = useMemo(() => {
-        return new Set(assignments.map(a => a.mediaId));
+        return new Set<string | number>(assignments.map(a => a.mediaId));
     }, [assignments]);
 
     // Get unassigned pool (media not in any tier)
@@ -181,7 +181,7 @@ export default function TierMaker() {
 
     // Get media for each tier
     const getMediaForTier = useCallback(
-        (tierId: number | null) => {
+        (tierId: string | number | null) => {
             const tierAssignments = assignments
                 .filter(a => a.tierId === tierId)
                 .sort((a, b) => a.position - b.position);
@@ -203,7 +203,7 @@ export default function TierMaker() {
             return;
         }
 
-        const activeId = active.id as number;
+        const activeId = active.id as string | number;
         const overId = String(over.id);
 
         // Find the media being dragged
@@ -214,16 +214,17 @@ export default function TierMaker() {
         }
 
         // Determine target tier
-        let targetTierId: number | null = null;
+        let targetTierId: string | number | null = null;
         let insertIndex: number | undefined = undefined;
 
         if (overId.startsWith("tier-")) {
-            targetTierId = parseInt(overId.replace("tier-", ""));
+            const rawId = overId.replace("tier-", "");
+            targetTierId = isNaN(Number(rawId)) ? rawId : parseInt(rawId);
         } else if (overId === "pool" || overId.startsWith("pool-")) {
             targetTierId = null; // Unassigned pool
         } else {
             // Dropped on another media item - find its tier and position
-            const targetMediaId = parseInt(overId);
+            const targetMediaId = isNaN(Number(overId)) ? overId : parseInt(overId);
             const targetAssignment = assignments.find(a => a.mediaId === targetMediaId && a.boardId === currentBoardId);
             if (targetAssignment) {
                 targetTierId = targetAssignment.tierId;
@@ -284,7 +285,7 @@ export default function TierMaker() {
     };
 
     const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as number);
+        setActiveId(event.active.id as string | number);
     };
 
     // Create new board
@@ -411,7 +412,10 @@ export default function TierMaker() {
                         <div className="flex items-center gap-2">
                             <select
                                 value={currentBoardId || ""}
-                                onChange={e => setCurrentBoardId(parseInt(e.target.value))}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setCurrentBoardId(isNaN(Number(val)) ? val : parseInt(val));
+                                }}
                                 className="px-4 py-2 bg-card border border-border rounded-lg"
                             >
                                 {boards.map(board => (
@@ -560,7 +564,7 @@ export default function TierMaker() {
                                 setAssignments={setAssignments}
                                 tiers={tiers}
                                 showRankings={showRankings}
-                                onReorder={async (tierId: number, direction: "up" | "down") => {
+                                onReorder={async (tierId: string | number, direction: "up" | "down") => {
                                     const tierToMove = tiers.find(t => t.id === tierId);
                                     const tierIndex = tiers.indexOf(tierToMove!);
                                     if (tierIndex === -1) return;
@@ -637,11 +641,11 @@ function TierRow({
     tier: Tier;
     media: DisplayMedia[];
     allMedia: DisplayMedia[];
-    boardId: number | null;
+    boardId: string | number | null;
     assignments: TierAssignment[];
     setAssignments: (assignments: TierAssignment[]) => void;
     onDelete: () => void;
-    onReorder: (tierId: number, direction: "up" | "down") => void;
+    onReorder: (tierId: string | number, direction: "up" | "down") => void;
     tiers: Tier[];
     showRankings?: boolean;
 }) {
@@ -1039,7 +1043,7 @@ function MediaCardPreview({ media }: { media: DisplayMedia }) {
 }
 
 // Droppable Tier Wrapper
-function DroppableTier({ tierId, children }: { tierId: number; children: React.ReactNode }) {
+function DroppableTier({ tierId, children }: { tierId: string | number; children: React.ReactNode }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `tier-${tierId}`,
     });
@@ -1060,7 +1064,7 @@ function UnassignedPool({
     showRankings = false,
 }: {
     media: DisplayMedia[];
-    boardId: number | null;
+    boardId: string | number | null;
     assignments: TierAssignment[];
     setAssignments: (assignments: TierAssignment[]) => void;
     showRankings?: boolean;

@@ -19,21 +19,21 @@ interface MediaStore {
     statsVersion: number;
     
     // Selection for mass edit (TASK 9)
-    selectedEntries: Set<number>;
+    selectedEntries: Set<string | number>;
     
     // Actions
     setAnimeList: (list: DisplayMedia[]) => void;
     setMangaList: (list: DisplayMedia[]) => void;
     addEntry: (entry: DisplayMedia) => void;
-    updateEntry: (entryId: number, updates: Partial<DisplayMedia>) => void;
-    deleteEntry: (entryId: number) => void;
+    updateEntry: (entryId: string | number, updates: Partial<DisplayMedia>) => void;
+    deleteEntry: (entryId: string | number) => void;
     invalidateStats: () => void;
     
     // Selection (TASK 9)
-    toggleSelection: (entryId: number) => void;
-    selectAll: (entryIds: number[]) => void;
+    toggleSelection: (entryId: string | number) => void;
+    selectAll: (entryIds: (string | number)[]) => void;
     clearSelection: () => void;
-    isSelected: (entryId: number) => boolean;
+    isSelected: (entryId: string | number) => boolean;
 }
 
 // Global state (singleton pattern)
@@ -41,7 +41,7 @@ let globalState: MediaStore = {
     animeList: [],
     mangaList: [],
     statsVersion: 0,
-    selectedEntries: new Set<number>(),
+    selectedEntries: new Set<string | number>(),
     setAnimeList: () => {},
     setMangaList: () => {},
     addEntry: () => {},
@@ -75,7 +75,7 @@ function initializeState() {
         animeList: [],
         mangaList: [],
         statsVersion: 0,
-        selectedEntries: new Set<number>(),
+        selectedEntries: new Set<string | number>(),
         setAnimeList: (list) => {
             setState({ animeList: list });
             getState().invalidateStats();

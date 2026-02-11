@@ -103,7 +103,7 @@ export interface DisplayMedia {
   progressVolumes: number;
   repeat: number;
   priority: number;
-  tierId: number | null; // TASK 14: Tier assignment
+  tierId: string | number | null; // TASK 14: Tier assignment
   isPrivate: boolean;
   notes: string | null;
   customLists: string[];
@@ -135,7 +135,7 @@ export interface DisplayMedia {
 
   // Internal only - never shown in UI
   _seriesId: number;
-  _entryId: number; // GDPR entry ID
+  _entryId: string | number; // GDPR entry ID or Supabase UUID
   _userId: string | number; // GDPR user ID or Supabase UUID
   _enriched: boolean;
 }

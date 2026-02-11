@@ -17,7 +17,7 @@ export interface MediaCacheEntry {
 
 // ============= User Entries (List Items) =============
 export interface UserEntry {
-    entryId: number;
+    entryId: string | number;
     seriesId: number;
     userId: string | number;
     data: any; // DisplayMedia (partial - only user-editable fields)
@@ -26,9 +26,9 @@ export interface UserEntry {
 }
 
 // ============= Tier System =============
+// PHASE 1.1: Tier Board
 export interface TierBoard {
-    id?: number;
-    userId?: number; // For cloud sync
+    id?: string | number;
     name: string;
     description: string;
     createdAt: number;
@@ -36,21 +36,22 @@ export interface TierBoard {
 }
 
 export interface Tier {
-    id?: number;
-    boardId: number;
-    userId?: number; // For cloud sync
+    id?: string | number;
+    boardId: string | number;
+    userId?: string | number; // For cloud sync
     name: string;
     color: string;
     order: number;
 }
 
+// PHASE 1.3: Media Placement
 export interface TierAssignment {
-    id?: number;
-    boardId: number;
-    mediaId: number;
-    tierId: number | null;
-    position: number;
-    userId?: number; // For cloud sync
+    id?: string | number;
+    boardId: string | number;
+    mediaId: string | number; // DisplayMedia._entryId
+    tierId: string | number | null; // null = unassigned pool
+    position: number; // Order within tier
+    userId?: string | number; // For cloud sync
 }
 
 // ============= Tags/Custom Lists =============
@@ -72,10 +73,10 @@ export interface UserSettings {
 
 // ============= Sync Metadata =============
 export interface SyncRecord {
-    id?: number;
-    userId: number;
+    id?: string | number;
+    userId: string | number;
     entity: string; // "user_entry", "tier_board", "tier_assignment", etc.
-    entityId: number;
+    entityId: string | number;
     operation: "create" | "update" | "delete";
     timestamp: number;
     synced: boolean;
@@ -101,46 +102,46 @@ export interface IStorageProvider {
     /**
      * User Entry Operations (List Items)
      */
-    getUserEntry(entryId: number): Promise<UserEntry | null>;
-    getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>>;
-    saveUserEntry(entry: UserEntry): Promise<void>;
-    deleteUserEntry(entryId: number): Promise<void>;
-    hardDeleteUserEntry(entryId: number): Promise<void>;
+    getUserEntry(entryId: string | number): Promise<UserEntry | null>;
+    getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>>;
+    saveUserEntry(entry: UserEntry): Promise<string | number>;
+    deleteUserEntry(entryId: string | number): Promise<void>;
+    hardDeleteUserEntry(entryId: string | number): Promise<void>;
 
     /**
      * Tier Board Operations
      */
-    getTierBoard(id: number): Promise<TierBoard | null>;
-    getAllTierBoards(userId?: number): Promise<TierBoard[]>;
-    createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<number>;
-    updateTierBoard(id: number, updates: Partial<TierBoard>): Promise<void>;
-    deleteTierBoard(id: number): Promise<void>;
+    getTierBoard(id: string | number): Promise<TierBoard | null>;
+    getAllTierBoards(userId?: string | number): Promise<TierBoard[]>;
+    createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<string | number>;
+    updateTierBoard(id: string | number, updates: Partial<TierBoard>): Promise<void>;
+    deleteTierBoard(id: string | number): Promise<void>;
 
     /**
      * Tier Operations
      */
-    getTier(id: number): Promise<Tier | null>;
-    getTiersByBoard(boardId: number): Promise<Tier[]>;
-    createTier(tier: Omit<Tier, "id">): Promise<number>;
-    updateTier(id: number, updates: Partial<Tier>): Promise<void>;
-    deleteTier(id: number): Promise<void>;
+    getTier(id: string | number): Promise<Tier | null>;
+    getTiersByBoard(boardId: string | number): Promise<Tier[]>;
+    createTier(tier: Omit<Tier, "id">): Promise<string | number>;
+    updateTier(id: string | number, updates: Partial<Tier>): Promise<void>;
+    deleteTier(id: string | number): Promise<void>;
 
     /**
      * Tier Assignment Operations
      */
-    getAssignment(id: number): Promise<TierAssignment | null>;
-    getAssignmentsForBoard(boardId: number): Promise<TierAssignment[]>;
-    getAssignmentsForMedia(mediaId: number): Promise<TierAssignment[]>;
-    saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<number>;
-    updateAssignment(id: number, updates: Partial<TierAssignment>): Promise<void>;
-    deleteAssignment(id: number): Promise<void>;
+    getAssignment(id: string | number): Promise<TierAssignment | null>;
+    getAssignmentsForBoard(boardId: string | number): Promise<TierAssignment[]>;
+    getAssignmentsForMedia(mediaId: string | number): Promise<TierAssignment[]>;
+    saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<string | number>;
+    updateAssignment(id: string | number, updates: Partial<TierAssignment>): Promise<void>;
+    deleteAssignment(id: string | number): Promise<void>;
 
     /**
      * Sync Operations (for cloud provider)
      */
     recordSync?(record: Omit<SyncRecord, "id">): Promise<void>;
     getPendingSyncs?(userId: string | number): Promise<SyncRecord[]>;
-    markSynced?(recordId: number): Promise<void>;
+    markSynced?(recordId: string | number): Promise<void>;
 
     /**
      * Settings Operations

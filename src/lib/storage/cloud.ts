@@ -24,6 +24,11 @@ export class CloudStorageProvider implements IStorageProvider {
     private ready = false;
     private local: LocalStorageProvider;
     private subscriptions: Map<string, any> = new Map();
+    private isUUID(id: any): boolean {
+        if (typeof id !== "string") return false;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        return uuidRegex.test(id);
+    }
 
     constructor(userId?: string) {
         this.userId = userId || null;
@@ -88,7 +93,7 @@ export class CloudStorageProvider implements IStorageProvider {
     }
 
     // ============= User Entries (Cloud-First) =============
-    async getUserEntry(entryId: number): Promise<UserEntry | null> {
+    async getUserEntry(entryId: string | number): Promise<UserEntry | null> {
         assertCloud("CloudStorage.getUserEntry");
 
         if (!this.supabase || !this.userId) {
@@ -114,7 +119,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    async getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>> {
+    async getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>> {
         assertCloud("CloudStorage.getAllUserEntries");
 
         if (!this.supabase || !this.userId) {
@@ -131,7 +136,7 @@ export class CloudStorageProvider implements IStorageProvider {
 
             if (error) throw error;
 
-            const entries = new Map<number, UserEntry>();
+            const entries = new Map<string | number, UserEntry>();
             (data || []).forEach((row: any) => {
                 entries.set(row.id, this.mapToUserEntry(row));
             });
@@ -144,7 +149,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    async saveUserEntry(entry: UserEntry): Promise<void> {
+    async saveUserEntry(entry: UserEntry): Promise<string | number> {
         assertCloud("CloudStorage.saveUserEntry");
 
         if (!this.supabase || !this.userId) {
@@ -152,8 +157,13 @@ export class CloudStorageProvider implements IStorageProvider {
         }
 
         try {
+            // TASK 7 & 4: Safety log and UUID check
+            const isRealUUID = this.isUUID(entry.entryId);
+            if (!isRealUUID && entry.entryId !== 0) {
+                console.warn(`%c⚠️ Safety: Entry ID "${entry.entryId}" is not a valid UUID. Removing from payload.`, "color: #fcc419;");
+            }
+
             const record: any = {
-                id: entry.entryId,
                 user_id: this.userId,
                 series_id: entry.seriesId,
                 data: entry.data,
@@ -163,32 +173,47 @@ export class CloudStorageProvider implements IStorageProvider {
                 media_type: entry.data.mediaType || "ANIME",
             };
 
-            DataLog.inserted("SUPABASE", entry.entryId);
-            const { error } = await this.supabase.from("user_media").upsert([record], { onConflict: "id" });
+            // TASK 1: Remove id from create payload (only keep if it's a real UUID)
+            if (isRealUUID) {
+                record.id = entry.entryId;
+            }
+
+            DataLog.inserted("SUPABASE", isRealUUID ? entry.entryId : "NEW (AUTO-UUID)");
+            
+            // TASK 2 & 3: Use upsert with conflict on (user_id, series_id) to let DB generate ID
+            const { data, error } = await this.supabase
+                .from("user_media")
+                .upsert([record], { onConflict: "user_id, series_id" })
+                .select();
 
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error("No data returned from Supabase after save");
+
+            const savedRecord = data[0];
+            const newId = savedRecord.id;
 
             // Verification
             const { data: verifyData, error: verifyError } = await this.supabase
                 .from("user_media")
                 .select("*")
-                .eq("id", entry.entryId)
+                .eq("id", newId)
                 .eq("user_id", this.userId)
                 .single();
 
             if (verifyError || !verifyData) {
-                DataLog.verified(entry.entryId, "SUPABASE", false);
+                DataLog.verified(newId, "SUPABASE", false);
                 throw new Error("Verification failed after insert");
             }
 
-            DataLog.verified(entry.entryId, "SUPABASE", true);
+            DataLog.verified(newId, "SUPABASE", true);
+            return newId;
         } catch (err) {
             DataLog.error("saveUserEntry", err);
             throw err;
         }
     }
 
-    async deleteUserEntry(entryId: number): Promise<void> {
+    async deleteUserEntry(entryId: string | number): Promise<void> {
         assertCloud("CloudStorage.deleteUserEntry");
 
         if (!this.supabase || !this.userId) {
@@ -210,7 +235,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    async hardDeleteUserEntry(entryId: number): Promise<void> {
+    async hardDeleteUserEntry(entryId: string | number): Promise<void> {
         assertCloud("CloudStorage.hardDeleteUserEntry");
 
         if (!this.supabase || !this.userId) {
@@ -233,69 +258,69 @@ export class CloudStorageProvider implements IStorageProvider {
     }
 
     // ============= Tier Boards (Local-only for now) =============
-    async getTierBoard(id: number): Promise<TierBoard | null> {
+    async getTierBoard(id: string | number): Promise<TierBoard | null> {
         return this.local.getTierBoard(id);
     }
 
-    async getAllTierBoards(userId?: number): Promise<TierBoard[]> {
+    async getAllTierBoards(userId?: string | number): Promise<TierBoard[]> {
         return this.local.getAllTierBoards(userId);
     }
 
-    async createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<number> {
+    async createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<string | number> {
         return this.local.createTierBoard(board);
     }
 
-    async updateTierBoard(id: number, updates: Partial<TierBoard>): Promise<void> {
+    async updateTierBoard(id: string | number, updates: Partial<TierBoard>): Promise<void> {
         return this.local.updateTierBoard(id, updates);
     }
 
-    async deleteTierBoard(id: number): Promise<void> {
+    async deleteTierBoard(id: string | number): Promise<void> {
         return this.local.deleteTierBoard(id);
     }
 
     // ============= Tiers (Local-only for now) =============
-    async getTier(id: number): Promise<Tier | null> {
+    async getTier(id: string | number): Promise<Tier | null> {
         return this.local.getTier(id);
     }
 
-    async getTiersByBoard(boardId: number): Promise<Tier[]> {
+    async getTiersByBoard(boardId: string | number): Promise<Tier[]> {
         return this.local.getTiersByBoard(boardId);
     }
 
-    async createTier(tier: Omit<Tier, "id">): Promise<number> {
+    async createTier(tier: Omit<Tier, "id">): Promise<string | number> {
         return this.local.createTier(tier);
     }
 
-    async updateTier(id: number, updates: Partial<Tier>): Promise<void> {
+    async updateTier(id: string | number, updates: Partial<Tier>): Promise<void> {
         return this.local.updateTier(id, updates);
     }
 
-    async deleteTier(id: number): Promise<void> {
+    async deleteTier(id: string | number): Promise<void> {
         return this.local.deleteTier(id);
     }
 
     // ============= Tier Assignments (Local-only for now) =============
-    async getAssignment(id: number): Promise<TierAssignment | null> {
+    async getAssignment(id: string | number): Promise<TierAssignment | null> {
         return this.local.getAssignment(id);
     }
 
-    async getAssignmentsForBoard(boardId: number): Promise<TierAssignment[]> {
+    async getAssignmentsForBoard(boardId: string | number): Promise<TierAssignment[]> {
         return this.local.getAssignmentsForBoard(boardId);
     }
 
-    async getAssignmentsForMedia(mediaId: number): Promise<TierAssignment[]> {
+    async getAssignmentsForMedia(mediaId: string | number): Promise<TierAssignment[]> {
         return this.local.getAssignmentsForMedia(mediaId);
     }
 
-    async saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<number> {
+    async saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<string | number> {
         return this.local.saveAssignment(assignment);
     }
 
-    async updateAssignment(id: number, updates: Partial<TierAssignment>): Promise<void> {
+    async updateAssignment(id: string | number, updates: Partial<TierAssignment>): Promise<void> {
         return this.local.updateAssignment(id, updates);
     }
 
-    async deleteAssignment(id: number): Promise<void> {
+    async deleteAssignment(id: string | number): Promise<void> {
         return this.local.deleteAssignment(id);
     }
 
@@ -308,7 +333,7 @@ export class CloudStorageProvider implements IStorageProvider {
         return this.local.getPendingSyncs(userId);
     }
 
-    async markSynced(recordId: number): Promise<void> {
+    async markSynced(recordId: string | number): Promise<void> {
         return this.local.markSynced(recordId);
     }
 

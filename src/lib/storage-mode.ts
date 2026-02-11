@@ -96,16 +96,16 @@ export const DataLog = {
         console.log(`%c[DATA] reading from ${source}${suffix}`, `color: #4dabf7; font-weight: bold;`);
     },
 
-    inserted: (source: "SUPABASE" | "INDEXEDDB", id: number) => {
+    inserted: (source: "SUPABASE" | "INDEXEDDB", id: string | number) => {
         console.log(`%c[DATA] inserted into ${source} id=${id}`, `color: #51cf66; font-weight: bold;`);
     },
 
-    updated: (source: "SUPABASE" | "INDEXEDDB", id: number, fields?: string[]) => {
+    updated: (source: "SUPABASE" | "INDEXEDDB", id: string | number, fields?: string[]) => {
         const fieldStr = fields ? ` (${fields.join(", ")})` : "";
         console.log(`%c[DATA] updated in ${source} id=${id}${fieldStr}`, `color: #ffd43b; font-weight: bold;`);
     },
 
-    deleted: (source: "SUPABASE" | "INDEXEDDB", id: number, soft: boolean = false) => {
+    deleted: (source: "SUPABASE" | "INDEXEDDB", id: string | number, soft: boolean = false) => {
         const type = soft ? "soft" : "hard";
         console.log(`%c[DATA] ${type} deleted from ${source} id=${id}`, `color: #ff8787; font-weight: bold;`);
     },
@@ -117,7 +117,7 @@ export const DataLog = {
         );
     },
 
-    verified: (id: number, source: "SUPABASE" | "INDEXEDDB", success: boolean) => {
+    verified: (id: string | number, source: "SUPABASE" | "INDEXEDDB", success: boolean) => {
         const status = success ? "✅ VERIFIED" : "❌ VERIFICATION FAILED";
         const color = success ? "#51cf66" : "#ff0000";
         console.log(`%c[DATA] ${status} - ${source} id=${id}`, `color: ${color}; font-weight: bold;`);

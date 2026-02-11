@@ -35,8 +35,8 @@ interface DataContextValue {
 
     // TASK 4: CRUD operations
     addEntry: (entry: Partial<DisplayMedia> & { _seriesId: number; mediaType: MediaType }) => Promise<void>;
-    updateEntry: (entryId: number, updates: Partial<DisplayMedia>) => Promise<void>;
-    deleteEntry: (entryId: number) => Promise<void>;
+    updateEntry: (entryId: string | number, updates: Partial<DisplayMedia>) => Promise<void>;
+    deleteEntry: (entryId: string | number) => Promise<void>;
     searchAniList: (query: string, type: "ANIME" | "MANGA") => Promise<DisplayMedia[]>;
 }
 
@@ -54,7 +54,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [enrichProgress, setEnrichProgress] = useState({ loaded: 0, total: 0 });
     const [user, setUser] = useState<DisplayUser | null>(null);
     const [rawData, setRawData] = useState<GdprData | null>(null);
-    const [userEdits, setUserEdits] = useState<Map<number, UserEntry>>(new Map());
+    const [userEdits, setUserEdits] = useState<Map<string | number, UserEntry>>(new Map());
     const [error, setError] = useState<string | null>(null);
     const [storageMode, setStorageMode] = useState<"cloud" | "local">("local");
 
@@ -268,7 +268,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 // applyUserEdits merges database edits into base JSON entries
                 const applyUserEdits = (
                     entries: DisplayMedia[],
-                    userEditsMap: Map<number, UserEntry>,
+                    userEditsMap: Map<string | number, UserEntry>,
                 ): DisplayMedia[] => {
                     return entries.map(entry => {
                         const edit = userEditsMap.get(entry._entryId);
@@ -287,8 +287,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
                 // identifyStandaloneEdits finds entries in database that are NOT in the base JSON
                 const identifyStandaloneEdits = (
-                    existingIds: Set<number>,
-                    userEditsMap: Map<number, UserEntry>,
+                    existingIds: Set<string | number>,
+                    userEditsMap: Map<string | number, UserEntry>,
                     type: MediaType,
                 ): DisplayMedia[] => {
                     const standalone: DisplayMedia[] = [];
@@ -344,8 +344,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 let mangaEntries = parsed.mangaEntries;
 
                 // Track existing IDs from JSON
-                const existingAnimeIds = new Set(animeEntries.map(e => e._entryId));
-                const existingMangaIds = new Set(mangaEntries.map(e => e._entryId));
+                const existingAnimeIds = new Set<string | number>(animeEntries.map(e => e._entryId));
+                const existingMangaIds = new Set<string | number>(mangaEntries.map(e => e._entryId));
 
                 // 1. Apply edits to existing JSON entries
                 animeEntries = applyUserEdits(animeEntries, edits);
@@ -385,7 +385,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         const currentManga = getMediaStoreState().mangaList;
                         
                         // Combine all unique entries across both lists
-                        const allEntriesMap = new Map<number, DisplayMedia>();
+                        const allEntriesMap = new Map<string | number, DisplayMedia>();
                         [...currentAnime, ...currentManga].forEach(e => {
                             const enriched = enrichEntryWithUserEdits(e, edits);
                             // Real media type comes from enrichment (API) or previously stored data
@@ -504,8 +504,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 throw new Error("Sign in required to add entries");
             }
 
-            // Generate a temporary entry ID (negative for new entries)
-            const tempEntryId = Date.now() * -1;
+            // TASK 5: Generate a temporary entry ID (with temp- prefix)
+            const tempEntryId = `temp-${Date.now()}`;
 
             const newEntry: DisplayMedia = {
                 status: entry.status || "PLANNING",
@@ -551,8 +551,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
             // Save to Storage Provider (PHASE 3: All CRUD → cloud)
             const storage = getStorageProvider();
+            let finalId: string | number = tempEntryId;
             try {
-                await storage.saveUserEntry({
+                finalId = await storage.saveUserEntry({
                     entryId: tempEntryId,
                     seriesId: entry._seriesId,
                     userId: user.id,
@@ -582,16 +583,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 throw err;
             }
 
+            // TASK 3: Update with the REAL ID returned from server
+            const finalEntry = { ...enriched, _entryId: finalId };
+
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { addEntry: storeAddEntry } = getMediaStoreState();
-            storeAddEntry(enriched);
+            storeAddEntry(finalEntry);
         },
         [user, userEdits],
     );
 
     // TASK 4: Update entry
     const updateEntry = useCallback(
-        async (entryId: number, updates: Partial<DisplayMedia>) => {
+        async (entryId: string | number, updates: Partial<DisplayMedia>) => {
             if (!user) return;
 
             // PHASE 4: Block guest users from updating entries
@@ -643,9 +647,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
             // Save user edits to Storage Provider (PHASE 3: All CRUD → cloud)
             const storage = getStorageProvider();
+            let finalId = entryId;
             try {
                 DataLog.updated("SUPABASE", entryId, changedFields);
-                await storage.saveUserEntry({
+                finalId = await storage.saveUserEntry({
                     entryId,
                     seriesId: existingEntry._seriesId,
                     userId: user.id,
@@ -676,13 +681,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { updateEntry: storeUpdateEntry } = getMediaStoreState();
-            storeUpdateEntry(entryId, updates);
+            storeUpdateEntry(finalId, updates);
 
             // Update user edits map
             setUserEdits(prev => {
                 const newMap = new Map(prev);
-                newMap.set(entryId, {
-                    entryId,
+                newMap.set(finalId, {
+                    entryId: finalId,
                     seriesId: existingEntry._seriesId,
                     userId: user.id,
                     data: updates,
@@ -697,7 +702,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // TASK 4: Delete entry (soft delete)
     const deleteEntry = useCallback(
-        async (entryId: number) => {
+        async (entryId: string | number) => {
             if (!user) return;
 
             // PHASE 4: Block guest users from deleting entries

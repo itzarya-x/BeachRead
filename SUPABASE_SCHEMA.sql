@@ -3,7 +3,7 @@
 
 -- 1. Ensure the table exists
 CREATE TABLE IF NOT EXISTS public.user_media (
-    id BIGINT PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     series_id INTEGER NOT NULL,
     data JSONB NOT NULL DEFAULT '{}'::jsonb,

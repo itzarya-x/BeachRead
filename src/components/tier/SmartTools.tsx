@@ -2,13 +2,13 @@
  * PHASE 5: Smart Tools for TierMaker
  */
 
-import { Sparkles, Trash } from "lucide-react";
-import type { DisplayMedia } from "@/types/display";
 import type { Tier, TierAssignment } from "@/lib/tierDatabase";
-import { saveAssignment, deleteAssignment } from "@/lib/tierDatabase";
+import { deleteAssignment, saveAssignment } from "@/lib/tierDatabase";
+import type { DisplayMedia } from "@/types/display";
+import { Sparkles, Trash } from "lucide-react";
 
 interface SmartToolsProps {
-    boardId: number;
+    boardId: string | number;
     tiers: Tier[];
     assignments: TierAssignment[];
     allMedia: DisplayMedia[];
@@ -60,7 +60,7 @@ export function SmartTools({ boardId, tiers, assignments, allMedia, onAssignment
     };
 
     // PHASE 5.4: Clear tier
-    const handleClearTier = async (tierId: number) => {
+    const handleClearTier = async (tierId: string | number) => {
         if (!confirm("Clear all items from this tier?")) return;
 
         const tierAssignments = assignments.filter(a => a.tierId === tierId && a.boardId === boardId);

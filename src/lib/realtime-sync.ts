@@ -17,8 +17,8 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 interface RealtimeSyncConfig {
     userId: string;
     onInsert?: (entry: DisplayMedia) => void;
-    onUpdate?: (entryId: number, updates: Partial<DisplayMedia>) => void;
-    onDelete?: (entryId: number) => void;
+    onUpdate?: (entryId: string | number, updates: Partial<DisplayMedia>) => void;
+    onDelete?: (entryId: string | number) => void;
     onError?: (error: Error) => void;
 }
 

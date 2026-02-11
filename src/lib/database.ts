@@ -29,7 +29,7 @@ export interface MediaCacheEntry {
 }
 
 export interface UserEntry {
-    entryId: number;
+    entryId: string | number;
     seriesId: number;
     userId: string | number;
     data: any; // DisplayMedia (partial - only user-editable fields)
@@ -153,17 +153,17 @@ export async function getAllMediaCache(): Promise<Map<number, any>> {
 /**
  * TASK 3: Save user entry (preserves user edits)
  */
-export async function saveUserEntry(entry: UserEntry): Promise<void> {
+export async function saveUserEntry(entry: UserEntry): Promise<string | number> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_USER_ENTRIES], "readwrite");
     const store = transaction.objectStore(STORE_USER_ENTRIES);
 
-    await new Promise<void>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         const request = store.put({
             ...entry,
             editedAt: Date.now(),
         });
-        request.onsuccess = () => resolve();
+        request.onsuccess = () => resolve(request.result as string | number);
         request.onerror = () => reject(request.error);
     });
 }
@@ -171,7 +171,7 @@ export async function saveUserEntry(entry: UserEntry): Promise<void> {
 /**
  * TASK 3: Get user entry
  */
-export async function getUserEntry(entryId: number): Promise<UserEntry | null> {
+export async function getUserEntry(entryId: string | number): Promise<UserEntry | null> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_USER_ENTRIES], "readonly");
     const store = transaction.objectStore(STORE_USER_ENTRIES);
@@ -188,7 +188,7 @@ export async function getUserEntry(entryId: number): Promise<UserEntry | null> {
 /**
  * TASK 3: Get all user entries for a user
  */
-export async function getAllUserEntries(userId: string | number): Promise<Map<number, UserEntry>> {
+export async function getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_USER_ENTRIES], "readonly");
     const store = transaction.objectStore(STORE_USER_ENTRIES);
@@ -197,7 +197,7 @@ export async function getAllUserEntries(userId: string | number): Promise<Map<nu
     return new Promise((resolve, reject) => {
         const request = index.getAll(userId);
         request.onsuccess = () => {
-            const map = new Map<number, UserEntry>();
+            const map = new Map<string | number, UserEntry>();
             for (const entry of request.result) {
                 if (!entry.deleted) {
                     map.set(entry.entryId, entry);
@@ -212,7 +212,7 @@ export async function getAllUserEntries(userId: string | number): Promise<Map<nu
 /**
  * TASK 4: Soft delete user entry
  */
-export async function deleteUserEntry(entryId: number): Promise<void> {
+export async function deleteUserEntry(entryId: string | number): Promise<void> {
     const entry = await getUserEntry(entryId);
     if (!entry) return;
 
@@ -225,7 +225,7 @@ export async function deleteUserEntry(entryId: number): Promise<void> {
 /**
  * TASK 4: Hard delete user entry (permanent removal)
  */
-export async function hardDeleteUserEntry(entryId: number): Promise<void> {
+export async function hardDeleteUserEntry(entryId: string | number): Promise<void> {
     const db = await initDatabase();
     const transaction = db.transaction([STORE_USER_ENTRIES], "readwrite");
     const store = transaction.objectStore(STORE_USER_ENTRIES);
