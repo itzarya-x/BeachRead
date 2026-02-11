@@ -1,27 +1,45 @@
 import { SidebarAccountBlock } from "@/components/account/SidebarAccountBlock";
 import { CloudSyncStatusIndicator } from "@/components/sync/CloudSyncStatusIndicator";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatusIndicator";
-import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
-import { BarChart3, BookOpen, ChevronLeft, Clock, Database, Heart, Home, Settings, Trophy, Tv } from "lucide-react";
+import {
+    Activity as ActivityIcon,
+    BarChart3,
+    BookOpen,
+    ChevronLeft,
+    Home,
+    Play,
+    Trophy,
+    Tv
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 const mainNav = [
-    { path: "/", label: "Home", icon: Home },
-    { path: "/anime", label: "Anime", icon: Tv },
-    { path: "/manga", label: "Manga", icon: BookOpen },
-    { path: "/tier-maker", label: "Tier Maker", icon: Trophy },
-    { path: "/tiers", label: "Tiers", icon: Trophy },
-    { path: "/stats", label: "Stats", icon: BarChart3 },
-    { path: "/activity", label: "Activity", icon: Clock },
+    {
+        title: "Main",
+        items: [
+            { path: "/", label: "Home", icon: Home },
+            { path: "/continue", label: "Continue", icon: Play },
+        ]
+    },
+    {
+        title: "Library",
+        items: [
+            { path: "/anime", label: "Anime", icon: Tv },
+            { path: "/manga", label: "Manga", icon: BookOpen },
+        ]
+    },
+    {
+        title: "Discover",
+        items: [
+             { path: "/tier-maker", label: "Tier Lists", icon: Trophy },
+             { path: "/stats", label: "Stats", icon: BarChart3 },
+             { path: "/activity", label: "Activity", icon: ActivityIcon },
+        ]
+    },
 ];
 
-const secondaryNav = [
-    { path: "/custom-lists", label: "Favourites", icon: Heart },
-    { path: "/settings", label: "Settings", icon: Settings },
-    { path: "/raw-data", label: "Raw Data", icon: Database },
-];
 
 interface AppSidebarProps {
     isCollapsed?: boolean;
@@ -30,7 +48,6 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSidebarProps) {
     const location = useLocation();
-    const { user } = useData();
     const [collapsed, setCollapsed] = useState(isCollapsed);
 
     const handleToggleCollapse = () => {
@@ -42,143 +59,109 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 h-screen bg-surface-1 border-r border-border/30 transition-all duration-300 flex flex-col z-40",
-                collapsed ? "w-20" : "w-64",
+                "fixed left-0 top-0 h-screen bg-sidebar-background/80 backdrop-blur-2xl border-r border-white/5 transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col z-40",
+                "hidden md:flex", // Hide on mobile
+                collapsed ? "w-20" : "w-72",
             )}
         >
             {/* Header */}
-            <div className="p-4 border-b border-border/20 space-y-4">
-                {/* Logo and collapse button */}
-                <div className="flex items-center justify-between">
-                    {!collapsed && (
-                        <Link to="/" className="font-display font-extrabold text-xl text-gradient">
-                            Yura
-                        </Link>
-                    )}
-                    <button
-                        onClick={handleToggleCollapse}
-                        className="p-1.5 rounded-lg hover:bg-secondary transition-colors ml-auto"
-                        title={collapsed ? "Expand" : "Collapse"}
-                    >
-                        <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
-                    </button>
-                </div>
-
-                {/* User Profile */}
-                <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
-                    {user?.avatarUrl ? (
-                        <img
-                            src={user.avatarUrl}
-                            alt={user.displayName}
-                            className="w-10 h-10 rounded-lg object-cover ring-2 ring-primary/20"
-                        />
-                    ) : (
-                        <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                            {user?.displayName.charAt(0).toUpperCase()}
+            <div className="h-20 flex items-center justify-between px-6">
+                {!collapsed && (
+                    <Link to="/" className="flex items-center gap-3 group">
+                        <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center rotate-3 group-hover:rotate-12 transition-all duration-500 shadow-glow">
+                             <div className="-rotate-3 group-hover:-rotate-12 transition-all duration-500 text-primary-foreground font-black text-lg">Y</div>
                         </div>
+                        <span className="font-display font-black text-2xl tracking-tighter text-foreground group-hover:text-primary transition-all duration-500">
+                            YURA
+                        </span>
+                    </Link>
+                )}
+                <button
+                    onClick={handleToggleCollapse}
+                    className={cn(
+                        "p-2.5 rounded-xl hover:bg-white/5 text-muted-foreground hover:text-foreground transition-all active:scale-90",
+                        collapsed ? "mx-auto" : "ml-auto"
                     )}
-                    {!collapsed && (
-                        <div className="min-w-0">
-                            <p className="text-xs font-semibold text-muted-foreground">Logged in as</p>
-                            <p className="text-sm font-bold text-foreground truncate">{user?.displayName}</p>
-                        </div>
-                    )}
-                </div>
+                    title={collapsed ? "Expand" : "Collapse"}
+                >
+                    <ChevronLeft className={cn("w-5 h-5 transition-transform duration-700 ease-in-out", collapsed && "rotate-180")} />
+                </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-                {/* Main Navigation */}
-                <div className="space-y-1">
-                    {mainNav.map(link => {
-                        const isActive =
-                            link.path === "/" ? location.pathname === "/" : location.pathname.startsWith(link.path);
-                        return (
-                            <Link
-                                key={link.path}
-                                to={link.path}
-                                className={cn(
-                                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
-                                    isActive
-                                        ? "bg-primary/20 text-primary border-l-2 border-primary"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
-                                )}
-                                title={collapsed ? link.label : undefined}
-                            >
-                                <link.icon className="w-5 h-5 shrink-0" />
-                                {!collapsed && <span className="text-sm font-medium">{link.label}</span>}
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                {/* Secondary Navigation */}
-                {!collapsed && (
-                    <>
-                        <div className="my-4 border-t border-border/20" />
-                        <div className="space-y-1">
-                            {secondaryNav.map(link => {
-                                const isActive = location.pathname === link.path;
+            <nav className="flex-1 overflow-y-auto px-4 py-8 space-y-10 scrollbar-hide">
+                {mainNav.map((section, idx) => (
+                    <div key={idx} className="space-y-4">
+                        {!collapsed && (
+                            <h3 className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em] px-4">
+                                {section.title}
+                            </h3>
+                        )}
+                        <div className="space-y-1.5 font-display">
+                            {section.items.map(link => {
+                                const isActive = link.path === "/" 
+                                    ? location.pathname === "/" 
+                                    : location.pathname.startsWith(link.path);
+                                
                                 return (
                                     <Link
                                         key={link.path}
                                         to={link.path}
                                         className={cn(
-                                            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                                            "relative flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-500 group overflow-hidden",
                                             isActive
-                                                ? "bg-primary/20 text-primary border-l-2 border-primary"
-                                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                                                ? "bg-primary text-primary-foreground shadow-glow shadow-primary/20"
+                                                : "text-muted-foreground/60 hover:text-foreground hover:bg-white/[0.04]",
+                                            collapsed && "justify-center px-0"
                                         )}
+                                        title={collapsed ? link.label : undefined}
                                     >
-                                        <link.icon className="w-5 h-5 shrink-0" />
-                                        <span className="text-sm font-medium">{link.label}</span>
+                                        <link.icon className={cn(
+                                            "w-5 h-5 shrink-0 transition-all duration-500 group-hover:scale-110",
+                                            isActive ? "text-primary-foreground" : "group-hover:text-primary"
+                                        )} strokeWidth={isActive ? 2.5 : 2} />
+                                        
+                                        {!collapsed && (
+                                            <span className={cn(
+                                                "text-sm font-bold tracking-tight transition-all duration-500",
+                                                isActive ? "translate-x-0.5" : "group-hover:translate-x-1"
+                                            )}>
+                                                {link.label}
+                                            </span>
+                                        )}
+                                        
+                                        {/* Active Glow Pill (if not collapsed) */}
+                                        {isActive && !collapsed && (
+                                            <div className="absolute right-2 w-1.5 h-1.5 rounded-full bg-primary-foreground/50" />
+                                        )}
                                     </Link>
                                 );
                             })}
                         </div>
-                    </>
-                )}
+                    </div>
+                ))}
             </nav>
 
             {/* Footer */}
-            {!collapsed && (
-                <div className="p-3 border-t border-border/20 space-y-3">
-                    {/* Account Block (PHASE 1) */}
-                    <SidebarAccountBlock collapsed={false} />
-
-                    {/* Cloud Sync Status (PHASE 8) */}
-                    <div className="flex justify-center">
-                        <CloudSyncStatusIndicator />
-                    </div>
-
-                    {/* Sync Status */}
-                    <div className="flex justify-center">
-                        <SyncStatusIndicator
-                            status="synced"
-                            lastSyncTime={new Date()}
-                            itemsUploaded={0}
-                            itemsDownloaded={0}
-                            conflictCount={0}
-                        />
-                    </div>
-                    <p className="text-xs text-muted-foreground/60 text-center">v1.0</p>
+            <div className="p-4 border-t border-border/10 bg-black/20 backdrop-blur-md">
+                <div className="space-y-4">
+                    {/* Account Block */}
+                    <SidebarAccountBlock collapsed={collapsed} />
+                    
+                    {!collapsed && (
+                        <div className="flex items-center justify-between px-2 pt-2">
+                            <CloudSyncStatusIndicator />
+                            <SyncStatusIndicator
+                                status="synced"
+                                lastSyncTime={new Date()}
+                                itemsUploaded={0}
+                                itemsDownloaded={0}
+                                conflictCount={0}
+                            />
+                        </div>
+                    )}
                 </div>
-            )}
-            {collapsed && (
-                <div className="p-3 border-t border-border/20 space-y-3 flex flex-col items-center justify-center">
-                    {/* Account Block (PHASE 1) */}
-                    <SidebarAccountBlock collapsed={true} />
-
-                    <CloudSyncStatusIndicator />
-                    <SyncStatusIndicator
-                        status="synced"
-                        lastSyncTime={new Date()}
-                        itemsUploaded={0}
-                        itemsDownloaded={0}
-                        conflictCount={0}
-                    />
-                </div>
-            )}
+            </div>
         </aside>
     );
 }

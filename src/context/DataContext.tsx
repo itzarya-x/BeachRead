@@ -1,15 +1,23 @@
 import { fetchMediaBatched, getCachedMedia, initializeCache, searchAniListMedia } from "@/lib/anilist-api";
+import { dbClearAllLocalEntries, dbGetAllLocalEntries } from "@/lib/database";
 import { editHistory } from "@/lib/editHistory";
 import { mapCountryToOriginType, parseGdprData } from "@/lib/gdpr-parser";
 import { getRealtimeSyncManager } from "@/lib/realtime-sync";
 import { getStorageProvider, switchStorageProvider } from "@/lib/storage";
 import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-mode";
-import type { UserEntry } from "@/lib/storage/types";
+import { CloudStorageProvider } from "@/lib/storage/cloud";
+import type { ActivityLog, UserEntry } from "@/lib/storage/types";
+import { dbClearAllLocalTierData, dbGetAllLocalAssignments, dbGetAllLocalTiers, getAllTierBoards as dbGetAllTierBoards } from "@/lib/tierDatabase";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
 import type { GdprData } from "@/types/gdpr";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
+
+export interface DuplicateCheck {
+    existing: DisplayMedia;
+    pending: Partial<DisplayMedia> & { _seriesId: number; mediaType: MediaType };
+}
 
 interface DataContextValue {
     // Loading states
@@ -38,6 +46,15 @@ interface DataContextValue {
     updateEntry: (entryId: string | number, updates: Partial<DisplayMedia>) => Promise<void>;
     deleteEntry: (entryId: string | number) => Promise<void>;
     searchAniList: (query: string, type: "ANIME" | "MANGA") => Promise<DisplayMedia[]>;
+
+    // MIGRATION
+    migrateLocalData: (onProgress?: (current: number, total: number) => void) => Promise<void>;
+    clearLocalData: () => Promise<void>;
+
+    // DUPLICATE DETECTION
+    duplicateCheck: DuplicateCheck | null;
+    resolveDuplicate: (action: "view" | "update" | "cancel") => Promise<void>;
+    getActivities: () => Promise<ActivityLog[]>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -57,6 +74,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [userEdits, setUserEdits] = useState<Map<string | number, UserEntry>>(new Map());
     const [error, setError] = useState<string | null>(null);
     const [storageMode, setStorageMode] = useState<"cloud" | "local">("local");
+    const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheck | null>(null);
 
     // Get authenticated user from AuthContext
     const { user: authUser } = useAuth();
@@ -261,7 +279,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 const parsed = parseGdprData(data);
                 setUser(parsed.user);
 
-                let edits = new Map<number, UserEntry>();
+                let edits = new Map<string | number, UserEntry>();
                 edits = await storage.getAllUserEntries(parsed.user.id);
                 setUserEdits(edits);
 
@@ -495,8 +513,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // TASK 4: Add entry
     const addEntry = useCallback(
-        async (entry: Partial<DisplayMedia> & { _seriesId: number; mediaType: MediaType }) => {
+        async (
+            entry: Partial<DisplayMedia> & { _seriesId: number; mediaType: MediaType },
+            isImport: boolean = false,
+        ) => {
             if (!user) return;
+
+            // TASK 1: Pre-insert duplicate check
+            const list = entry.mediaType === "ANIME" ? animeList : mangaList;
+            const existing = list.find(m => {
+                if (m._seriesId !== 0 && m._seriesId === entry._seriesId) return true;
+                // Fallback to title match if seriesId missing
+                const mTitle = (m.title.romaji || m.title.english || "").toLowerCase();
+                const eTitle = (entry.title?.romaji || entry.title?.english || "").toLowerCase();
+                return eTitle !== "" && mTitle === eTitle;
+            });
+
+            if (existing) {
+                if (isImport) {
+                    // TASK 3: Import mode - auto merge
+                    console.log(`%c[DUPLICATE] Auto-merging ${entry.title?.romaji || "Item"}`, "color: #4dabf7;");
+                    await updateEntry(existing._entryId, entry);
+                    return;
+                }
+
+                // TASK 2: If found, open modal (via state)
+                console.log(`%c[DUPLICATE] Prevention triggered for ${entry.title?.romaji || "Item"}`, "color: #ff922b;");
+                setDuplicateCheck({ existing, pending: entry });
+                return;
+            }
 
             // PHASE 4: Block guest users from adding entries
             if (storageMode === "local") {
@@ -590,8 +635,132 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const { addEntry: storeAddEntry } = getMediaStoreState();
             storeAddEntry(finalEntry);
         },
-        [user, userEdits],
+        [user, userEdits, animeList, mangaList],
     );
+
+    // TASK 2: Resolve duplicate
+    const resolveDuplicate = useCallback(
+        async (action: "view" | "update" | "cancel") => {
+            if (!duplicateCheck) return;
+
+            const { existing, pending } = duplicateCheck;
+            setDuplicateCheck(null);
+
+            if (action === "view") {
+                // Navigate to the item (this depends on router, but for now we can maybe just toast or scroll)
+                // We'll leave the navigation logic to the UI layer if needed, 
+                // but let's at least log it.
+                console.log(`%c[DUPLICATE] Viewing existing entry ${existing._entryId}`, "color: #51cf66;");
+            } else if (action === "update") {
+                console.log(`%c[DUPLICATE] Updating existing entry ${existing._entryId}`, "color: #ffd43b;");
+                await updateEntry(existing._entryId, pending);
+            } else {
+                console.log("%c[DUPLICATE] Canceled add", "color: #adb5bd;");
+            }
+        },
+        [duplicateCheck],
+    );
+
+    const getActivities = useCallback(async () => {
+        if (!user) return [];
+        const storage = getStorageProvider();
+        return storage.getActivities(user.id);
+    }, [user]);
+
+    // MIGRATION Logic
+    const migrateLocalData = useCallback(
+        async (onProgress?: (current: number, total: number) => void) => {
+            if (!authUser || !authUser.id) throw new Error("Authenticated user required for migration");
+
+            const cloudStorage = getStorageProvider();
+            if (!(cloudStorage instanceof CloudStorageProvider)) {
+                throw new Error("Must be in cloud mode to migrate");
+            }
+
+            // 1. Collect everything
+            const localEntries = await dbGetAllLocalEntries();
+            const localBoards = await dbGetAllTierBoards();
+            const localTiers = await dbGetAllLocalTiers();
+            const localAssignments = await dbGetAllLocalAssignments();
+
+            const totalItems = localEntries.length + localBoards.length + localTiers.length + localAssignments.length;
+            let currentProgress = 0;
+
+            const updateProgress = () => {
+                currentProgress++;
+                onProgress?.(currentProgress, totalItems);
+            };
+
+            // 2. Migrate Media Entries (Items)
+            for (const entry of localEntries) {
+                // Attach current user ID
+                const entryToMigrate = { ...entry, userId: authUser.id };
+                await cloudStorage.saveUserEntry(entryToMigrate);
+                updateProgress();
+            }
+
+            // 3. Migrate Boards -> Tiers -> Assignments (Hierarchy Mapping)
+            // localId -> cloudId mapping
+            const boardMap = new Map<string | number, string | number>();
+            const tierMap = new Map<string | number, string | number>();
+
+            // Boards
+            for (const board of localBoards) {
+                const localId = board.id!;
+                const newId = await cloudStorage.createTierBoard({
+                    name: board.name,
+                    description: board.description
+                });
+                boardMap.set(localId, newId);
+                updateProgress();
+            }
+
+            // Tiers
+            for (const tier of localTiers) {
+                const localId = tier.id!;
+                const newBoardId = boardMap.get(tier.boardId);
+                if (!newBoardId) {
+                    updateProgress();
+                    continue;
+                }
+                const newId = await cloudStorage.createTier( {
+                    boardId: newBoardId,
+                    name: tier.name,
+                    color: tier.color,
+                    order: tier.order
+                });
+                tierMap.set(localId, newId);
+                updateProgress();
+            }
+
+            // Assignments
+            for (const assignment of localAssignments) {
+                const newBoardId = boardMap.get(assignment.boardId);
+                const newTierId = assignment.tierId ? tierMap.get(assignment.tierId) : null;
+                
+                if (!newBoardId) {
+                    updateProgress();
+                    continue;
+                }
+
+                await cloudStorage.saveAssignment({
+                    boardId: newBoardId,
+                    mediaId: assignment.mediaId,
+                    tierId: newTierId || null,
+                    position: assignment.position
+                });
+                updateProgress();
+            }
+
+            console.log("%c✅ Migration finished successfully", "color: #51cf66; font-weight: bold;");
+        },
+        [authUser]
+    );
+
+    const clearLocalData = useCallback(async () => {
+        await dbClearAllLocalEntries();
+        await dbClearAllLocalTierData();
+    }, []);
 
     // TASK 4: Update entry
     const updateEntry = useCallback(
@@ -630,9 +799,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 ...updates,
                 updatedAt: new Date().toISOString(),
             };
+            const storage = getStorageProvider();
 
             // TASK 8: Record edit history for each changed field
             changedFields.forEach(field => {
+                const oldVal = fieldChanges[field].old;
+                const newVal = fieldChanges[field].new;
+
                 editHistory.recordEdit(
                     entryId,
                     user.id,
@@ -640,13 +813,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     existingEntry,
                     updated,
                     field,
-                    fieldChanges[field].old,
-                    fieldChanges[field].new,
+                    oldVal,
+                    newVal,
                 );
+
+                // LOG ACTIVITY (TASK 1: Behavioral Analytics)
+                const seriesId = existingEntry._seriesId;
+                const mediaType = existingEntry.mediaType;
+
+                if (field === "progress" || field === "progressVolumes") {
+                    storage.logActivity({ seriesId, actionType: "progress", mediaType, details: { from: oldVal, to: newVal } });
+                } else if (field === "status" && newVal === "COMPLETED") {
+                    storage.logActivity({ seriesId, actionType: "complete", mediaType, details: { title: getTitle(existingEntry) } });
+                } else if (field === "status") {
+                    storage.logActivity({ seriesId, actionType: "status_change", mediaType, details: { from: oldVal, to: newVal } });
+                } else if (field === "tierId") {
+                    storage.logActivity({ seriesId, actionType: "tier_move", mediaType, details: { from: oldVal, to: newVal } });
+                } else if (field === "score") {
+                    storage.logActivity({ seriesId, actionType: "rating_change", mediaType, details: { from: oldVal, to: newVal } });
+                }
             });
 
             // Save user edits to Storage Provider (PHASE 3: All CRUD → cloud)
-            const storage = getStorageProvider();
             let finalId = entryId;
             try {
                 DataLog.updated("SUPABASE", entryId, changedFields);
@@ -809,6 +997,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             updateEntry,
             deleteEntry,
             searchAniList,
+            migrateLocalData,
+            clearLocalData,
+            duplicateCheck,
+            resolveDuplicate,
+            getActivities,
         }),
         [
             loading,
@@ -828,6 +1021,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             updateEntry,
             deleteEntry,
             searchAniList,
+            migrateLocalData,
+            clearLocalData,
+            duplicateCheck,
+            resolveDuplicate,
+            getActivities,
         ],
     );
 
@@ -835,7 +1033,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 }
 
 // TASK 3: Enrich entry while preserving user edits
-function enrichEntryWithUserEdits(entry: DisplayMedia, userEdits: Map<number, UserEntry>): DisplayMedia {
+function enrichEntryWithUserEdits(entry: DisplayMedia, userEdits: Map<string | number, UserEntry>): DisplayMedia {
     const cached = getCachedMedia(entry._seriesId);
     const userEdit = userEdits.get(entry._entryId);
 

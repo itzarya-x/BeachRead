@@ -7,16 +7,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 import { BarChart3, BookOpen, Clock, Database, Home, List, MoreHorizontal, Settings, Trophy, Tv } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 const mainNav = [
-    { path: "/", label: "Home", icon: Home },
-    { path: "/anime", label: "Anime", icon: Tv },
-    { path: "/manga", label: "Manga", icon: BookOpen },
-    { path: "/tiers", label: "Tiers", icon: Trophy },
-    { path: "/stats", label: "Stats", icon: BarChart3 },
-    { path: "/activity", label: "Activity", icon: Clock },
+    { path: "/", label: "Pulse", icon: Home },
+    { path: "/anime", label: "Archive", icon: Tv },
+    { path: "/manga", label: "Library", icon: BookOpen },
+    { path: "/tiers", label: "Ranking", icon: Trophy },
+    { path: "/stats", label: "Intelligence", icon: BarChart3 },
+    { path: "/activity", label: "Sync", icon: Clock },
 ];
 
 const moreNav = [
@@ -34,10 +35,15 @@ export function AppHeader() {
     return (
         <header className="sticky top-0 z-50 glass-strong">
             <div className="max-w-7xl mx-auto px-4">
-                <div className="flex items-center h-14 gap-4">
+                <div className="flex items-center h-16 gap-6">
                     {/* Brand */}
-                    <Link to="/" className="font-display font-extrabold text-xl tracking-tight shrink-0 text-gradient">
-                        AniTrack
+                    <Link to="/" className="flex items-center gap-2 shrink-0 group">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center rotate-45 group-hover:rotate-90 transition-transform duration-500 shadow-glow">
+                             <div className="-rotate-45 group-hover:-rotate-90 transition-transform duration-500 text-white font-black text-xl">Y</div>
+                        </div>
+                        <span className="font-display font-black text-2xl tracking-tighter text-foreground group-hover:text-primary transition-colors">
+                            YURA
+                        </span>
                     </Link>
 
                     {/* Navigation */}
@@ -50,16 +56,19 @@ export function AppHeader() {
                                     key={link.path}
                                     to={link.path}
                                     className={cn(
-                                        "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap relative",
+                                        "flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap relative group",
                                         isActive
-                                            ? "text-primary bg-primary/10 border-b-2 border-primary"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/40",
+                                            ? "text-primary bg-primary/5"
+                                            : "text-muted-foreground/60 hover:text-foreground hover:bg-white/[0.03]",
                                     )}
                                 >
-                                    <link.icon className="w-4 h-4" />
-                                    <span className="hidden sm:inline">{link.label}</span>
+                                    <link.icon className={cn("w-3.5 h-3.5", isActive ? "text-primary" : "text-muted-foreground/40")} />
+                                    <span className="hidden lg:inline">{link.label}</span>
                                     {isActive && (
-                                        <span className="absolute inset-0 rounded-lg border border-primary/20 pointer-events-none" />
+                                        <motion.div 
+                                            layoutId="header-active"
+                                            className="absolute bottom-0 inset-x-0 h-0.5 bg-primary shadow-glow z-10" 
+                                        />
                                     )}
                                 </Link>
                             );

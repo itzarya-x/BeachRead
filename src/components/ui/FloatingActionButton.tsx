@@ -1,4 +1,5 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/YuraButton";
+import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 
 interface FloatingActionButtonProps {
@@ -8,13 +9,21 @@ interface FloatingActionButtonProps {
 
 export function FloatingActionButton({ onClick, label = "Add" }: FloatingActionButtonProps) {
     return (
-        <Button
-            onClick={onClick}
-            size="lg"
-            className="fixed bottom-8 right-8 rounded-full shadow-lg hover:shadow-xl h-14 w-14 md:h-16 md:w-16 gap-2 group animate-fade-in z-40"
-            title={label}
+        <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-40"
         >
-            <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-200" />
-        </Button>
+            <Button
+                onClick={onClick}
+                variant="primary"
+                className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-xl shadow-primary/20 p-0 flex items-center justify-center group"
+                title={label}
+            >
+                <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
+            </Button>
+        </motion.div>
     );
 }

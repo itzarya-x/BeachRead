@@ -1,5 +1,7 @@
-import { MediaCard } from "./MediaCard";
+import { EmptySearchResults, EmptyState } from "@/components/ui/EmptyState";
 import type { DisplayMedia } from "@/types/display";
+import { Search } from "lucide-react";
+import { MediaCard } from "./MediaCard";
 
 interface MediaGridProps {
   items: DisplayMedia[];
@@ -8,10 +10,17 @@ interface MediaGridProps {
 
 export function MediaGrid({ items, emptyMessage = "No entries found" }: MediaGridProps) {
   if (items.length === 0) {
-    return (
-      <div className="text-center py-20 text-muted-foreground">
-        <p className="text-lg">{emptyMessage}</p>
-      </div>
+    // If we have an empty message that looks like a search failure, use the search preset
+    const isSearch = emptyMessage.toLowerCase().includes("filter") || emptyMessage.toLowerCase().includes("search");
+    
+    return isSearch ? (
+      <EmptySearchResults />
+    ) : (
+      <EmptyState
+        icon={Search}
+        title="Command Void"
+        description={emptyMessage}
+      />
     );
   }
 

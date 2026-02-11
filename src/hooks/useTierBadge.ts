@@ -3,10 +3,10 @@
  * Shows how many boards an item is ranked in
  */
 
+import { getAllTierBoards, getAssignmentsForBoard } from "@/lib/tierDatabase";
 import { useEffect, useState } from "react";
-import { getAssignmentsForBoard, getAllTierBoards } from "@/lib/tierDatabase";
 
-export function useTierBadge(mediaId: number): number {
+export function useTierBadge(mediaId: number | string): number {
     const [boardCount, setBoardCount] = useState(0);
 
     useEffect(() => {

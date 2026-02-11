@@ -1,10 +1,12 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { AddMediaModal } from "@/components/media/AddMediaModal";
 import { FilterChips } from "@/components/media/FilterChips";
 import { MediaGrid } from "@/components/media/MediaGrid";
-import { AddMediaModal } from "@/components/media/AddMediaModal";
+import { GridSkeleton } from "@/components/ui/Skeleton";
+import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { STATUS_LABELS, STATUS_ORDER } from "@/lib/constants";
-import { Search, SlidersHorizontal, Plus } from "lucide-react";
+import { BookOpen, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 const SORT_OPTIONS = [
@@ -108,15 +110,23 @@ const MangaList = () => {
 
     if (loading) {
         return (
-            <div className="flex min-h-[50vh] items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
+            <PageWrapper className="p-6">
+                <div className="flex justify-between items-center mb-8">
+                    <div className="h-10 w-48 bg-surface-2 rounded-lg animate-pulse" />
+                    <div className="h-10 w-32 bg-surface-2 rounded-lg animate-pulse" />
+                </div>
+                <GridSkeleton count={12} />
+            </PageWrapper>
         );
     }
 
     return (
         <PageWrapper>
-            <PageHeader title="Manga Library" subtitle={`${mangaList.length} entries`} />
+            <PageHeader 
+                title="Graphic Library" 
+                subtitle={`${mangaList.length} indexed volumes`} 
+                icon={BookOpen}
+            />
             <PageContent className="animate-fade-in">
                 {/* Search & sort */}
                 <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -144,13 +154,12 @@ const MangaList = () => {
                             ))}
                         </select>
                     </div>
-                    <button
+                    <Button
                         onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+                        icon={Plus}
                     >
-                        <Plus className="w-4 h-4" />
                         Add Manga
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Filter chips */}

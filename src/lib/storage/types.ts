@@ -83,6 +83,16 @@ export interface SyncRecord {
     syncedAt?: number;
 }
 
+// ============= Activity Log =============
+export interface ActivityLog {
+    id?: string | number;
+    userId: string | number;
+    seriesId?: number;
+    actionType: string; // 'progress', 'add', 'status_change', 'tier_move', 'rating_change'
+    mediaType?: string; // 'ANIME', 'MANGA'
+    details: any;
+    createdAt: string;
+}
 // ============= Storage Provider Interface =============
 export interface IStorageProvider {
     /**
@@ -148,4 +158,10 @@ export interface IStorageProvider {
      */
     getSetting?(userId: number, key: string): Promise<any | null>;
     setSetting?(userId: number, key: string, value: any): Promise<void>;
+
+    /**
+     * Activity Operations
+     */
+    logActivity(activity: Omit<ActivityLog, "id" | "userId" | "createdAt">): Promise<void>;
+    getActivities(userId: string | number): Promise<ActivityLog[]>;
 }

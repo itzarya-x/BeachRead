@@ -4,10 +4,10 @@
  */
 
 import { useData } from "@/context/DataContext";
-import type { DisplayMedia, MediaStatus } from "@/types/display";
-import { X, Save, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
 import { STATUS_LABELS } from "@/lib/constants";
+import type { DisplayMedia, MediaStatus } from "@/types/display";
+import { Save, Trash2, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface EditMediaModalProps {
     media: DisplayMedia | null;
@@ -34,6 +34,8 @@ export function EditMediaModal({ media, onClose, onDelete }: EditMediaModalProps
                 isPrivate: media.isPrivate,
                 hiddenDefault: media.hiddenDefault,
                 advancedScores: media.advancedScores || [],
+                startedAt: media.startedAt,
+                completedAt: media.completedAt,
             });
         }
     }, [media]);
@@ -220,6 +222,28 @@ export function EditMediaModal({ media, onClose, onDelete }: EditMediaModalProps
                             className="w-4 h-4"
                         />
                         <label htmlFor="hiddenDefault" className="text-sm">Hidden from default view</label>
+                    </div>
+
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Started At</label>
+                            <input
+                                type="date"
+                                value={formData.startedAt ? new Date(formData.startedAt).toISOString().split('T')[0] : ""}
+                                onChange={(e) => setFormData({ ...formData, startedAt: e.target.value || null })}
+                                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Completed At</label>
+                            <input
+                                type="date"
+                                value={formData.completedAt ? new Date(formData.completedAt).toISOString().split('T')[0] : ""}
+                                onChange={(e) => setFormData({ ...formData, completedAt: e.target.value || null })}
+                                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                            />
+                        </div>
                     </div>
                 </div>
 

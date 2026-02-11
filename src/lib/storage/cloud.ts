@@ -13,7 +13,7 @@
 import { assertCloud, DataLog } from "@/lib/storage-mode";
 import { createClient } from "@supabase/supabase-js";
 import { LocalStorageProvider } from "./local";
-import type { IStorageProvider, SyncRecord, Tier, TierAssignment, TierBoard, UserEntry } from "./types";
+import type { ActivityLog, IStorageProvider, SyncRecord, Tier, TierAssignment, TierBoard, UserEntry } from "./types";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -257,71 +257,198 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    // ============= Tier Boards (Local-only for now) =============
+    // ============= Tier Boards =============
     async getTierBoard(id: string | number): Promise<TierBoard | null> {
-        return this.local.getTierBoard(id);
+        assertCloud("CloudStorage.getTierBoard");
+        const { data, error } = await this.supabase
+            .from("tier_boards")
+            .select("*")
+            .eq("id", id)
+            .single();
+        if (error) return null;
+        return data;
     }
 
     async getAllTierBoards(userId?: string | number): Promise<TierBoard[]> {
-        return this.local.getAllTierBoards(userId);
+        assertCloud("CloudStorage.getAllTierBoards");
+        const id = userId || this.userId;
+        const { data, error } = await this.supabase
+            .from("tier_boards")
+            .select("*")
+            .eq("user_id", id)
+            .order("created_at", { ascending: false });
+        if (error) return [];
+        return data || [];
     }
 
     async createTierBoard(board: Omit<TierBoard, "id" | "createdAt" | "updatedAt">): Promise<string | number> {
-        return this.local.createTierBoard(board);
+        assertCloud("CloudStorage.createTierBoard");
+        const { data, error } = await this.supabase
+            .from("tier_boards")
+            .insert([{
+                user_id: this.userId,
+                name: board.name,
+                description: board.description,
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data.id;
     }
 
     async updateTierBoard(id: string | number, updates: Partial<TierBoard>): Promise<void> {
-        return this.local.updateTierBoard(id, updates);
+        assertCloud("CloudStorage.updateTierBoard");
+        const { error } = await this.supabase
+            .from("tier_boards")
+            .update({
+                name: updates.name,
+                description: updates.description,
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", id);
+        if (error) throw error;
     }
 
     async deleteTierBoard(id: string | number): Promise<void> {
-        return this.local.deleteTierBoard(id);
+        assertCloud("CloudStorage.deleteTierBoard");
+        const { error } = await this.supabase
+            .from("tier_boards")
+            .delete()
+            .eq("id", id);
+        if (error) throw error;
     }
 
-    // ============= Tiers (Local-only for now) =============
+    // ============= Tiers =============
     async getTier(id: string | number): Promise<Tier | null> {
-        return this.local.getTier(id);
+        assertCloud("CloudStorage.getTier");
+        const { data, error } = await this.supabase
+            .from("tiers")
+            .select("*")
+            .eq("id", id)
+            .single();
+        if (error) return null;
+        return data;
     }
 
     async getTiersByBoard(boardId: string | number): Promise<Tier[]> {
-        return this.local.getTiersByBoard(boardId);
+        assertCloud("CloudStorage.getTiersByBoard");
+        const { data, error } = await this.supabase
+            .from("tiers")
+            .select("*")
+            .eq("board_id", boardId)
+            .order("order", { ascending: true });
+        if (error) return [];
+        return data || [];
     }
 
     async createTier(tier: Omit<Tier, "id">): Promise<string | number> {
-        return this.local.createTier(tier);
+        assertCloud("CloudStorage.createTier");
+        const { data, error } = await this.supabase
+            .from("tiers")
+            .insert([{
+                board_id: tier.boardId,
+                name: tier.name,
+                color: tier.color,
+                order: tier.order
+            }])
+            .select()
+            .single();
+        if (error) throw error;
+        return data.id;
     }
 
     async updateTier(id: string | number, updates: Partial<Tier>): Promise<void> {
-        return this.local.updateTier(id, updates);
+        assertCloud("CloudStorage.updateTier");
+        const { error } = await this.supabase
+            .from("tiers")
+            .update({
+                name: updates.name,
+                color: updates.color,
+                order: updates.order
+            })
+            .eq("id", id);
+        if (error) throw error;
     }
 
     async deleteTier(id: string | number): Promise<void> {
-        return this.local.deleteTier(id);
+        assertCloud("CloudStorage.deleteTier");
+        const { error } = await this.supabase
+            .from("tiers")
+            .delete()
+            .eq("id", id);
+        if (error) throw error;
     }
 
-    // ============= Tier Assignments (Local-only for now) =============
+    // ============= Tier Assignments =============
     async getAssignment(id: string | number): Promise<TierAssignment | null> {
-        return this.local.getAssignment(id);
+        assertCloud("CloudStorage.getAssignment");
+        const { data, error } = await this.supabase
+            .from("tier_assignments")
+            .select("*")
+            .eq("id", id)
+            .single();
+        if (error) return null;
+        return data;
     }
 
     async getAssignmentsForBoard(boardId: string | number): Promise<TierAssignment[]> {
-        return this.local.getAssignmentsForBoard(boardId);
+        assertCloud("CloudStorage.getAssignmentsForBoard");
+        const { data, error } = await this.supabase
+            .from("tier_assignments")
+            .select("*")
+            .eq("board_id", boardId)
+            .order("position", { ascending: true });
+        if (error) return [];
+        return data || [];
     }
 
     async getAssignmentsForMedia(mediaId: string | number): Promise<TierAssignment[]> {
-        return this.local.getAssignmentsForMedia(mediaId);
+        assertCloud("CloudStorage.getAssignmentsForMedia");
+        const { data, error } = await this.supabase
+            .from("tier_assignments")
+            .select("*")
+            .eq("media_id", String(mediaId))
+            .eq("user_id", this.userId);
+        if (error) return [];
+        return data || [];
     }
 
     async saveAssignment(assignment: Omit<TierAssignment, "id">): Promise<string | number> {
-        return this.local.saveAssignment(assignment);
+        assertCloud("CloudStorage.saveAssignment");
+        const { data, error } = await this.supabase
+            .from("tier_assignments")
+            .upsert([{
+                user_id: this.userId,
+                board_id: assignment.boardId,
+                media_id: String(assignment.mediaId),
+                tier_id: assignment.tierId,
+                position: assignment.position
+            }], { onConflict: "user_id, board_id, media_id" })
+            .select()
+            .single();
+        if (error) throw error;
+        return data.id;
     }
 
     async updateAssignment(id: string | number, updates: Partial<TierAssignment>): Promise<void> {
-        return this.local.updateAssignment(id, updates);
+        assertCloud("CloudStorage.updateAssignment");
+        const { error } = await this.supabase
+            .from("tier_assignments")
+            .update({
+                tier_id: updates.tierId,
+                position: updates.position
+            })
+            .eq("id", id);
+        if (error) throw error;
     }
 
     async deleteAssignment(id: string | number): Promise<void> {
-        return this.local.deleteAssignment(id);
+        assertCloud("CloudStorage.deleteAssignment");
+        const { error } = await this.supabase
+            .from("tier_assignments")
+            .delete()
+            .eq("id", id);
+        if (error) throw error;
     }
 
     // ============= Sync Tracking =============
@@ -378,6 +505,53 @@ export class CloudStorageProvider implements IStorageProvider {
             }
         });
         this.subscriptions.clear();
+    }
+
+    // ============= Activity Log =============
+    async logActivity(activity: Omit<ActivityLog, "id" | "userId" | "createdAt">): Promise<void> {
+        if (!this.supabase || !this.userId) return;
+
+        const { error } = await this.supabase
+            .from("activity_log")
+            .insert([{
+                user_id: this.userId,
+                series_id: activity.seriesId,
+                action_type: activity.actionType,
+                media_type: activity.mediaType,
+                details: activity.details,
+                created_at: new Date().toISOString()
+            }]);
+
+        if (error) {
+            console.error("Failed to log activity:", error);
+            // Don't throw, let the app continue
+        }
+    }
+
+    async getActivities(userId: string | number): Promise<ActivityLog[]> {
+        assertCloud("CloudStorage.getActivities");
+        if (!this.supabase) return [];
+
+        const { data, error } = await this.supabase
+            .from("activity_log")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false });
+
+        if (error) {
+            console.error("Failed to fetch activities:", error);
+            return [];
+        }
+
+        return (data || []).map((row: any) => ({
+            id: row.id,
+            userId: row.user_id,
+            seriesId: row.series_id,
+            actionType: row.action_type,
+            mediaType: row.media_type,
+            details: row.details,
+            createdAt: row.created_at
+        }));
     }
 
     // ============= Helpers =============

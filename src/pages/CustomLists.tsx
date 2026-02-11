@@ -1,5 +1,7 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { MediaGrid } from "@/components/media/MediaGrid";
+import { EmptyCustomList } from "@/components/ui/EmptyState";
+import { GridSkeleton } from "@/components/ui/Skeleton";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -15,9 +17,10 @@ const CustomLists = () => {
 
     if (loading) {
         return (
-            <div className="flex min-h-[50vh] items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
+            <PageWrapper className="p-6">
+                <div className="h-10 w-48 bg-surface-2 rounded-lg animate-pulse mb-8" />
+                <GridSkeleton count={12} />
+            </PageWrapper>
         );
     }
 
@@ -28,7 +31,7 @@ const CustomLists = () => {
             <PageHeader title="Custom Lists" subtitle={`${allLists.length} lists created`} />
             <PageContent>
                 {allLists.length === 0 ? (
-                    <p className="text-muted-foreground">No custom lists configured.</p>
+                    <EmptyCustomList />
                 ) : (
                     <>
                         <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4">

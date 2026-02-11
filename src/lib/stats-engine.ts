@@ -1,5 +1,6 @@
 import { STATUS_LABELS, STATUS_ORDER } from "@/lib/constants";
-import type { DisplayMedia, MediaStatus, MediaType, ScoreFormat, OriginType } from "@/types/display";
+import type { ActivityLog } from "@/lib/storage/types";
+import type { DisplayMedia, MediaStatus, MediaType, OriginType, ScoreFormat } from "@/types/display";
 
 /**
  * YURA STATS ENGINE
@@ -65,6 +66,41 @@ export interface GlobalStatsData {
         totalDaysWatched: MetricWithItems;
         globalMeanScore: MetricWithItems;
     };
+}
+
+// ============= Behavioral Analytics =============
+export interface ActivityHeatmapData {
+    date: string; // YYYY-MM-DD
+    count: number;
+    actions: ActivityLog[];
+}
+
+export interface BingeSession {
+    seriesId: number;
+    title: string;
+    startTime: string;
+    endTime: string;
+    episodes: number;
+    durationMinutes: number;
+}
+
+export interface BingeAnalytics {
+    sessions: BingeSession[];
+    longestSession: BingeSession | null;
+    averageSessionLength: number;
+    totalBingeTime: number;
+}
+
+export interface HabitsAnalytics {
+    hourly: Record<number, number>;
+    weekday: Record<number, number>;
+    monthly: Record<number, number>;
+}
+
+export interface BehavioralStatsData {
+    heatmap: ActivityHeatmapData[];
+    binge: BingeAnalytics;
+    habits: HabitsAnalytics;
 }
 
 /**
@@ -1123,5 +1159,126 @@ export function calculateHiddenItemsAnalysis(items: DisplayMedia[]): HiddenItems
         },
         hiddenPercentage: total > 0 ? (hiddenItems.length / total) * 100 : 0,
         visiblePercentage: total > 0 ? (visibleItems.length / total) * 100 : 0,
+    };
+}
+
+/**
+ * Calculate behavioral analytics from activities
+ */
+export function calculateBehavioralStats(
+    activities: ActivityLog[],
+    mediaItems: DisplayMedia[]
+): BehavioralStatsData {
+    // 1. Heatmap (Actions per day)
+    const heatmapMap = new Map<string, ActivityHeatmapData>();
+    
+    activities.forEach(act => {
+        const date = act.createdAt.split("T")[0];
+        if (!heatmapMap.has(date)) {
+            heatmapMap.set(date, { date, count: 0, actions: [] });
+        }
+        const data = heatmapMap.get(date)!;
+        data.count++;
+        data.actions.push(act);
+    });
+
+    const heatmap = Array.from(heatmapMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+
+    // 2. Habits (Hourly, Weekday, Monthly)
+    const hourly: Record<number, number> = {};
+    const weekday: Record<number, number> = {};
+    const monthly: Record<number, number> = {};
+
+    activities.forEach(act => {
+        const d = new Date(act.createdAt);
+        const h = d.getHours();
+        const w = d.getDay();
+        const m = d.getMonth();
+
+        hourly[h] = (hourly[h] || 0) + 1;
+        weekday[w] = (weekday[w] || 0) + 1;
+        monthly[m] = (monthly[m] || 0) + 1;
+    });
+
+    // 3. Binge Analytics
+    // Group activities by series and time proximity
+    const bingeSessions: BingeSession[] = [];
+    const mediaTitleMap = new Map(mediaItems.map(m => [m._seriesId, m.title.romaji || "Unknown"]));
+
+    const sortedActivities = [...activities].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    // A binge is 3+ progress updates in a row for the SAME series with < 2 hours between them
+    const progressActivities = sortedActivities.filter(a => a.actionType === "progress");
+    
+    const seriesGroups = new Map<number, ActivityLog[]>();
+    progressActivities.forEach(a => {
+        if (a.seriesId) {
+            if (!seriesGroups.has(a.seriesId)) seriesGroups.set(a.seriesId, []);
+            seriesGroups.get(a.seriesId)!.push(a);
+        }
+    });
+
+    seriesGroups.forEach((group, seriesId) => {
+        let currentSession: ActivityLog[] = [];
+        
+        for (let i = 0; i < group.length; i++) {
+            const act = group[i];
+            if (currentSession.length === 0) {
+                currentSession.push(act);
+                continue;
+            }
+
+            const lastAct = currentSession[currentSession.length - 1];
+            const timeDiff = new Date(act.createdAt).getTime() - new Date(lastAct.createdAt).getTime();
+            const twoHours = 2 * 60 * 60 * 1000;
+
+            if (timeDiff < twoHours) {
+                currentSession.push(act);
+            } else {
+                if (currentSession.length >= 3) {
+                    bingeSessions.push(createBingeSession(currentSession, seriesId, mediaTitleMap));
+                }
+                currentSession = [act];
+            }
+        }
+        if (currentSession.length >= 3) {
+            bingeSessions.push(createBingeSession(currentSession, seriesId, mediaTitleMap));
+        }
+    });
+
+    bingeSessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+    return {
+        heatmap,
+        habits: { hourly, weekday, monthly },
+        binge: {
+            sessions: bingeSessions,
+            longestSession: bingeSessions.length > 0 ? [...bingeSessions].sort((a, b) => b.durationMinutes - a.durationMinutes)[0] : null,
+            averageSessionLength: bingeSessions.length > 0 ? bingeSessions.reduce((s, b) => s + b.durationMinutes, 0) / bingeSessions.length : 0,
+            totalBingeTime: bingeSessions.reduce((s, b) => s + b.durationMinutes, 0)
+        }
+    };
+}
+
+function createBingeSession(acts: ActivityLog[], seriesId: number, titleMap: Map<number, string>): BingeSession {
+    const start = new Date(acts[0].createdAt);
+    const end = new Date(acts[acts.length - 1].createdAt);
+    
+    let episodes = 0;
+    acts.forEach(a => {
+        if (a.details?.from !== undefined && a.details?.to !== undefined) {
+            episodes += Math.max(0, a.details.to - a.details.from);
+        } else {
+            episodes += 1;
+        }
+    });
+
+    return {
+        seriesId,
+        title: titleMap.get(seriesId) || "Unknown",
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        episodes,
+        durationMinutes: Math.max(1, (end.getTime() - start.getTime()) / (60 * 1000))
     };
 }

@@ -1,175 +1,216 @@
-import { Link } from "react-router-dom";
 import { useData } from "@/context/DataContext";
-import { useMediaStore } from "@/store/mediaStore";
-import { useTierBadge } from "@/hooks/useTierBadge";
-import { ScoreDisplay } from "./ScoreDisplay";
+import { cn } from "@/lib/utils";
+import ds from "@/styles/design-system";
 import type { DisplayMedia } from "@/types/display";
-import { Eye, Play, BookOpen, Lock, Edit, CheckSquare, Square, Trophy } from "lucide-react";
-import { useState } from "react";
-import { EditMediaModal } from "./EditMediaModal";
+import { motion } from "framer-motion";
+import { BookOpen, Edit2, Play, Star, Trophy } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface MediaCardProps {
-  media: DisplayMedia;
-  onEdit?: () => void;
-  selectable?: boolean; // TASK 9: Mass edit selection
+    media: DisplayMedia;
+    isSelected?: boolean;
+    onToggleSelect?: (id: number) => void;
+    index?: number;
 }
 
-export function MediaCard({ media, onEdit, selectable = false }: MediaCardProps) {
-  const { user, getTitle } = useData();
-  const { isSelected, toggleSelection } = useMediaStore();
-  const tierBoardCount = useTierBadge(media._entryId); // PHASE 9: Tier badge
-  const [showEditModal, setShowEditModal] = useState(false);
-  const title = getTitle(media);
-  const scoreFormat = user?.scoreFormat || "POINT_10";
-  const linkPath = `/${media.mediaType.toLowerCase()}/${media._seriesId}`;
-  const selected = isSelected(media._entryId);
+export function MediaCard({ media, isSelected, onToggleSelect, index = 0 }: MediaCardProps) {
+    const { user, getTitle } = useData();
+    const title = getTitle(media);
+    const scoreFormat = user?.scoreFormat || "POINT_10";
+    const linkPath = `/${media.mediaType.toLowerCase()}/${media._seriesId}`;
 
-  const progressLabel =
-    media.mediaType === "ANIME"
-      ? `${media.progress}${media.episodes ? `/${media.episodes}` : ""}`
-      : `${media.progress}${media.chapters ? `/${media.chapters}` : ""}`;
+    const progressLabel =
+        media.mediaType === "ANIME"
+            ? `${media.progress}${media.episodes ? `/${media.episodes}` : ""}`
+            : `${media.progress}${media.chapters ? `/${media.chapters}` : ""}`;
 
-  const progressPercent =
-    media.episodes || media.chapters
-      ? Math.min(100, (media.progress / (media.episodes || media.chapters || 1)) * 100)
-      : 0;
+    const progressPercent =
+        media.episodes || media.chapters
+            ? Math.min(100, (media.progress / (media.episodes || media.chapters || 1)) * 100)
+            : 0;
 
-  return (
-    <div className="relative">
-      {/* TASK 9: Selection checkbox */}
-      {selectable && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleSelection(media._entryId);
-          }}
-          className="absolute top-2 left-2 z-10 p-1.5 bg-surface-0/90 backdrop-blur-sm rounded-lg hover:bg-primary/20 transition-colors"
+    return (
+        <motion.div
+            {...ds.animations.cardEntry}
+            transition={{ 
+                ...ds.animations.cardEntry.transition,
+                ease: ds.animations.cardEntry.transition.ease as any,
+                delay: index * 0.03
+            }}
+            whileHover={ds.animations.hover as any}
+            className={cn(
+                "group relative bg-surface-elevated1 rounded-2xl overflow-hidden transition-all duration-500",
+                "ring-1 ring-white/5 hover:ring-primary/40 shadow-depth1",
+                isSelected ? "ring-2 ring-primary shadow-glow" : "hover:shadow-depth2 hover:shadow-primary/5"
+            )}
         >
-          {selected ? (
-            <CheckSquare className="w-4 h-4 text-primary" />
-          ) : (
-            <Square className="w-4 h-4 text-foreground" />
-          )}
-        </button>
-      )}
-      <Link to={linkPath} className="block">
-        <div className={`media-card group cursor-pointer ${selected ? "ring-2 ring-primary" : ""}`}>
-        {/* Cover image */}
-        <div className="aspect-[2/3] bg-surface-2 relative">
-          {media.coverImage ? (
-            <img
-              src={media.coverImage}
-              alt={title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-surface-2">
-              {media.mediaType === "ANIME" ? (
-                <Play className="w-8 h-8 text-muted-foreground/20" />
-              ) : (
-                <BookOpen className="w-8 h-8 text-muted-foreground/20" />
-              )}
-            </div>
-          )}
+            <Link to={linkPath} className="block">
+                {/* Cover Image Container */}
+                <div className="relative aspect-[2/3] overflow-hidden bg-surface-base">
+                    {media.coverImage ? (
+                        <motion.img
+                            src={media.coverImage}
+                            alt={title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            whileHover={{ scale: 1.05 }}
+                            transition={{ duration: 0.8, ease: ds.motion.easing.default as any }}
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground/10">
+                            {media.mediaType === "ANIME" ? <Play className="w-12 h-12 opacity-20" /> : <BookOpen className="w-12 h-12 opacity-20" />}
+                        </div>
+                    )}
 
-          {/* Hover overlay with quick actions */}
-          <div className="media-overlay flex flex-col justify-between p-3">
-            {/* Top actions */}
-            <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowEditModal(true);
-                }}
-                className="bg-surface-0/70 backdrop-blur-sm rounded-lg p-1.5 hover:bg-primary/20 transition-colors"
-                title="Edit"
-              >
-                <Edit className="w-4 h-4 text-foreground" />
-              </button>
-              <div className="bg-surface-0/70 backdrop-blur-sm rounded-lg p-1.5 hover:bg-primary/20 transition-colors">
-                <Eye className="w-4 h-4 text-foreground" />
-              </div>
-            </div>
+                    {/* Tier Ribbon (Task 6) */}
+                    {media.tierId && (
+                        <div className="absolute top-0 right-0 z-20 overflow-hidden w-20 h-20 pointer-events-none">
+                            <div className="absolute top-4 -right-6 w-24 bg-primary px-4 py-1 rotate-45 text-[8px] font-black text-white text-center shadow-lg border-y border-white/20 tracking-[0.2em] uppercase">
+                                {media.tierId}
+                            </div>
+                        </div>
+                    )}
 
-            {/* Bottom info */}
-            <div className="space-y-1.5">
-              {media.format && (
-                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
-                  {media.format}
-                </span>
-              )}
-              {media.genres.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {media.genres.slice(0, 2).map((g) => (
-                    <span
-                      key={g}
-                      className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
+                    {/* Rarity Glow (Task 6) */}
+                    {media.score >= 80 && (
+                        <div 
+                            className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-0" 
+                            style={{ 
+                                boxShadow: media.score >= 95 ? ds.rarity.sss.glow : 
+                                           media.score >= 90 ? ds.rarity.ss.glow  : 
+                                           ds.rarity.s.glow 
+                            }}
+                        />
+                    )}
+
+                    {/* Gradient Overlay */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        whileHover={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"
+                    />
+
+                    {/* Score Badge */}
+                    {media.score > 0 && (
+                        <motion.div 
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ type: "spring", delay: 0.1 + index * 0.03 }}
+                            className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 shadow-lg z-10"
+                        >
+                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-xs font-bold text-white">{media.score}</span>
+                        </motion.div>
+                    )}
+
+                    {/* Selection Checkbox */}
+                    {onToggleSelect && (
+                        <motion.button
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onToggleSelect(media._entryId as number);
+                            }}
+                            className={cn(
+                                "absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-all z-10",
+                                isSelected
+                                    ? "bg-primary border-primary"
+                                    : "bg-black/40 border-white/40 backdrop-blur-sm hover:border-white/60"
+                            )}
+                        >
+                            {isSelected && (
+                                <motion.svg
+                                    initial={{ pathLength: 0 }}
+                                    animate={{ pathLength: 1 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="w-3 h-3 text-primary-foreground"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="3"
+                                >
+                                    <motion.path d="M5 13l4 4L19 7" />
+                                </motion.svg>
+                            )}
+                        </motion.button>
+                    )}
+
+                    {/* Quick Actions */}
+                    <motion.div 
+                        initial={{ x: 20, opacity: 0 }}
+                        whileHover={{ x: 0, opacity: 1 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="absolute bottom-2 right-2 flex gap-2 z-10"
                     >
-                      {g}
-                    </span>
-                  ))}
+                        <motion.button
+                            whileHover={{ scale: 1.1, rotate: 5 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }}
+                            className="p-2 rounded-lg bg-black/60 hover:bg-primary text-white backdrop-blur-md transition-colors shadow-lg"
+                            title="Edit"
+                        >
+                            <Edit2 className="w-4 h-4" />
+                        </motion.button>
+                    </motion.div>
+
+                    {/* Progress Bar & Info */}
+                    <motion.div 
+                        initial={{ y: 20, opacity: 0 }}
+                        whileHover={{ y: 0, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="absolute bottom-0 left-0 right-0 p-3 space-y-2"
+                    >
+                        {media.tierId && (
+                            <motion.div 
+                                initial={{ scale: 0.8 }}
+                                animate={{ scale: 1 }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/90 text-[10px] font-bold uppercase tracking-wider text-primary-foreground shadow-lg"
+                            >
+                                <Trophy className="w-3 h-3" />
+                                Tier Assigned
+                            </motion.div>
+                        )}
+                        <div className="space-y-1">
+                            <div className="flex justify-between text-xs font-medium text-white/90">
+                                <span>Progress</span>
+                                <span>{progressLabel}</span>
+                            </div>
+                            <div className="h-1.5 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progressPercent}%` }}
+                                    transition={{ duration: 0.5, delay: 0.2 }}
+                                    className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full"
+                                />
+                            </div>
+                        </div>
+                    </motion.div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Score badge */}
-          {media.score > 0 && (
-            <div className="absolute top-2 left-2 bg-surface-0/80 backdrop-blur-sm rounded-lg px-2 py-0.5">
-              <ScoreDisplay score={media.score} format={scoreFormat} size="sm" />
-            </div>
-          )}
-
-          {/* Private badge */}
-          {media.isPrivate && (
-            <div className="absolute top-2 right-2 bg-destructive/80 backdrop-blur-sm rounded-lg p-1">
-              <Lock className="w-3 h-3 text-destructive-foreground" />
-            </div>
-          )}
-
-          {/* PHASE 9: Tier badge */}
-          {tierBoardCount > 0 && (
-            <div className="absolute bottom-2 right-2 bg-primary/80 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1">
-              <Trophy className="w-3 h-3 text-primary-foreground" />
-              <span className="text-xs font-semibold text-primary-foreground">{tierBoardCount}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Title & progress */}
-        <div className="p-2.5 bg-card">
-          <h3 className="text-sm font-semibold text-foreground line-clamp-2 leading-tight mb-1.5">
-            {title}
-          </h3>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{progressLabel}</span>
-            {media.format && <span className="uppercase text-[10px]">{media.format}</span>}
-          </div>
-          {/* Progress bar */}
-          {progressPercent > 0 && (
-            <div className="mt-2 h-1 bg-surface-3 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-      </Link>
-      {showEditModal && (
-        <EditMediaModal
-          media={media}
-          onClose={() => {
-            setShowEditModal(false);
-            onEdit?.();
-          }}
-          onDelete={onEdit}
-        />
-      )}
-    </div>
-  );
+                {/* Title & Info */}
+                <div className="p-4 space-y-1.5 bg-surface-elevated1">
+                    <h3 className="font-bold text-sm line-clamp-2 leading-snug group-hover:text-primary transition-colors h-10">
+                        {title}
+                    </h3>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black tracking-widest text-muted-foreground/40 uppercase">
+                            {media.format || "Asset"}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <Star className="w-2.5 h-2.5 text-primary/50" />
+                            <span className="text-[10px] font-bold tabular-nums text-muted-foreground/60">{media.score || "??"}</span>
+                        </div>
+                    </div>
+                </div>
+            </Link>
+        </motion.div>
+    );
 }

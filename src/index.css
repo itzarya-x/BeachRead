@@ -6,146 +6,122 @@
 
 @layer base {
     :root {
-        /* Deep cinematic dark theme */
-        --background: 222 47% 5%;
-        --foreground: 220 20% 93%;
+        /* YURA DESIGN SYSTEM - Discovery Redux */
+        
+        /* Base - Inky, content-focused dark */
+        --background: 0 0% 5%;
+        --foreground: 0 0% 95%;
 
-        --card: 220 36% 10%;
-        --card-foreground: 220 20% 93%;
+        /* Surfaces - Glassy, deep elevation */
+        --card: 0 0% 8%;
+        --card-foreground: 0 0% 95%;
 
-        --popover: 220 36% 10%;
-        --popover-foreground: 220 20% 93%;
+        --popover: 0 0% 10%;
+        --popover-foreground: 0 0% 95%;
 
+        /* PRIMARY ACCENT - Electric Cyan (Task 10) */
         --primary: 199 89% 58%;
-        --primary-foreground: 222 47% 5%;
+        --primary-foreground: 0 0% 5%;
 
-        --secondary: 220 30% 15%;
-        --secondary-foreground: 220 20% 80%;
+        /* Secondary - Muted and sophisticated */
+        --secondary: 0 0% 12%;
+        --secondary-foreground: 0 0% 70%;
 
-        --muted: 220 25% 13%;
-        --muted-foreground: 220 15% 50%;
+        --muted: 0 0% 12%;
+        --muted-foreground: 0 0% 45%;
 
-        --accent: 38 92% 50%;
-        --accent-foreground: 222 47% 5%;
+        /* Accent - sparingly used */
+        --accent: 199 89% 58%;
+        --accent-foreground: 0 0% 5%;
 
-        --destructive: 350 80% 55%;
+        /* Destructive */
+        --destructive: 0 84% 60%;
         --destructive-foreground: 0 0% 100%;
 
-        --border: 220 20% 16%;
-        --input: 220 25% 18%;
+        /* Borders - Paper thin */
+        --border: 0 0% 14%;
+        --input: 0 0% 16%;
         --ring: 199 89% 58%;
 
-        --radius: 0.5rem;
+        /* Modern rounding (Task 1.2) */
+        --radius: 1rem;
 
-        /* Status colors */
-        --status-current: 152 56% 46%;
-        --status-completed: 199 89% 58%;
-        --status-planning: 270 60% 65%;
-        --status-dropped: 350 75% 55%;
-        --status-paused: 45 80% 55%;
-        --status-repeating: 152 56% 55%;
-
-        /* Score colors */
-        --score-high: 152 56% 46%;
-        --score-mid: 45 80% 55%;
-        --score-low: 350 75% 55%;
-
-        /* Surface layers */
-        --surface-0: 222 47% 5%;
-        --surface-1: 222 40% 8%;
-        --surface-2: 220 36% 10%;
-        --surface-3: 220 30% 15%;
-
-        /* Nav */
-        --nav-bg: 222 42% 8%;
-
-        /* Tier colors */
-        --tier-s: 340 80% 60%;
-        --tier-a: 25 90% 55%;
-        --tier-b: 45 90% 50%;
-        --tier-c: 152 50% 45%;
-        --tier-d: 199 70% 50%;
-        --tier-f: 220 20% 40%;
-
-        --sidebar-background: 222 40% 8%;
-        --sidebar-foreground: 220 20% 80%;
+        /* Nav & Static layers */
+        --surface-base: 0 0% 3%;
+        --surface-elevated1: 0 0% 6%;
+        --surface-elevated2: 0 0% 9%;
+        --surface-elevated3: 0 0% 12%;
+        
+        --nav-bg: 0 0% 6%;
+        
+        /* Sidebar Refinement */
+        --sidebar-background: 0 0% 4%;
+        --sidebar-foreground: 0 0% 60%;
         --sidebar-primary: 199 89% 58%;
-        --sidebar-primary-foreground: 222 47% 5%;
-        --sidebar-accent: 220 30% 15%;
-        --sidebar-accent-foreground: 220 20% 93%;
-        --sidebar-border: 220 20% 16%;
+        --sidebar-primary-foreground: 0 0% 5%;
+        --sidebar-accent: 0 0% 10%;
+        --sidebar-accent-foreground: 0 0% 100%;
+        --sidebar-border: 0 0% 10%;
         --sidebar-ring: 199 89% 58%;
     }
 }
 
 @layer base {
     * {
-        @apply border-border;
+        @apply border-border/40;
     }
 
     body {
-        @apply bg-background text-foreground antialiased;
+        @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-white;
         font-family: "Overpass", system-ui, sans-serif;
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6 {
+    h1, h2, h3, h4, h5, h6 {
         font-family: "Outfit", "Overpass", system-ui, sans-serif;
-        letter-spacing: -0.025em;
+        letter-spacing: -0.04em;
+        @apply font-black leading-[1.1];
     }
 
-    h1 {
-        @apply text-4xl md:text-5xl font-extrabold;
-    }
-    h2 {
-        @apply text-3xl md:text-4xl font-bold;
-    }
-    h3 {
-        @apply text-2xl md:text-3xl font-bold;
-    }
-    h4 {
-        @apply text-xl md:text-2xl font-semibold;
-    }
-    h5 {
-        @apply text-lg font-semibold;
-    }
-    h6 {
-        @apply text-base font-semibold;
+    h1 { @apply text-5xl md:text-7xl; }
+    h2 { @apply text-4xl md:text-5xl; }
+    h3 { @apply text-2xl md:text-3xl tracking-tight; }
+    
+    /* Global image transitions */
+    img {
+        @apply transition-opacity duration-700 ease-in-out;
     }
 
-    /* Scrollbar styling */
+    /* Scrollbar styling - Minimal and sleek */
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 4px;
+        height: 4px;
     }
     ::-webkit-scrollbar-track {
         background: transparent;
     }
     ::-webkit-scrollbar-thumb {
         background: hsl(var(--muted));
-        border-radius: 3px;
+        border-radius: 2px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: hsl(var(--muted-foreground));
+        background: hsl(var(--primary) / 0.5);
     }
 }
 
 @layer components {
-    /* Glass morphism card */
+    /* TASK 1.5 — Reduce Noise: Minimal borders, use contrast */
+    
+    /* Glass morphism card - Subtle borders */
     .glass {
         background: hsl(var(--card) / 0.6);
         backdrop-filter: blur(20px);
-        border: 1px solid hsl(var(--border) / 0.5);
+        border: 1px solid hsl(var(--border) / 0.3);
     }
 
     .glass-strong {
         background: hsl(var(--card) / 0.85);
         backdrop-filter: blur(30px);
-        border: 1px solid hsl(var(--border) / 0.6);
+        border: 1px solid hsl(var(--border) / 0.4);
     }
 
     /* Status badges */
@@ -389,4 +365,15 @@
     .animate-sparkle {
         animation: sparkle 0.6s ease-in-out;
     }
+
+    /* DS UTILITIES */
+    .bg-surface-base { background-color: hsl(var(--surface-base)); }
+    .bg-surface-elevated1 { background-color: hsl(var(--surface-elevated1)); }
+    .bg-surface-elevated2 { background-color: hsl(var(--surface-elevated2)); }
+    .bg-surface-elevated3 { background-color: hsl(var(--surface-elevated3)); }
+
+    .shadow-glow { box-shadow: 0 0 20px -4px hsla(199, 89%, 58%, 0.4); }
+    .shadow-depth1 { box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5); }
+    .shadow-depth2 { box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.6); }
+    .shadow-depth3 { box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8); }
 }

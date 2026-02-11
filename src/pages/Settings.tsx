@@ -2,9 +2,9 @@ import { AccountSection } from "@/components/account/AccountSection";
 import { DeviceList, type Device } from "@/components/account/DeviceList";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { BackupStatus } from "@/components/sync/BackupStatus";
-import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/ToastNotification";
+import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
-import { useToast } from "@/hooks/use-toast";
 import {
     BarChart3,
     Bell,
@@ -33,6 +33,7 @@ import {
     User,
     Wifi,
 } from "lucide-react";
+import React from "react";
 
 const LIST_ORDER_LABELS: Record<number, string> = {
     0: "Score",
@@ -43,13 +44,17 @@ const LIST_ORDER_LABELS: Record<number, string> = {
 
 const Settings = () => {
     const { user, loading } = useData();
-    const { toast } = useToast();
+    const { showToast } = useToast();
 
     if (loading || !user) {
         return (
-            <div className="flex min-h-[50vh] items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
+            <PageWrapper className="p-6">
+                <div className="h-10 w-48 bg-surface-2 rounded-lg animate-pulse mb-8" />
+                <div className="space-y-6">
+                    <div className="h-32 bg-surface-1 rounded-xl animate-pulse" />
+                    <div className="h-64 bg-surface-1 rounded-xl animate-pulse" />
+                </div>
+            </PageWrapper>
         );
     }
 
@@ -79,67 +84,66 @@ const Settings = () => {
 
     const handleForceUpload = async () => {
         try {
-            toast({
-                title: "Starting force upload",
-                description: "Uploading all local data to cloud...",
-            });
+            showToast("Syncing your vault...", "info");
             // TODO: Call sync engine's forceUploadLocalCopy
             setTimeout(() => {
-                toast({
-                    title: "Upload complete",
-                    description: "All local data has been uploaded to cloud.",
-                });
+                showToast("All local data has been uploaded to cloud.", "success");
             }, 2000);
         } catch (err) {
-            toast({
-                title: "Upload failed",
-                description: err instanceof Error ? err.message : "Something went wrong",
-                variant: "destructive",
-            });
+            showToast(err instanceof Error ? err.message : "Something went wrong", "error");
         }
     };
 
     const handleForceDownload = async () => {
         try {
-            toast({
-                title: "Starting force download",
-                description: "Downloading all cloud data...",
-            });
+            showToast("Starting force download...", "info");
             // TODO: Call sync engine's forceDownloadCloudCopy
             setTimeout(() => {
-                toast({
-                    title: "Download complete",
-                    description: "All cloud data has been downloaded.",
-                });
+                showToast("All cloud data has been downloaded.", "success");
             }, 2000);
         } catch (err) {
-            toast({
-                title: "Download failed",
-                description: err instanceof Error ? err.message : "Something went wrong",
-                variant: "destructive",
-            });
+            showToast(err instanceof Error ? err.message : "Something went wrong", "error");
         }
     };
 
     const handleReSync = async () => {
         try {
-            toast({
-                title: "Starting re-sync",
-                description: "Syncing your vault...",
-            });
+            showToast("Syncing your vault...", "info");
             // TODO: Call sync engine's downloadUpdates
             setTimeout(() => {
-                toast({
-                    title: "Re-sync complete",
-                    description: "Your vault is now up to date.",
-                });
+                showToast("Your vault is now up to date.", "success");
             }, 2000);
         } catch (err) {
-            toast({
-                title: "Re-sync failed",
-                description: err instanceof Error ? err.message : "Something went wrong",
-                variant: "destructive",
+            showToast(err instanceof Error ? err.message : "Something went wrong", "error");
+        }
+    };
+
+    const [migrationProgress, setMigrationProgress] = React.useState<{ current: number; total: number } | null>(null);
+
+    const handleMigrateLocalData = async () => {
+        if (!confirm("This will upload all your local data to the cloud. Continue?")) return;
+
+        try {
+            const { migrateLocalData } = useData();
+            await migrateLocalData((current, total) => {
+                setMigrationProgress({ current, total });
             });
+
+            showToast("All your local data is now in the cloud.", "success");
+
+            if (confirm("Migration finished! Would you like to clear your local copy to prevent confusion? (Cloud data is safe)")) {
+                const { clearLocalData } = useData();
+                await clearLocalData();
+                showToast("Your local database is now empty.", "success");
+            }
+
+            // Reload page to refresh all data
+            window.location.reload();
+        } catch (err) {
+            console.error("Migration failed:", err);
+            showToast(err instanceof Error ? err.message : "Something went wrong during migration.", "error");
+        } finally {
+            setMigrationProgress(null);
         }
     };
 
@@ -152,6 +156,40 @@ const Settings = () => {
 
                 {/* Backup Status */}
                 <BackupStatus isBackedUp={false} itemCount={0} lastBackupTime={undefined} />
+
+                {/* Migration Tool */}
+                <SettingsSection title="Migration Tool">
+                    <div className="px-4 py-4 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                            Moving from Guest mode to Cloud? Upload your entire local vault to your Supabase account.
+                        </p>
+
+                        {!migrationProgress ? (
+                            <Button
+                                variant="primary"
+                                className="w-full"
+                                icon={CloudUpload}
+                                onClick={handleMigrateLocalData}
+                                disabled={!user}
+                            >
+                                Migrate Local Data to Cloud
+                            </Button>
+                        ) : (
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs">
+                                    <span>Migrating data...</span>
+                                    <span>{migrationProgress.current} / {migrationProgress.total} items</span>
+                                </div>
+                                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                                    <div 
+                                        className="bg-primary h-full transition-all duration-300" 
+                                        style={{ width: `${(migrationProgress.current / migrationProgress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </SettingsSection>
 
                 {/* Cloud Sync Controls */}
                 <SettingsSection title="Cloud Sync Controls">
@@ -220,18 +258,18 @@ const Settings = () => {
                         <div className="flex gap-3">
                             <Button
                                 variant="outline"
-                                className="flex-1 gap-2"
+                                className="flex-1"
+                                icon={Download}
                                 // onClick={handleExportBackup}
                             >
-                                <Download className="w-4 h-4" />
                                 Export Backup
                             </Button>
                             <Button
                                 variant="outline"
-                                className="flex-1 gap-2"
+                                className="flex-1"
+                                icon={Upload}
                                 // onClick={handleImportBackup}
                             >
-                                <Upload className="w-4 h-4" />
                                 Import Backup
                             </Button>
                         </div>

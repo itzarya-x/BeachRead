@@ -131,6 +131,8 @@ export interface DisplayMedia {
   season: string | null;
   seasonYear: number | null;
   description: string | null;
+  duration: number | null; // Episode duration in minutes
+  tags: string[];
   originType: OriginType; // Auto-classified: manga, manhua, or manhwa
 
   // Internal only - never shown in UI
@@ -166,4 +168,5 @@ export interface AniListMediaResponse {
   countryOfOrigin: string | null; // ISO country code (JP, CN, KR, etc.)
   averageScore: number | null; // TASK 2: Added averageScore
   popularity: number | null; // TASK 2: Added popularity
+  duration: number | null; // TASK 2: Added duration
 }

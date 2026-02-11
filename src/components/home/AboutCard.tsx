@@ -1,7 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import ds from "@/styles/design-system";
 import type { DisplayUser } from "@/types/display";
-import { ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Info } from "lucide-react";
 import { useState } from "react";
 
 interface AboutCardProps {
@@ -14,28 +16,49 @@ export function AboutCard({ user }: AboutCardProps) {
     if (!user.about) return null;
 
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-6">
-            <Card className="border-l-2 border-l-primary/40 overflow-hidden">
+        <Collapsible open={isOpen} onOpenChange={setIsOpen} className="mb-8">
+            <Card className="border-none shadow-md bg-surface-1 overflow-hidden group">
                 <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                            <span className="text-sm font-semibold text-foreground">About</span>
-                            <span className="text-xs text-muted-foreground">
-                                Member since{" "}
-                                {new Date(user.createdAt).toLocaleDateString("en-US", {
-                                    month: "short",
-                                    year: "numeric",
-                                })}
-                            </span>
+                    <button className="w-full flex items-center justify-between p-5 hover:bg-surface-2 transition-all duration-300 group">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Info className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-base font-bold text-foreground">Collector Notes</h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Member since{" "}
+                                    {new Date(user.createdAt).toLocaleDateString("en-US", {
+                                        month: "long",
+                                        year: "numeric",
+                                    })}
+                                </p>
+                            </div>
                         </div>
-                        <ChevronDown
-                            className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
-                        />
+                        <div className="w-8 h-8 rounded-full bg-surface-2 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                            <ChevronDown
+                                className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+                            />
+                        </div>
                     </button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="border-t border-border/30 px-4 py-4 bg-background/50">
-                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{user.about}</p>
-                </CollapsibleContent>
+                <AnimatePresence>
+                    {isOpen && (
+                        <CollapsibleContent forceMount asChild>
+                            <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: ds.motion.duration.normal / 1000, ease: ds.motion.easing.default as any }}
+                                className="border-t border-border/10 overflow-hidden"
+                            >
+                                <div className="px-6 py-5 bg-surface-1/50">
+                                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap font-medium">{user.about}</p>
+                                </div>
+                            </motion.div>
+                        </CollapsibleContent>
+                    )}
+                </AnimatePresence>
             </Card>
         </Collapsible>
     );

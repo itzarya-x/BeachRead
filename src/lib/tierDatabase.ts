@@ -400,3 +400,41 @@ export async function getUnassignedForBoard(boardId: string | number): Promise<T
     const assignments = await getAssignmentsForBoard(boardId);
     return assignments.filter(a => a.tierId === null).sort((a, b) => a.position - b.position);
 }
+/**
+ * MIGRATION: Get everything from all stores
+ */
+export async function dbGetAllLocalTiers(): Promise<Tier[]> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_TIERS], "readonly");
+    const store = transaction.objectStore(STORE_TIERS);
+    return new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function dbGetAllLocalAssignments(): Promise<TierAssignment[]> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_TIER_ASSIGNMENTS], "readonly");
+    const store = transaction.objectStore(STORE_TIER_ASSIGNMENTS);
+    return new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * MIGRATION: Clear all local tier data
+ */
+export async function dbClearAllLocalTierData(): Promise<void> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_TIER_BOARDS, STORE_TIERS, STORE_TIER_ASSIGNMENTS], "readwrite");
+    transaction.objectStore(STORE_TIER_BOARDS).clear();
+    transaction.objectStore(STORE_TIERS).clear();
+    transaction.objectStore(STORE_TIER_ASSIGNMENTS).clear();
+    return new Promise((resolve) => {
+        transaction.oncomplete = () => resolve();
+    });
+}

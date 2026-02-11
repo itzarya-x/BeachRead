@@ -236,3 +236,32 @@ export async function hardDeleteUserEntry(entryId: string | number): Promise<voi
         request.onerror = () => reject(request.error);
     });
 }
+/**
+ * MIGRATION: Get ALL entries in IndexedDB (including guests)
+ */
+export async function dbGetAllLocalEntries(): Promise<UserEntry[]> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_USER_ENTRIES], "readonly");
+    const store = transaction.objectStore(STORE_USER_ENTRIES);
+
+    return new Promise((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * MIGRATION: Clear all local user entries
+ */
+export async function dbClearAllLocalEntries(): Promise<void> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_USER_ENTRIES], "readwrite");
+    const store = transaction.objectStore(STORE_USER_ENTRIES);
+
+    return new Promise((resolve, reject) => {
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}

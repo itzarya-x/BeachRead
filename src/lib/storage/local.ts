@@ -40,7 +40,7 @@ import {
     type TierBoard,
 } from "@/lib/tierDatabase";
 
-import type { IStorageProvider, SyncRecord } from "./types";
+import type { ActivityLog, IStorageProvider, SyncRecord } from "./types";
 
 export class LocalStorageProvider implements IStorageProvider {
     private ready = false;
@@ -197,5 +197,14 @@ export class LocalStorageProvider implements IStorageProvider {
 
     async setSetting(userId: number, key: string, value: any): Promise<void> {
         // To be implemented if needed
+    }
+
+    // ============= Activity Operations (No-op for local) =============
+    async logActivity(activity: Omit<ActivityLog, "id" | "userId" | "createdAt">): Promise<void> {
+        // Local storage doesn't track activity logs yet
+    }
+
+    async getActivities(userId: string | number): Promise<ActivityLog[]> {
+        return [];
     }
 }

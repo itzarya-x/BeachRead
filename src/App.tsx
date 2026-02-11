@@ -1,23 +1,30 @@
 import { FirstLoginPrompt } from "@/components/account/FirstLoginPrompt";
 import { SessionRestoreToast } from "@/components/account/SessionRestoreToast";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TopHeader } from "@/components/layout/TopHeader";
+import { DuplicateDetectorDialog } from "@/components/media/DuplicateDetectorDialog";
 import { ConflictResolver } from "@/components/sync/ConflictResolver";
 import { FirstLoginDialog } from "@/components/sync/FirstLoginDialog";
 import { OfflineBanner } from "@/components/sync/OfflineBanner";
+import { CommandPalette } from "@/components/ui/CommandPalette";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
+import { ToastProvider } from "@/components/ui/ToastNotification";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider, useData } from "@/context/DataContext";
 import { StatsFilterProvider } from "@/context/StatsFilterContext";
 import { SyncUIProvider, useSyncUIContext } from "@/context/SyncUIContext";
+import { cn } from "@/lib/utils";
 import { downloadVaultFromCloud, markVaultSkipped, mergeVaults, migrateVaultToCloud } from "@/lib/vault-migration";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import Activity from "./pages/Activity";
 import AnimeList from "./pages/AnimeList";
 import { AuthCallback } from "./pages/AuthCallback";
+import Continue from "./pages/Continue";
 import CustomLists from "./pages/CustomLists";
 import Index from "./pages/Index";
 import MangaList from "./pages/MangaList";
@@ -37,6 +44,7 @@ const AppContent = () => {
     const { loading, user, error } = useData();
     const { user: authUser } = useAuth();
     const syncUI = useSyncUIContext();
+    const location = useLocation();
 
     // Show loading state
     if (loading) {
@@ -99,24 +107,36 @@ const AppContent = () => {
                 <OfflineBanner />
                 <div className="flex flex-1">
                     <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
-                    <main className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? "ml-20" : "ml-64"}`}>
-                        <Routes>
-                            <Route path="/" element={<Index />} />
-                            <Route path="/auth/callback" element={<AuthCallback />} />
-                            <Route path="/anime" element={<AnimeList />} />
-                            <Route path="/anime/:id" element={<MediaDetail />} />
-                            <Route path="/manga" element={<MangaList />} />
-                            <Route path="/manga/:id" element={<MediaDetail />} />
-                            <Route path="/tiers" element={<TierList />} />
-                            <Route path="/tier-maker" element={<TierMaker />} />
-                            <Route path="/custom-lists" element={<CustomLists />} />
-                            <Route path="/stats" element={<Stats />} />
-                            <Route path="/activity" element={<Activity />} />
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/raw-data" element={<RawData />} />
-                            <Route path="*" element={<NotFound />} />
-                        </Routes>
-                    </main>
+                    
+                    {/* Main Content Area */}
+                    <div className={cn(
+                        "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
+                        sidebarCollapsed ? "md:ml-20" : "md:ml-72",
+                        "ml-0" // No margin on mobile
+                    )}>
+                        <TopHeader />
+                        <main className="flex-1 overflow-y-auto">
+                            <AnimatePresence mode="wait">
+                                <Routes location={location} key={location.pathname}>
+                                    <Route path="/" element={<Index />} />
+                                    <Route path="/auth/callback" element={<AuthCallback />} />
+                                    <Route path="/continue" element={<Continue />} />
+                                    <Route path="/anime" element={<AnimeList />} />
+                                    <Route path="/anime/:id" element={<MediaDetail />} />
+                                    <Route path="/manga" element={<MangaList />} />
+                                    <Route path="/manga/:id" element={<MediaDetail />} />
+                                    <Route path="/tiers" element={<TierList />} />
+                                    <Route path="/tier-maker" element={<TierMaker />} />
+                                    <Route path="/custom-lists" element={<CustomLists />} />
+                                    <Route path="/stats" element={<Stats />} />
+                                    <Route path="/activity" element={<Activity />} />
+                                    <Route path="/settings" element={<Settings />} />
+                                    <Route path="/raw-data" element={<RawData />} />
+                                    <Route path="*" element={<NotFound />} />
+                                </Routes>
+                            </AnimatePresence>
+                        </main>
+                    </div>
                 </div>
             </div>
 
@@ -189,6 +209,9 @@ const AppContent = () => {
                     console.log(`Resolved conflict ${conflictId} with choice: ${choice}`);
                 }}
             />
+
+            <DuplicateDetectorDialog />
+            <CommandPalette />
         </>
     );
 };
@@ -203,7 +226,9 @@ const App = () => (
                     <DataProvider>
                         <StatsFilterProvider>
                             <SyncUIProvider>
-                                <AppContent />
+                                <ToastProvider>
+                                    <AppContent />
+                                </ToastProvider>
                             </SyncUIProvider>
                         </StatsFilterProvider>
                     </DataProvider>

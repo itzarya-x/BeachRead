@@ -8,7 +8,7 @@
  */
 
 import type { DisplayMedia } from "@/types/display";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface MediaStore {
     // Data
@@ -170,5 +170,7 @@ export function subscribeToMutations(callback: () => void) {
         callback();
     };
     listeners.add(listener);
-    return () => listeners.delete(listener);
+    return () => {
+        listeners.delete(listener);
+    };
 }
