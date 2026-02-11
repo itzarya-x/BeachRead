@@ -51,6 +51,24 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_media' AND column_name='updated_at') THEN
         ALTER TABLE public.user_media ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
     END IF;
+
+    -- NEW: Ensure the unique constraint exists on (user_id, series_id)
+    -- This is required for our 'upsert' logic to work correctly
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.table_constraints tc 
+        JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+        WHERE tc.table_schema = 'public' 
+        AND tc.table_name = 'user_media' 
+        AND tc.constraint_type = 'UNIQUE'
+        AND kcu.column_name IN ('user_id', 'series_id')
+        GROUP BY tc.constraint_name
+        HAVING COUNT(*) = 2
+    ) THEN
+        -- Try to drop any existing singular uniques on series_id if they exist
+        -- (Some older versions might have had a unique on just series_id)
+        ALTER TABLE public.user_media ADD CONSTRAINT user_media_user_id_series_id_key UNIQUE (user_id, series_id);
+    END IF;
 END $$;
 
 -- 3. Enable Row Level Security (RLS)
