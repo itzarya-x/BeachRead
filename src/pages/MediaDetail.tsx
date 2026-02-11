@@ -82,7 +82,7 @@ const MediaDetail = () => {
         }
     }, [media, deleteEntry, navigate, backPath, showToast]);
 
-    if (loading) return <DetailPageSkeleton />;
+    if (loading || (media && !media._enriched)) return <DetailPageSkeleton />;
 
     if (!media || !user) {
         return (

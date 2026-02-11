@@ -256,10 +256,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     // Trigger enrichment for these entries
                     setEnriching(true);
                     const allIds = cloudEntries.map(e => e._seriesId);
+                    
+                    // Hydration Pipeline - Progressive loading like Netflix
                     fetchMediaBatched(allIds, (loaded, total) => {
                         setEnrichProgress({ loaded, total });
+                        
+                        // Progressive UI update after each batch (Task 6 & 10)
+                        const currentEdits = getStorageProvider().getAllUserEntries(authUser.id);
+                        // We can't await here easily in a callback, but we can use the latest cache
+                        const refreshedAnime = finalAnime.map(e => enrichEntryWithUserEdits(e, cloudEdits));
+                        const refreshedManga = finalManga.map(e => enrichEntryWithUserEdits(e, cloudEdits));
+                        setAnimeList(refreshedAnime);
+                        setMangaList(refreshedManga);
                     }).then(() => {
                         setEnriching(false);
+                        console.log("%c[HYDRATE] All fragments identified and metadata synced.", "color: #51cf66; font-weight: bold;");
+                        
+                        // Final refresh
+                        const refreshedAnime = finalAnime.map(e => enrichEntryWithUserEdits(e, cloudEdits));
+                        const refreshedManga = finalManga.map(e => enrichEntryWithUserEdits(e, cloudEdits));
+                        setAnimeList(refreshedAnime);
+                        setMangaList(refreshedManga);
+
                         // Re-sync after enrichment to ensure data is fresh
                         const syncManager = getRealtimeSyncManager();
                         syncManager.startSync({
@@ -535,7 +553,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const existing = list.find(m => {
                 if (m._seriesId !== 0 && m._seriesId === entry._seriesId) return true;
                 // Fallback to title match if seriesId missing
-                const mTitle = (m.title.romaji || m.title.english || "").toLowerCase();
+                const mTitle = getTitle(m).toLowerCase();
                 const eTitle = (entry.title?.romaji || entry.title?.english || "").toLowerCase();
                 return eTitle !== "" && mTitle === eTitle;
             });

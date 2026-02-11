@@ -64,14 +64,8 @@ let cacheInitialized = false;
 async function initializeCacheFromDB(): Promise<void> {
     if (cacheInitialized) return;
 
-    // TASK 6: ULTRA-HARD BLOCK - If authenticated (Cloud Provider active), we MUST NOT touch IndexedDB
-    if (isCloudProvider()) {
-        console.log("%c🚀 [SUPABASE-AUTH-BOOT] Media cache reading from IndexedDB is DISABLED.", "color: #1c7ed6; font-weight: bold; font-size: 16px;");
-        // debugger; // Uncomment to catch rogue calls in browser
-        cacheInitialized = true;
-        return;
-    }
-
+    // We now allow IndexedDB caching even in cloud mode for CONTENT METADATA.
+    // This provides "Persistence" for hydrated items across sessions.
     try {
         await initializeStorageProvider(false);
         const storage = getStorageProvider();
@@ -81,11 +75,13 @@ async function initializeCacheFromDB(): Promise<void> {
             mediaCache.set(id, media);
         }
         cacheInitialized = true;
-        console.log(`%c[CACHE] Loaded ${cached.size} media entries from IndexedDB`, "color: #868e96; font-style: italic;");
+        console.log(`%c[HYDRATE] cache hit: ${cached.size} entries loaded from IndexedDB`, "color: #51cf66; font-weight: bold;");
     } catch (err) {
-        console.warn("Failed to load cache from IndexedDB:", err);
+        console.warn("[HYDRATE] Failed to load cache from IndexedDB:", err);
         cacheInitialized = true;
     }
+
+    // Initialized above
 }
 
 export function getCachedMedia(id: number): AniListMediaResponse | undefined {
@@ -121,25 +117,21 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
         const json = await response.json();
         const media: AniListMediaResponse[] = json?.data?.Page?.media || [];
 
+        console.log(`%c[HYDRATE] fetching media: ${ids.length} items from AniList`, "color: #1c7ed6;");
+
         // TASK 2: Cache results in memory and IndexedDB
         for (const m of media) {
             mediaCache.set(m.id, m);
-            // Save to active storage provider (skip if cloud to satisfy strict policy)
+            // Save to active storage provider (force local storage for metadata)
             (async () => {
                 try {
-                    if (isCloudProvider()) return;
-                    
-                    let storage: any;
-                    try {
-                        storage = getStorageProvider();
-                    } catch (err) {
-                        await initializeStorageProvider(false);
-                        storage = getStorageProvider();
-                    }
-
-                    await storage.saveMediaCache(m.id, m);
+                    // We specifically use the LOCAL provider for content metadata 
+                    // to ensure it persists even when authenticated with Supabase.
+                    const localProvider = new (await import("./storage/local")).LocalStorageProvider();
+                    await localProvider.initialize();
+                    await localProvider.saveMediaCache(m.id, m);
                 } catch (err) {
-                    console.warn(`Failed to save media ${m.id} to storage:`, err);
+                    console.warn(`[HYDRATE] Failed to persist media ${m.id}:`, err);
                 }
             })();
         }

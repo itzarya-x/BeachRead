@@ -34,6 +34,8 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
         return "Just now";
     }, [media.updatedAt]);
 
+    const isHydrated = media._enriched;
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -43,13 +45,19 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                 delay: index * 0.05,
                 ease: [0.23, 1, 0.32, 1]
             }}
-            whileHover={{ y: -12 }}
+            whileHover={isHydrated ? { y: -12 } : {}}
             className={cn("shrink-0 group/card", className || "w-[200px] md:w-[320px]")}
         >
             <div className="relative flex flex-col gap-5">
-                <Link to={linkPath} className="relative aspect-[2/3] rounded-[1.5rem] overflow-hidden bg-[#101827] shadow-[0_20px_40px_rgba(0,0,0,0.4)] transition-all duration-500 ring-1 ring-white/5 group-hover/card:ring-primary/50 group-hover/card:shadow-[0_40px_80px_rgba(0,0,0,0.8)]">
+                <Link 
+                    to={isHydrated ? linkPath : "#"} 
+                    className={cn(
+                        "relative aspect-[2/3] rounded-[1.5rem] overflow-hidden bg-[#101827] shadow-[0_20px_40px_rgba(0,0,0,0.4)] transition-all duration-500 ring-1 ring-white/5",
+                        isHydrated ? "group-hover/card:ring-primary/50 group-hover/card:shadow-[0_40px_80px_rgba(0,0,0,0.8)]" : "animate-pulse"
+                    )}
+                >
                     {/* Cover Image */}
-                    {media.coverImage ? (
+                    {media?.coverImage ? (
                         <motion.img
                             src={media.coverImage}
                             alt={title}
@@ -58,21 +66,23 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                         />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center bg-white/5">
-                            <Play className="w-12 h-12 text-white/10" />
+                            <Play className={cn("w-12 h-12 text-white/10", !isHydrated && "animate-spin")} />
                         </div>
                     )}
 
                     {/* Gradient Overlays */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
 
-                    {/* Resume Action (Always available on hover for discovery) */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-300 z-30">
-                         <div className="w-20 h-20 rounded-full bg-primary text-primary-foreground shadow-glow flex items-center justify-center scale-75 group-hover/card:scale-100 transition-transform duration-500">
-                            <Play className="w-10 h-10 fill-current translate-x-1" />
-                         </div>
-                    </div>
+                    {/* Resume Action */}
+                    {isHydrated && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-300 z-30">
+                             <div className="w-20 h-20 rounded-full bg-primary text-primary-foreground shadow-glow flex items-center justify-center scale-75 group-hover/card:scale-100 transition-transform duration-500">
+                                <Play className="w-10 h-10 fill-current translate-x-1" />
+                             </div>
+                        </div>
+                    )}
 
-                    {/* Progress Bar (Always visible for Continue variant, or if progress > 0) */}
+                    {/* Progress Bar */}
                     {(variant === "continue" || progressPercent > 0) && (
                         <div className="absolute bottom-0 left-0 right-0 h-2 bg-white/10 z-20">
                             <motion.div 
@@ -99,9 +109,12 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                     </div>
                 </Link>
 
-                {/* Info Display (Minimal Reading) */}
+                {/* Info Display */}
                 <div className="space-y-2 px-1">
-                    <h3 className="text-lg md:text-xl font-black text-white line-clamp-1 tracking-tight group-hover/card:text-primary transition-colors">
+                    <h3 className={cn(
+                        "text-lg md:text-xl font-black text-white line-clamp-1 tracking-tight transition-colors",
+                        isHydrated ? "group-hover/card:text-primary" : "bg-white/5 rounded-md text-transparent w-3/4 animate-pulse"
+                    )}>
                         {title}
                     </h3>
                     
@@ -109,20 +122,22 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                         <div className="flex items-center gap-3">
                              {variant === "continue" && (
                                 <span className="text-primary/60">
-                                    {media.mediaType === "ANIME" ? "EP" : "CH"} {media.progress} / {media.episodes || media.chapters || "?"}
+                                    {media?.mediaType === "ANIME" ? "EP" : "CH"} {media?.progress ?? 0} / {media?.episodes || media?.chapters || "?"}
                                 </span>
                              )}
                              {variant === "updated" && (
                                 <span className="text-primary/60">
-                                    {media.mediaType === "ANIME" ? `EP ${media.progress}` : `CH ${media.progress}`}
+                                    {media?.mediaType === "ANIME" ? `EP ${media?.progress ?? 0}` : `CH ${media?.progress ?? 0}`}
                                 </span>
                              )}
                              {variant !== "continue" && variant !== "updated" && (
-                                <span>{media.format || "FEATURE"}</span>
+                                <span className={!isHydrated ? "bg-white/5 rounded px-2" : ""}>
+                                    {media?.format || (isHydrated ? "FEATURE" : "LOADING")}
+                                </span>
                              )}
                         </div>
                         
-                        {variant === "updated" && (
+                        {variant === "updated" && isHydrated && (
                             <div className="flex items-center gap-2">
                                 <div className="w-1 h-1 rounded-full bg-white/10" />
                                 <span>{timeSince}</span>
