@@ -115,7 +115,7 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                         "text-lg md:text-xl font-black text-white line-clamp-1 tracking-tight transition-colors",
                         isHydrated ? "group-hover/card:text-primary" : "bg-white/5 rounded-md text-transparent w-3/4 animate-pulse"
                     )}>
-                        {title}
+                        {title || "Unknown Title"}
                     </h3>
                     
                     <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.2em] text-white/20 group-hover/card:text-white/40 transition-colors">

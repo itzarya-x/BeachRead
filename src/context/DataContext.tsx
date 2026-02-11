@@ -8,6 +8,7 @@ import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-
 import { CloudStorageProvider } from "@/lib/storage/cloud";
 import type { ActivityLog, UserEntry } from "@/lib/storage/types";
 import { dbClearAllLocalTierData, dbGetAllLocalAssignments, dbGetAllLocalTiers, getAllTierBoards as dbGetAllTierBoards } from "@/lib/tierDatabase";
+import { ensureArray } from "@/lib/utils";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
 import type { GdprData } from "@/types/gdpr";
@@ -188,19 +189,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     // For cloud users, the Supabase data is the ONLY source.
                     // We don't even load the GDPR JSON baseline unless they trigger an import.
                     const cloudEntries = Array.from(cloudEdits.values()).map(edit => {
+                        const data = edit.data || {};
                         return {
-                            ...edit.data,
+                            ...data,
                             // RE-ENSURE metadata exists even if edit.data has null/undefined fields
-                            title: edit.data?.title || { romaji: "Loading fragment...", english: null, native: null },
-                            coverImage: edit.data?.coverImage || null,
-                            bannerImage: edit.data?.bannerImage || null,
-                            genres: edit.data?.genres || [],
-                            tags: edit.data?.tags || [],
-                            format: edit.data?.format || null,
+                            title: data.title || { romaji: "Unknown", english: null, native: null },
+                            coverImage: data.coverImage || null,
+                            bannerImage: data.bannerImage || null,
+                            genres: ensureArray<string>(data.genres),
+                            tags: ensureArray<any>(data.tags),
+                            format: data.format || null,
+                            customLists: ensureArray<string>(data.customLists),
+                            advancedScores: ensureArray<number>(data.advancedScores),
                             _entryId: edit.entryId,
                             _seriesId: edit.seriesId,
                             _userId: edit.userId,
-                            _enriched: false,
+                            _enriched: !!data.title && data.title.romaji !== "Loading fragment...",
                         } as DisplayMedia;
                     });
 
@@ -526,18 +530,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const getAnimeByStatus = useCallback((status: MediaStatus) => {
         const { animeList: storeAnimeList } = getMediaStoreState();
-        return storeAnimeList.filter(e => e.status === status);
+        return ensureArray<DisplayMedia>(storeAnimeList).filter(e => e.status === status);
     }, []);
 
     const getMangaByStatus = useCallback((status: MediaStatus) => {
         const { mangaList: storeMangaList } = getMediaStoreState();
-        return storeMangaList.filter(e => e.status === status);
+        return ensureArray<DisplayMedia>(storeMangaList).filter(e => e.status === status);
     }, []);
 
     const getCustomListEntries = useCallback((listName: string, type: MediaType) => {
         const { animeList: storeAnimeList, mangaList: storeMangaList } = getMediaStoreState();
         const list = type === "ANIME" ? storeAnimeList : storeMangaList;
-        return list.filter(e => e.customLists.includes(listName));
+        return ensureArray<DisplayMedia>(list).filter(e => ensureArray<string>(e.customLists).includes(listName));
     }, []);
 
     // TASK 4: Add entry

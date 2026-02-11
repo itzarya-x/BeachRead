@@ -22,8 +22,8 @@ interface MediaStore {
     selectedEntries: Set<string | number>;
     
     // Actions
-    setAnimeList: (list: DisplayMedia[]) => void;
-    setMangaList: (list: DisplayMedia[]) => void;
+    setAnimeList: (list: DisplayMedia[] | ((prev: DisplayMedia[]) => DisplayMedia[])) => void;
+    setMangaList: (list: DisplayMedia[] | ((prev: DisplayMedia[]) => DisplayMedia[])) => void;
     addEntry: (entry: DisplayMedia) => void;
     updateEntry: (entryId: string | number, updates: Partial<DisplayMedia>) => void;
     deleteEntry: (entryId: string | number) => void;
@@ -77,11 +77,13 @@ function initializeState() {
         statsVersion: 0,
         selectedEntries: new Set<string | number>(),
         setAnimeList: (list) => {
-            setState({ animeList: list });
+            const newList = typeof list === "function" ? (list as any)(getState().animeList) : list;
+            setState({ animeList: newList });
             getState().invalidateStats();
         },
         setMangaList: (list) => {
-            setState({ mangaList: list });
+            const newList = typeof list === "function" ? (list as any)(getState().mangaList) : list;
+            setState({ mangaList: newList });
             getState().invalidateStats();
         },
         addEntry: (entry) => {

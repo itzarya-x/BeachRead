@@ -26,6 +26,7 @@ import {
     updateTier,
     updateTierBoard,
 } from "@/lib/tierDatabase";
+import { ensureArray } from "@/lib/utils";
 import { useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia } from "@/types/display";
 import {
@@ -175,19 +176,19 @@ export default function TierMaker() {
 
     // Derived Data
     const allMedia = useMemo(() => {
-        let media = [...animeList, ...mangaList];
+        let media = [...ensureArray<DisplayMedia>(animeList), ...ensureArray<DisplayMedia>(mangaList)];
         if (filters.mediaType !== "all") {
              if (filters.mediaType === "anime") media = media.filter(m => m.mediaType === "ANIME");
              else media = media.filter(m => m.mediaType === "MANGA" && m.originType?.toLowerCase() === filters.mediaType);
         }
-        if (filters.genres.length > 0) media = media.filter(m => filters.genres.some(g => m.genres.includes(g)));
+        if (filters.genres.length > 0) media = media.filter(m => ensureArray<string>(filters.genres).some(g => ensureArray<string>(m.genres).includes(g)));
         if (filters.minScore > 0 || filters.maxScore < 100) media = media.filter(m => m.score >= filters.minScore && m.score <= filters.maxScore);
-        if (filters.status.length > 0) media = media.filter(m => filters.status.includes(m.status));
+        if (filters.status.length > 0) media = media.filter(m => ensureArray<string>(filters.status).includes(m.status));
         return media;
     }, [animeList, mangaList, filters]);
 
-    const assignedMediaIds = useMemo(() => new Set(assignments.map(a => a.mediaId)), [assignments]);
-    const unassignedMedia = useMemo(() => allMedia.filter(m => !assignedMediaIds.has(m._entryId)), [allMedia, assignedMediaIds]);
+    const assignedMediaIds = useMemo(() => new Set(ensureArray<TierAssignment>(assignments).map(a => a.mediaId)), [assignments]);
+    const unassignedMedia = useMemo(() => ensureArray<DisplayMedia>(allMedia).filter(m => !assignedMediaIds.has(m._entryId)), [allMedia, assignedMediaIds]);
 
     // Logic: Auto Assign
     const handleAutoAssign = async () => {

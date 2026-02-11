@@ -97,6 +97,8 @@ export function getAllCached(): Map<number, AniListMediaResponse> {
 
 async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
     try {
+        console.log(`%c[HYDRATE] fetching media: ${ids.length} items from AniList`, "color: #1c7ed6; font-weight: bold;");
+        
         const response = await fetch(ANILIST_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -107,29 +109,27 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
         });
 
         if (response.status === 429) {
-            // Rate limited - wait and retry
+            console.warn("[HYDRATE] Rate limited. Waiting 2s before retry...");
             await sleep(2000);
             return fetchBatch(ids);
         }
 
         if (!response.ok) {
-            console.warn(`AniList API error: ${response.status}`);
+            console.warn(`[HYDRATE] AniList API error: ${response.status}`);
             return [];
         }
 
         const json = await response.json();
         const media: AniListMediaResponse[] = json?.data?.Page?.media || [];
 
-        console.log(`%c[HYDRATE] fetching media: ${ids.length} items from AniList`, "color: #1c7ed6;");
-
         // TASK 2: Cache results in memory and IndexedDB
         for (const m of media) {
             mediaCache.set(m.id, m);
+            console.log(`%c[HYDRATE] metadata received for series ${m.id}`, "color: #51cf66;");
+            
             // Save to active storage provider (force local storage for metadata)
             (async () => {
                 try {
-                    // We specifically use the LOCAL provider for content metadata 
-                    // to ensure it persists even when authenticated with Supabase.
                     const localProvider = new (await import("./storage/local")).LocalStorageProvider();
                     await localProvider.initialize();
                     await localProvider.saveMediaCache(m.id, m);
@@ -141,7 +141,7 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
 
         return media;
     } catch (err) {
-        console.warn("AniList API fetch error:", err);
+        console.error("[HYDRATE] Critical fetch error:", err);
         return [];
     }
 }

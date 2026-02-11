@@ -1,6 +1,8 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { useData } from "@/context/DataContext";
+import { ensureArray } from "@/lib/utils";
+import type { DisplayMedia } from "@/types/display";
 
 const Activity = () => {
     const { user, loading, animeList, mangaList, getTitle } = useData();
@@ -14,7 +16,10 @@ const Activity = () => {
     }
 
     // Build a recent activity feed from list entries sorted by updatedAt
-    const allEntries = [...animeList, ...mangaList]
+    const allEntries = [
+        ...ensureArray<DisplayMedia>(animeList), 
+        ...ensureArray<DisplayMedia>(mangaList)
+    ]
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         .slice(0, 50);
 

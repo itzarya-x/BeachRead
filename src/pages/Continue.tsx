@@ -1,6 +1,8 @@
 import { MediaRowCard } from "@/components/home/MediaRowCard";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
+import { ensureArray } from "@/lib/utils";
+import type { DisplayMedia } from "@/types/display";
 import { Play } from "lucide-react";
 import { useMemo } from "react";
 
@@ -8,7 +10,10 @@ const Continue = () => {
     const { animeList, mangaList, loading } = useData();
 
     const currentItems = useMemo(() => {
-        const all = [...animeList, ...mangaList];
+        const all = [
+            ...ensureArray<DisplayMedia>(animeList), 
+            ...ensureArray<DisplayMedia>(mangaList)
+        ];
         return all
             .filter(item => item.status === "CURRENT")
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());

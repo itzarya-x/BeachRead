@@ -1,5 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { useData } from "@/context/DataContext";
+import { ensureArray } from "@/lib/utils";
+import type { DisplayMedia } from "@/types/display";
 import { Sparkles } from "lucide-react";
 
 export function PersonalizedInsights() {
@@ -7,7 +9,10 @@ export function PersonalizedInsights() {
 
     if (!user) return null;
 
-    const allMedia = [...animeList, ...mangaList];
+    const allMedia = [
+        ...ensureArray<DisplayMedia>(animeList), 
+        ...ensureArray<DisplayMedia>(mangaList)
+    ];
     const thisMonthStart = new Date();
     thisMonthStart.setDate(1);
 
@@ -18,10 +23,10 @@ export function PersonalizedInsights() {
     }).length;
 
     const topGenre = allMedia
-        .filter(item => item.genres && item.genres.length > 0)
+        .filter(item => ensureArray(item.genres).length > 0)
         .reduce(
             (acc, item) => {
-                item.genres?.forEach(g => {
+                ensureArray<string>(item.genres).forEach(g => {
                     acc[g] = (acc[g] || 0) + 1;
                 });
                 return acc;

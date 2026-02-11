@@ -1,4 +1,6 @@
 import { useData } from "@/context/DataContext";
+import { ensureArray } from "@/lib/utils";
+import type { DisplayMedia } from "@/types/display";
 import { motion } from "framer-motion";
 import { Clock, Database, Heart, TrendingUp, Zap } from "lucide-react";
 import { useMemo } from "react";
@@ -7,7 +9,10 @@ export function IdentityIntelligence() {
     const { animeList, mangaList } = useData();
 
     const stats = useMemo(() => {
-        const allMedia = [...animeList, ...mangaList];
+        const allMedia = [
+            ...ensureArray<DisplayMedia>(animeList), 
+            ...ensureArray<DisplayMedia>(mangaList)
+        ];
         const completed = allMedia.filter(m => m.status === "COMPLETED");
         
         const archiveSize = allMedia.length;
@@ -15,12 +20,12 @@ export function IdentityIntelligence() {
             ? Math.round((completed.length / archiveSize) * 100) 
             : 0;
 
-        const totalMinutes = animeList.reduce((acc, m) => acc + (m.progress * (m.duration || 24)), 0);
+        const totalMinutes = ensureArray<DisplayMedia>(animeList).reduce((acc, m) => acc + (m.progress * (m.duration || 24)), 0);
         const hoursInvested = Math.round(totalMinutes / 60);
 
         const genreMap: Record<string, number> = {};
         allMedia.forEach(m => {
-            m.genres?.forEach(g => genreMap[g] = (genreMap[g] || 0) + 1);
+            ensureArray<string>(m.genres).forEach(g => genreMap[g] = (genreMap[g] || 0) + 1);
         });
         const moodFingerprint = Object.entries(genreMap).sort((a, b) => b[1] - a[1])[0]?.[0] || "None";
 
