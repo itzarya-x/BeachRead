@@ -47,9 +47,10 @@ interface DataContextValue {
     deleteEntry: (entryId: string | number) => Promise<void>;
     searchAniList: (query: string, type: "ANIME" | "MANGA") => Promise<DisplayMedia[]>;
 
-    // MIGRATION
+    // MIGRATION & IMPORT
     migrateLocalData: (onProgress?: (current: number, total: number) => void) => Promise<void>;
     clearLocalData: () => Promise<void>;
+    importAnilistGdpr: (data: GdprData, onProgress?: (current: number, total: number) => void) => Promise<void>;
 
     // DUPLICATE DETECTION
     duplicateCheck: DuplicateCheck | null;
@@ -208,6 +209,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
                     setAnimeList(finalAnime);
                     setMangaList(finalManga);
+                    
                     // Set identity from Auth
                     setUser({
                         id: authUser.id,
@@ -258,25 +260,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     const allIds = cloudEntries.map(e => e._seriesId);
                     
                     // Hydration Pipeline - Progressive loading like Netflix
+                    // We fetch in batches and update the UI incrementally
                     fetchMediaBatched(allIds, (loaded, total) => {
                         setEnrichProgress({ loaded, total });
                         
                         // Progressive UI update after each batch (Task 6 & 10)
-                        const currentEdits = getStorageProvider().getAllUserEntries(authUser.id);
-                        // We can't await here easily in a callback, but we can use the latest cache
-                        const refreshedAnime = finalAnime.map(e => enrichEntryWithUserEdits(e, cloudEdits));
-                        const refreshedManga = finalManga.map(e => enrichEntryWithUserEdits(e, cloudEdits));
-                        setAnimeList(refreshedAnime);
-                        setMangaList(refreshedManga);
+                        setAnimeList(prev => prev.map(e => enrichEntryWithUserEdits(e, cloudEdits)));
+                        setMangaList(prev => prev.map(e => enrichEntryWithUserEdits(e, cloudEdits)));
                     }).then(() => {
                         setEnriching(false);
                         console.log("%c[HYDRATE] All fragments identified and metadata synced.", "color: #51cf66; font-weight: bold;");
                         
-                        // Final refresh
-                        const refreshedAnime = finalAnime.map(e => enrichEntryWithUserEdits(e, cloudEdits));
-                        const refreshedManga = finalManga.map(e => enrichEntryWithUserEdits(e, cloudEdits));
-                        setAnimeList(refreshedAnime);
-                        setMangaList(refreshedManga);
+                        // Final refresh to ensure everything is perfect
+                        setAnimeList(prev => prev.map(e => enrichEntryWithUserEdits(e, cloudEdits)));
+                        setMangaList(prev => prev.map(e => enrichEntryWithUserEdits(e, cloudEdits)));
 
                         // Re-sync after enrichment to ensure data is fresh
                         const syncManager = getRealtimeSyncManager();
@@ -418,29 +415,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
                 fetchMediaBatched(allIds, (loaded, total) => {
                     setEnrichProgress({ loaded, total });
+                    
+                    // Progressive UI update (Task 6)
+                    setAnimeList(prev => prev.map(e => enrichEntryWithUserEdits(e, edits)));
+                    setMangaList(prev => prev.map(e => enrichEntryWithUserEdits(e, edits)));
                 })
                     .then(() => {
-                        // After background enrichment, we have the TRUE mediaType for everything
-                        const currentAnime = getMediaStoreState().animeList;
-                        const currentManga = getMediaStoreState().mangaList;
-                        
-                        // Combine all unique entries across both lists
-                        const allEntriesMap = new Map<string | number, DisplayMedia>();
-                        [...currentAnime, ...currentManga].forEach(e => {
-                            const enriched = enrichEntryWithUserEdits(e, edits);
-                            // Real media type comes from enrichment (API) or previously stored data
-                            allEntriesMap.set(enriched._entryId, enriched);
-                        });
-
-                        const allEnriched = Array.from(allEntriesMap.values());
-                        
-                        // Re-sort into correct lists based on real mediaType
-                        const finalAnime = allEnriched.filter(e => e.mediaType === "ANIME");
-                        const finalManga = allEnriched.filter(e => e.mediaType === "MANGA");
-
-                        setAnimeList(finalAnime);
-                        setMangaList(finalManga);
                         setEnriching(false);
+                        
+                        // Final re-sort and classification based on TRUE mediaType from API
+                        setAnimeList(prev => {
+                            const combined = [...prev, ...getMediaStoreState().mangaList];
+                            const allEnriched = combined.map(e => enrichEntryWithUserEdits(e, edits));
+                            // Use Map to dedupe by _entryId
+                            const unique = new Map(allEnriched.map(e => [e._entryId, e]));
+                            return Array.from(unique.values()).filter(e => e.mediaType === "ANIME");
+                        });
+                        
+                        setMangaList(prev => {
+                            const combined = [...prev, ...getMediaStoreState().animeList];
+                            const allEnriched = combined.map(e => enrichEntryWithUserEdits(e, edits));
+                            const unique = new Map(allEnriched.map(e => [e._entryId, e]));
+                            return Array.from(unique.values()).filter(e => e.mediaType === "MANGA");
+                        });
 
                         if (authUser?.id) {
                             const syncManager = getRealtimeSyncManager();
@@ -796,6 +793,56 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await dbClearAllLocalTierData();
     }, []);
 
+    const importAnilistGdpr = useCallback(
+        async (data: GdprData, onProgress?: (current: number, total: number) => void) => {
+            if (!user) throw new Error("User session required for import");
+
+            const { animeEntries, mangaEntries } = parseGdprData(data);
+            const allEntries = [...animeEntries, ...mangaEntries];
+            const total = allEntries.length;
+            let current = 0;
+
+            const storage = getStorageProvider();
+
+            console.log(`%c[IMPORT] Starting import of ${total} entries...`, "color: #1c7ed6; font-weight: bold;");
+
+            const userEntries: UserEntry[] = allEntries.map(entry => ({
+                entryId: entry._entryId,
+                seriesId: entry._seriesId,
+                userId: user.id || 0,
+                data: {
+                    mediaType: entry.mediaType,
+                    status: entry.status,
+                    score: entry.score,
+                    progress: entry.progress,
+                    progressVolumes: entry.progressVolumes,
+                    repeat: entry.repeat,
+                    priority: entry.priority,
+                    tierId: entry.tierId,
+                    isPrivate: entry.isPrivate,
+                    notes: entry.notes,
+                    customLists: entry.customLists,
+                    startedAt: entry.startedAt,
+                    completedAt: entry.completedAt,
+                    advancedScores: entry.advancedScores,
+                    hiddenDefault: entry.hiddenDefault,
+                },
+                editedAt: Date.now(),
+                deleted: false,
+            }));
+
+            // Use batch save for much better performance
+            await storage.saveUserEntries(userEntries);
+            onProgress?.(total, total);
+
+            console.log("%c[IMPORT] Import finished successfully", "color: #51cf66; font-weight: bold;");
+            
+            // Trigger a reload to refresh the UI with new data
+            window.location.reload();
+        },
+        [user],
+    );
+
     // TASK 4: Update entry
     const updateEntry = useCallback(
         async (entryId: string | number, updates: Partial<DisplayMedia>) => {
@@ -1035,6 +1082,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             searchAniList,
             migrateLocalData,
             clearLocalData,
+            importAnilistGdpr,
             duplicateCheck,
             resolveDuplicate,
             getActivities,
@@ -1059,6 +1107,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             searchAniList,
             migrateLocalData,
             clearLocalData,
+            importAnilistGdpr,
             duplicateCheck,
             resolveDuplicate,
             getActivities,
@@ -1079,21 +1128,26 @@ function enrichEntryWithUserEdits(entry: DisplayMedia, userEdits: Map<string | n
             ? mapCountryToOriginType(cached.countryOfOrigin)
             : entry.originType || "manga";
 
-    // TASK 3: Merge API data with entry, but preserve user-editable fields if edited
+    // TASK 1 & 3: Merge API data with entry with HYPER-SAFE accessors
     const enriched: DisplayMedia = {
         ...entry,
         // API enrichment (only if not user-edited)
-        title: cached?.title || entry.title,
+        // ANY property that could be missing from API is now guarded with fallbacks
+        title: {
+            romaji: cached?.title?.romaji || entry.title?.romaji || "Unknown Title",
+            english: cached?.title?.english || entry.title?.english || null,
+            native: cached?.title?.native || entry.title?.native || null,
+        },
         coverImage: cached?.coverImage?.large || cached?.coverImage?.medium || entry.coverImage || null,
         bannerImage: cached?.bannerImage || entry.bannerImage || null,
-        format: cached?.format || entry.format || null,
+        format: cached?.format || entry.format || "TV",
         episodes: cached?.episodes ?? entry.episodes ?? null,
         chapters: cached?.chapters ?? entry.chapters ?? null,
         volumes: cached?.volumes ?? entry.volumes ?? null,
         genres: cached?.genres || entry.genres || [],
         season: cached?.season || entry.season || null,
         seasonYear: cached?.seasonYear ?? entry.seasonYear ?? null,
-        description: cached?.description || entry.description || null,
+        description: cached?.description || entry.description || "No description available.",
         duration: cached?.duration ?? entry.duration ?? null,
         tags: cached?.tags?.map((t: any) => t.name) || entry.tags || [],
         originType,
@@ -1105,6 +1159,8 @@ function enrichEntryWithUserEdits(entry: DisplayMedia, userEdits: Map<string | n
         return {
             ...enriched,
             ...userEdit.data,
+            // Re-ensure safe title after spread
+            title: userEdit.data?.title || enriched.title,
             _entryId: entry._entryId,
             _seriesId: entry._seriesId,
             _userId: entry._userId,

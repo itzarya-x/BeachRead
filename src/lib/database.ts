@@ -167,6 +167,30 @@ export async function saveUserEntry(entry: UserEntry): Promise<string | number> 
         request.onerror = () => reject(request.error);
     });
 }
+/**
+ * Save multiple user entries (batch operation)
+ */
+export async function saveUserEntries(entries: UserEntry[]): Promise<void> {
+    const db = await initDatabase();
+    const transaction = db.transaction([STORE_USER_ENTRIES], "readwrite");
+    const store = transaction.objectStore(STORE_USER_ENTRIES);
+
+    return new Promise((resolve, reject) => {
+        let completed = 0;
+        if (entries.length === 0) return resolve();
+
+        for (const entry of entries) {
+            const request = store.put({
+                ...entry,
+                editedAt: Date.now(),
+            });
+            request.onerror = () => reject(request.error);
+        }
+
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+}
 
 /**
  * TASK 3: Get user entry

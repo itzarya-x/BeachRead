@@ -15,9 +15,10 @@ import {
     getUserEntry as dbGetUserEntry,
     hardDeleteUserEntry as dbHardDeleteUserEntry,
     saveMediaCache as dbSaveMediaCache,
+    saveUserEntries as dbSaveUserEntries,
     saveUserEntry as dbSaveUserEntry,
     initDatabase as initDB,
-    type UserEntry,
+    type UserEntry
 } from "@/lib/database";
 import { assertNotCloud } from "@/lib/storage-mode";
 
@@ -93,6 +94,11 @@ export class LocalStorageProvider implements IStorageProvider {
     async saveUserEntry(entry: UserEntry): Promise<string | number> {
         assertNotCloud("LocalStorage.saveUserEntry");
         return dbSaveUserEntry(entry);
+    }
+
+    async saveUserEntries(entries: UserEntry[]): Promise<void> {
+        assertNotCloud("LocalStorage.saveUserEntries");
+        return dbSaveUserEntries(entries);
     }
 
     async deleteUserEntry(entryId: string | number): Promise<void> {

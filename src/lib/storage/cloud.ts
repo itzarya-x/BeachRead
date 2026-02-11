@@ -213,6 +213,45 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
+    async saveUserEntries(entries: UserEntry[]): Promise<void> {
+        assertCloud("CloudStorage.saveUserEntries");
+
+        if (!this.supabase || !this.userId) {
+            throw new Error("Supabase not configured");
+        }
+
+        try {
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < entries.length; i += CHUNK_SIZE) {
+                const chunk = entries.slice(i, i + CHUNK_SIZE);
+                const records = chunk.map(entry => {
+                    const isRealUUID = this.isUUID(entry.entryId);
+                    const record: any = {
+                        user_id: this.userId,
+                        series_id: entry.seriesId,
+                        data: entry.data,
+                        edited_at: new Date(entry.editedAt).toISOString(),
+                        deleted: entry.deleted,
+                        updated_at: new Date().toISOString(),
+                        media_type: entry.data.mediaType || "ANIME",
+                    };
+                    if (isRealUUID) record.id = entry.entryId;
+                    return record;
+                });
+
+                DataLog.inserted("SUPABASE", `BATCH ${i / CHUNK_SIZE + 1} (${records.length} items)`);
+                const { error } = await this.supabase
+                    .from("user_media")
+                    .upsert(records, { onConflict: "user_id, series_id" });
+
+                if (error) throw error;
+            }
+        } catch (err) {
+            DataLog.error("saveUserEntries", err);
+            throw err;
+        }
+    }
+
     async deleteUserEntry(entryId: string | number): Promise<void> {
         assertCloud("CloudStorage.deleteUserEntry");
 

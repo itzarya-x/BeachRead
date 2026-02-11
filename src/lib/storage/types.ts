@@ -115,6 +115,7 @@ export interface IStorageProvider {
     getUserEntry(entryId: string | number): Promise<UserEntry | null>;
     getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>>;
     saveUserEntry(entry: UserEntry): Promise<string | number>;
+    saveUserEntries(entries: UserEntry[]): Promise<void>;
     deleteUserEntry(entryId: string | number): Promise<void>;
     hardDeleteUserEntry(entryId: string | number): Promise<void>;
 

@@ -43,9 +43,10 @@ const LIST_ORDER_LABELS: Record<number, string> = {
 };
 
 const Settings = () => {
-    const { user, loading, migrateLocalData, clearLocalData } = useData();
+    const { user, loading, animeList, mangaList, migrateLocalData, clearLocalData, importAnilistGdpr } = useData();
     const { showToast } = useToast();
     const [migrationProgress, setMigrationProgress] = React.useState<{ current: number; total: number } | null>(null);
+    const [importProgress, setImportProgress] = React.useState<{ current: number; total: number } | null>(null);
 
     if (loading || !user) {
         return (
@@ -249,27 +250,93 @@ const Settings = () => {
                 <SettingsSection title="Backup & Export">
                     <div className="px-4 py-4 space-y-3">
                         <p className="text-sm text-muted-foreground">
-                            Download your vault as a JSON file for manual backup. This is independent of cloud sync.
+                            Download your vault as a JSON file or import your data directly from an AniList GDPR export file.
                         </p>
 
-                        <div className="flex gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <Button
                                 variant="outline"
-                                className="flex-1"
+                                className="justify-center gap-2"
                                 icon={Download}
-                                // onClick={handleExportBackup}
+                                onClick={() => {
+                                    const backup = {
+                                        version: "1.0",
+                                        exportDate: new Date().toISOString(),
+                                        user,
+                                        animeList,
+                                        mangaList,
+                                    };
+                                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+                                    const downloadAnchorNode = document.createElement('a');
+                                    downloadAnchorNode.setAttribute("href", dataStr);
+                                    downloadAnchorNode.setAttribute("download", `yura_vault_backup_${new Date().toISOString().split('T')[0]}.json`);
+                                    document.body.appendChild(downloadAnchorNode);
+                                    downloadAnchorNode.click();
+                                    downloadAnchorNode.remove();
+                                    showToast("Vault backup exported successfully", "success");
+                                }}
                             >
-                                Export Backup
+                                Export Vault Backup
                             </Button>
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                icon={Upload}
-                                // onClick={handleImportBackup}
-                            >
-                                Import Backup
-                            </Button>
+
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    id="anilist-import"
+                                    className="hidden"
+                                    accept=".json"
+                                    onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (!file) return;
+
+                                        try {
+                                            const text = await file.text();
+                                            const json = JSON.parse(text);
+                                            
+                                            // Simple validation
+                                            if (!json.user || !json.lists) {
+                                                throw new Error("Invalid AniList GDPR file format");
+                                            }
+
+                                            if (confirm(`Found ${file.name}. This will import all entries into your current vault. Continue?`)) {
+                                                showToast("Starting import... don't close the tab", "info");
+                                                await importAnilistGdpr(json, (current, total) => {
+                                                    setImportProgress({ current, total });
+                                                });
+                                                showToast("Import complete!", "success");
+                                                setImportProgress(null);
+                                            }
+                                        } catch (err) {
+                                            console.error("Import failed:", err);
+                                            showToast(err instanceof Error ? err.message : "Invalid JSON file", "error");
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    variant="outline"
+                                    className="w-full justify-center gap-2"
+                                    icon={Upload}
+                                    onClick={() => document.getElementById('anilist-import')?.click()}
+                                >
+                                    Import AniList JSON
+                                </Button>
+                            </div>
                         </div>
+
+                        {importProgress && (
+                            <div className="space-y-2 mt-4">
+                                <div className="flex justify-between text-xs">
+                                    <span>Importing AniList data...</span>
+                                    <span>{importProgress.current} / {importProgress.total} items</span>
+                                </div>
+                                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                                    <div 
+                                        className="bg-primary h-full transition-all duration-300" 
+                                        style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </SettingsSection>
 
