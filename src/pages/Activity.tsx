@@ -3,7 +3,7 @@ import { ActivityHeatmap } from "@/components/profile/ActivityHeatmap";
 import { useData } from "@/context/DataContext";
 
 const Activity = () => {
-    const { user, loading, animeList, mangaList } = useData();
+    const { user, loading, animeList, mangaList, getTitle } = useData();
 
     if (loading || !user) {
         return (
@@ -44,7 +44,7 @@ const Activity = () => {
                                 )}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm text-foreground font-medium line-clamp-1">
-                                        {entry.title.romaji || "Loading…"}
+                                        {getTitle(entry)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
                                         {entry.status} · Progress: {entry.progress} · {entry.mediaType}

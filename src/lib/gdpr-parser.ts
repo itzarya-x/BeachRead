@@ -1,19 +1,19 @@
-import type { GdprData, GdprListEntry, GdprFavourite } from "@/types/gdpr";
-import type {
-  DisplayMedia,
-  DisplayUser,
-  MediaStatus,
-  MediaType,
-  OriginType,
-} from "@/types/display";
 import {
-  STATUS_MAP,
-  MEDIA_TYPE_MAP,
-  SCORE_FORMAT_MAP,
-  TITLE_LANGUAGE_MAP,
-  formatDate,
-  getAvatarUrl,
+    MEDIA_TYPE_MAP,
+    SCORE_FORMAT_MAP,
+    STATUS_MAP,
+    TITLE_LANGUAGE_MAP,
+    formatDate,
+    getAvatarUrl,
 } from "@/lib/constants";
+import type {
+    DisplayMedia,
+    DisplayUser,
+    MediaStatus,
+    MediaType,
+    OriginType,
+} from "@/types/display";
+import type { GdprData, GdprFavourite, GdprListEntry } from "@/types/gdpr";
 
 /**
  * Map country of origin to origin type
@@ -193,6 +193,8 @@ function parseListEntry(
     seasonYear: null,
     description: null,
     originType: "manga", // Default, will be updated from API
+    duration: null,
+    tags: [],
 
     _seriesId: entry.series_id,
     _entryId: entry.id,

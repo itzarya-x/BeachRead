@@ -280,6 +280,8 @@ export class RealtimeSyncManager {
                 season: cached?.season || null,
                 seasonYear: cached?.seasonYear ?? null,
                 description: cached?.description || null,
+                duration: cached?.duration ?? null,
+                tags: cached?.tags?.map((t: any) => t.name) || [],
                 originType: cached?.countryOfOrigin ? this.mapCountryToOriginType(cached.countryOfOrigin) : "manga",
 
                 // Metadata

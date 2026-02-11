@@ -188,6 +188,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     // We don't even load the GDPR JSON baseline unless they trigger an import.
                     const cloudEntries = Array.from(cloudEdits.values()).map(edit => {
                         return {
+                            title: { romaji: "Loading fragment...", english: null, native: null },
+                            coverImage: null,
+                            bannerImage: null,
+                            genres: [],
+                            tags: [],
+                            duration: null,
+                            originType: "manga",
                             ...edit.data,
                             _entryId: edit.entryId,
                             _seriesId: edit.seriesId,
@@ -342,6 +349,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                                 seasonYear: null,
                                 description: null,
                                 originType: "manga",
+                                duration: null,
+                                tags: [],
                                 _seriesId: edit.seriesId,
                                 _entryId: edit.entryId,
                                 _userId: edit.userId,
@@ -457,7 +466,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const getTitle = useCallback(
         (media: DisplayMedia): string => {
+            if (!media || !media.title) return "Unknown Fragment";
             if (!user) return media.title.romaji || "Unknown";
+            
             switch (user.titleLanguage) {
                 case "ENGLISH":
                     return media.title.english || media.title.romaji || "Unknown";
@@ -581,6 +592,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 season: entry.season ?? null,
                 seasonYear: entry.seasonYear ?? null,
                 description: entry.description ?? null,
+                duration: entry.duration ?? null,
+                tags: entry.tags || [],
                 originType: entry.originType || "manga",
                 _seriesId: entry._seriesId,
                 _entryId: tempEntryId,
@@ -968,6 +981,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 season: media.season || null,
                 seasonYear: media.seasonYear ?? null,
                 description: media.description || null,
+                duration: media.duration ?? null,
+                tags: (media.tags || []).map((t: any) => t.name),
                 originType: type === "MANGA" ? mapCountryToOriginType(media.countryOfOrigin) : "manga",
                 _seriesId: media.id,
                 _entryId: 0, // Will be set when added
@@ -1058,6 +1073,8 @@ function enrichEntryWithUserEdits(entry: DisplayMedia, userEdits: Map<string | n
         season: cached?.season || entry.season || null,
         seasonYear: cached?.seasonYear ?? entry.seasonYear ?? null,
         description: cached?.description || entry.description || null,
+        duration: cached?.duration ?? entry.duration ?? null,
+        tags: cached?.tags?.map((t: any) => t.name) || entry.tags || [],
         originType,
         _enriched: !!cached,
     };
