@@ -113,7 +113,7 @@ export interface IStorageProvider {
      * User Entry Operations (List Items)
      */
     getUserEntry(entryId: string | number): Promise<UserEntry | null>;
-    getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>>;
+    getAllUserEntries(userId: string | number, onProgress?: (entries: UserEntry[]) => void): Promise<Map<string | number, UserEntry>>;
     saveUserEntry(entry: UserEntry): Promise<string | number>;
     saveUserEntries(entries: UserEntry[]): Promise<void>;
     deleteUserEntry(entryId: string | number): Promise<void>;

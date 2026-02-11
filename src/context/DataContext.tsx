@@ -182,31 +182,49 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     const storage = getStorageProvider();
 
                     // Load EVERYTHING from Supabase
-                    const cloudEdits = await storage.getAllUserEntries(authUser.id);
+                    const accumulatedEdits = new Map<string | number, UserEntry>();
+                    
+                    // Helper to map edits to display media
+                    const mapEditsToDisplay = (edits: Map<string | number, UserEntry>): DisplayMedia[] => {
+                        return Array.from(edits.values()).map(edit => {
+                            const data = edit.data || {};
+                            return {
+                                ...data,
+                                // RE-ENSURE metadata exists even if edit.data has null/undefined fields
+                                title: data.title || { romaji: "Unknown", english: null, native: null },
+                                coverImage: data.coverImage || null,
+                                bannerImage: data.bannerImage || null,
+                                genres: safeArray<string>(data.genres),
+                                tags: safeArray<any>(data.tags),
+                                format: data.format || null,
+                                customLists: safeArray<string>(data.customLists),
+                                advancedScores: safeArray<number>(data.advancedScores),
+                                _entryId: edit.entryId,
+                                _seriesId: edit.seriesId,
+                                _userId: edit.userId,
+                                _enriched: !!data.title && data.title.romaji !== "Loading fragment...",
+                            } as DisplayMedia;
+                        });
+                    };
+
+                    const cloudEdits = await storage.getAllUserEntries(authUser.id, (batch) => {
+                         // TASK 5: Prevent UI freeze by appending gradually
+                         batch.forEach(entry => accumulatedEdits.set(entry.entryId, entry));
+                         
+                         // Update UI with partial results
+                         const partialEntries = mapEditsToDisplay(accumulatedEdits);
+                         setAnimeList(partialEntries.filter(e => e.mediaType === "ANIME"));
+                         setMangaList(partialEntries.filter(e => e.mediaType === "MANGA"));
+                         setUserEdits(new Map(accumulatedEdits));
+                    });
+
                     console.log(`%c[BOOT] Found ${cloudEdits.size} entries in Supabase.`, "color: #1c7ed6;");
+                    
+                    // Final state update (ensure consistency)
                     setUserEdits(cloudEdits);
 
                     // For cloud users, the Supabase data is the ONLY source.
-                    // We don't even load the GDPR JSON baseline unless they trigger an import.
-                    const cloudEntries = Array.from(cloudEdits.values()).map(edit => {
-                        const data = edit.data || {};
-                        return {
-                            ...data,
-                            // RE-ENSURE metadata exists even if edit.data has null/undefined fields
-                            title: data.title || { romaji: "Unknown", english: null, native: null },
-                            coverImage: data.coverImage || null,
-                            bannerImage: data.bannerImage || null,
-                            genres: safeArray<string>(data.genres),
-                            tags: safeArray<any>(data.tags),
-                            format: data.format || null,
-                            customLists: safeArray<string>(data.customLists),
-                            advancedScores: safeArray<number>(data.advancedScores),
-                            _entryId: edit.entryId,
-                            _seriesId: edit.seriesId,
-                            _userId: edit.userId,
-                            _enriched: !!data.title && data.title.romaji !== "Loading fragment...",
-                        } as DisplayMedia;
-                    });
+                    const cloudEntries = mapEditsToDisplay(cloudEdits);
 
                     const finalAnime = cloudEntries.filter(e => e.mediaType === "ANIME");
                     const finalManga = cloudEntries.filter(e => e.mediaType === "MANGA");

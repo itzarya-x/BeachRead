@@ -119,7 +119,7 @@ export class CloudStorageProvider implements IStorageProvider {
         }
     }
 
-    async getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>> {
+    async getAllUserEntries(userId: string | number, onProgress?: (entries: UserEntry[]) => void): Promise<Map<string | number, UserEntry>> {
         assertCloud("CloudStorage.getAllUserEntries");
 
         if (!this.supabase || !this.userId) {
@@ -128,21 +128,60 @@ export class CloudStorageProvider implements IStorageProvider {
 
         try {
             DataLog.reading("SUPABASE");
-            const { data, error } = await this.supabase
+
+            // TASK 6: Store total count
+            const { count, error: countError } = await this.supabase
                 .from("user_media")
-                .select("*")
-                .eq("user_id", this.userId)
-                .order("created_at", { ascending: false });
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", this.userId);
 
-            if (error) throw error;
+            if (countError) throw countError;
 
-            const entries = new Map<string | number, UserEntry>();
-            (data || []).forEach((row: any) => {
-                entries.set(row.id, this.mapToUserEntry(row));
-            });
+            const totalCount = count || 0;
+            console.log(`%c📊 Found ${totalCount} items in total`, "color: #339af0; font-weight: bold;");
 
-            DataLog.reading("SUPABASE", entries.size);
-            return entries;
+            const entriesMap = new Map<string | number, UserEntry>();
+            const pageSize = 1000;
+            let page = 0;
+
+            // TASK 2 & 3: Fetch all pages
+            while (true) {
+                const from = page * pageSize;
+                const to = (page + 1) * pageSize - 1;
+
+                // TASK 4: Show progress
+                console.log(`%c🔄 Loading page ${page + 1}... (${from}-${to})`, "color: #adb5bd;");
+
+                const { data, error } = await this.supabase
+                    .from("user_media")
+                    .select("*")
+                    .eq("user_id", this.userId)
+                    .order("created_at", { ascending: false })
+                    .range(from, to); // TASK 2: range pagination
+
+                if (error) throw error;
+
+                const batch = data || [];
+                if (batch.length === 0) break;
+
+                const convertedBatch: UserEntry[] = [];
+                batch.forEach((row: any) => {
+                    const entry = this.mapToUserEntry(row);
+                    entriesMap.set(row.id, entry);
+                    convertedBatch.push(entry);
+                });
+
+                // TASK 5: Prevent UI freeze (gradual append via callback)
+                if (onProgress) {
+                    onProgress(convertedBatch);
+                }
+
+                if (batch.length < pageSize) break;
+                page++;
+            }
+
+            DataLog.reading("SUPABASE", entriesMap.size);
+            return entriesMap;
         } catch (err) {
             DataLog.error("getAllUserEntries", err);
             throw err;

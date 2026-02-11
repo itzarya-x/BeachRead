@@ -86,7 +86,7 @@ export class LocalStorageProvider implements IStorageProvider {
         return dbGetUserEntry(entryId);
     }
 
-    async getAllUserEntries(userId: string | number): Promise<Map<string | number, UserEntry>> {
+    async getAllUserEntries(userId: string | number, onProgress?: (entries: UserEntry[]) => void): Promise<Map<string | number, UserEntry>> {
         assertNotCloud("LocalStorage.getAllUserEntries");
         return dbGetAllUserEntries(userId);
     }
