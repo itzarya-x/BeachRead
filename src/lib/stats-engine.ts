@@ -709,7 +709,7 @@ export function calculateRewatchAnalysis(items: DisplayMedia[]): RewatchAnalysis
 
     for (const item of items) {
         if (item.repeat > 0) {
-            const key = item.title.romaji || item.title.english || "Unknown";
+            const key = item.title?.romaji || item.title?.english || "Unknown Fragment";
             totalRepeats += item.repeat;
 
             if (!rewatches.has(key)) {
@@ -920,7 +920,7 @@ export interface LengthAnalysisData {
 export function calculateLengthAnalysis(items: DisplayMedia[]): LengthAnalysisData {
     const lengths = items
         .map(item => ({
-            title: item.title.romaji || item.title.english || "Unknown",
+            title: item.title?.romaji || item.title?.english || "Unknown Fragment",
             length: item.episodes || item.chapters || 0,
             item,
         }))
@@ -1042,7 +1042,7 @@ export function calculateNotesAnalysis(items: DisplayMedia[]): NotesAnalysisData
 
     const longestNotes = itemsWithNotes
         .map(item => ({
-            title: item.title.romaji || item.title.english || "Unknown",
+            title: item.title?.romaji || item.title?.english || "Unknown Fragment",
             noteLength: item.notes?.length || 0,
             items: [item],
         }))
@@ -1203,7 +1203,7 @@ export function calculateBehavioralStats(
     // 3. Binge Analytics
     // Group activities by series and time proximity
     const bingeSessions: BingeSession[] = [];
-    const mediaTitleMap = new Map(mediaItems.map(m => [m._seriesId, m.title.romaji || "Unknown"]));
+    const mediaTitleMap = new Map(mediaItems.map(m => [m._seriesId, m.title?.romaji || m.title?.english || "Unknown Fragment"]));
 
     const sortedActivities = [...activities].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     

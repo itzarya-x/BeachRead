@@ -67,10 +67,13 @@ async function initializeCacheFromDB(): Promise<void> {
     // We now allow IndexedDB caching even in cloud mode for CONTENT METADATA.
     // This provides "Persistence" for hydrated items across sessions.
     try {
-        await initializeStorageProvider(false);
-        const storage = getStorageProvider();
+        // We specifically use a separate instance of LocalStorageProvider 
+        // for content metadata to ensure it's always accessible from IndexedDB,
+        // even if the global provider is set to Cloud (Supabase).
+        const localProvider = new (await import("./storage/local")).LocalStorageProvider();
+        await localProvider.initialize();
         
-        const cached = await storage.getAllMediaCache();
+        const cached = await localProvider.getAllMediaCache();
         for (const [id, media] of cached.entries()) {
             mediaCache.set(id, media);
         }

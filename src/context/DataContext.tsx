@@ -188,14 +188,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     // We don't even load the GDPR JSON baseline unless they trigger an import.
                     const cloudEntries = Array.from(cloudEdits.values()).map(edit => {
                         return {
-                            title: { romaji: "Loading fragment...", english: null, native: null },
-                            coverImage: null,
-                            bannerImage: null,
-                            genres: [],
-                            tags: [],
-                            duration: null,
-                            originType: "manga",
                             ...edit.data,
+                            // RE-ENSURE metadata exists even if edit.data has null/undefined fields
+                            title: edit.data?.title || { romaji: "Loading fragment...", english: null, native: null },
+                            coverImage: edit.data?.coverImage || null,
+                            bannerImage: edit.data?.bannerImage || null,
+                            genres: edit.data?.genres || [],
+                            tags: edit.data?.tags || [],
+                            format: edit.data?.format || null,
                             _entryId: edit.entryId,
                             _seriesId: edit.seriesId,
                             _userId: edit.userId,
@@ -355,20 +355,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                                 mediaType: edit.data.mediaType || type, // Default to current list type if unknown
                                 advancedScores: edit.data.advancedScores || [],
                                 hiddenDefault: edit.data.hiddenDefault ?? false,
-                                title: { romaji: "Loading...", english: null, native: null },
                                 coverImage: null,
                                 bannerImage: null,
-                                format: null,
-                                episodes: null,
-                                chapters: null,
-                                volumes: null,
                                 genres: [],
-                                season: null,
-                                seasonYear: null,
-                                description: null,
-                                originType: "manga",
-                                duration: null,
                                 tags: [],
+                                duration: null,
+                                originType: "manga",
+                                ...edit.data,
+                                // FORCE SAFE TITLE - spreading edit.data above might overwrite with null
+                                title: edit.data?.title || { romaji: "Loading fragment...", english: null, native: null },
                                 _seriesId: edit.seriesId,
                                 _entryId: edit.entryId,
                                 _userId: edit.userId,
@@ -484,16 +479,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const getTitle = useCallback(
         (media: DisplayMedia): string => {
-            if (!media || !media.title) return "Unknown Fragment";
-            if (!user) return media.title.romaji || "Unknown";
-            
+            if (!media || !media.title || typeof media.title !== "object") {
+                return "Unknown Fragment";
+            }
+
+            const titleObj = media.title as any;
+            const romaji = titleObj.romaji || "";
+            const english = titleObj.english || "";
+            const native = titleObj.native || "";
+
+            if (!user) return romaji || english || native || "Unknown";
+
             switch (user.titleLanguage) {
                 case "ENGLISH":
-                    return media.title.english || media.title.romaji || "Unknown";
+                    return english || romaji || native || "Unknown";
                 case "NATIVE":
-                    return media.title.native || media.title.romaji || "Unknown";
+                    return native || romaji || english || "Unknown";
                 default:
-                    return media.title.romaji || "Unknown";
+                    return romaji || english || native || "Unknown";
             }
         },
         [user],
