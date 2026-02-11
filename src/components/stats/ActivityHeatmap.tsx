@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ActivityHeatmapData } from "@/lib/stats-engine";
+import { safeArray } from "@/utils/safeArray";
 import { eachDayOfInterval, format, startOfDay, subMonths } from "date-fns";
 import { useMemo } from "react";
 
@@ -19,7 +20,7 @@ export function ActivityHeatmap({ data, onDayClick }: ActivityHeatmapProps) {
     // Map data to a quick lookup
     const dataMap = useMemo(() => {
         const map = new Map<string, ActivityHeatmapData>();
-        data.forEach(d => map.set(d.date, d));
+        safeArray<ActivityHeatmapData>(data).forEach(d => map.set(d.date, d));
         return map;
     }, [data]);
 

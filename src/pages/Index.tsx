@@ -3,8 +3,8 @@ import { MediaRowCard } from "@/components/home/MediaRowCard";
 import { PageWrapper } from "@/components/layout/PageWrapper";
 import { FloatingActionButton } from "@/components/ui/FloatingActionButton";
 import { useData } from "@/context/DataContext";
-import { ensureArray } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { motion } from "framer-motion";
 import { Flame, History, Sparkles, Star } from "lucide-react";
 import { useMemo } from "react";
@@ -13,20 +13,20 @@ const Index = () => {
     const { loading, user, animeList, mangaList, getTitle } = useData();
 
     const allMedia = useMemo(() => [
-        ...ensureArray<DisplayMedia>(animeList), 
-        ...ensureArray<DisplayMedia>(mangaList)
+        ...safeArray<DisplayMedia>(animeList), 
+        ...safeArray<DisplayMedia>(mangaList)
     ], [animeList, mangaList]);
 
     const continueItems = useMemo(
         () =>
-            ensureArray<DisplayMedia>(allMedia)
+            safeArray<DisplayMedia>(allMedia)
                 .filter(e => e.status === "CURRENT")
                 .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
         [allMedia],
     );
 
     const sATierItems = useMemo(
-        () => ensureArray<DisplayMedia>(allMedia)
+        () => safeArray<DisplayMedia>(allMedia)
             .filter(e => e.score >= 80)
             .sort((a, b) => b.score - a.score),
         [allMedia],
@@ -34,7 +34,7 @@ const Index = () => {
 
     const justUpdatedItems = useMemo(
         () =>
-            [...ensureArray<DisplayMedia>(allMedia)]
+            [...safeArray<DisplayMedia>(allMedia)]
                 .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                 .filter(m => m.status === "CURRENT" || m.status === "REPEATING")
                 .slice(0, 15),
@@ -42,7 +42,7 @@ const Index = () => {
     );
 
     const trendingItems = useMemo(
-        () => [...ensureArray<DisplayMedia>(allMedia)]
+        () => [...safeArray<DisplayMedia>(allMedia)]
             .sort((a, b) => b.score - a.score)
             .reverse()
             .slice(0, 12),
@@ -51,7 +51,7 @@ const Index = () => {
 
     const recentActivity = useMemo(
         () =>
-            [...ensureArray<DisplayMedia>(allMedia)]
+            [...safeArray<DisplayMedia>(allMedia)]
                 .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                 .slice(0, 10),
         [allMedia],

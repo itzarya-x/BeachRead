@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { STATUS_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -39,15 +41,15 @@ const MediaDetail = () => {
     const [showEditModal, setShowEditModal] = useState(false);
 
     const media = useMemo(() => {
-        const list = mediaType === "ANIME" ? animeList : mangaList;
+        const list = safeArray<DisplayMedia>(mediaType === "ANIME" ? animeList : mangaList);
         return list.find(m => m._seriesId === Number(id)) || null;
     }, [id, mediaType, animeList, mangaList]);
 
     const similarMedia = useMemo(() => {
         if (!media) return [];
-        const list = mediaType === "ANIME" ? animeList : mangaList;
+        const list = safeArray<DisplayMedia>(mediaType === "ANIME" ? animeList : mangaList);
         return list
-            .filter(m => m._seriesId !== media._seriesId && m.genres.some(g => media.genres.includes(g)))
+            .filter(m => m._seriesId !== media._seriesId && safeArray<string>(m.genres).some(g => safeArray<string>(media.genres).includes(g)))
             .slice(0, 10);
     }, [media, animeList, mangaList, mediaType]);
 

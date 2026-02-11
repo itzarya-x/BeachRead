@@ -6,8 +6,8 @@ import { GridSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { STATUS_LABELS, STATUS_ORDER } from "@/lib/constants";
-import { ensureArray } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { Plus, Search, SlidersHorizontal, Tv } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
@@ -31,14 +31,14 @@ const AnimeList = () => {
             STATUS_ORDER.map(s => ({
                 value: s,
                 label: STATUS_LABELS[s]["ANIME"],
-                count: ensureArray(getAnimeByStatus(s)).length,
+                count: safeArray(getAnimeByStatus(s)).length,
             })),
         [getAnimeByStatus],
     );
 
     const formatOptions = useMemo(() => {
         const formats = new Map<string, number>();
-        ensureArray<DisplayMedia>(animeList).forEach(item => {
+        safeArray<DisplayMedia>(animeList).forEach(item => {
             if (item.format) {
                 formats.set(item.format, (formats.get(item.format) || 0) + 1);
             }
@@ -49,15 +49,15 @@ const AnimeList = () => {
     }, [animeList]);
 
     const toggleStatus = useCallback((val: string) => {
-        setStatusFilter(prev => (ensureArray<string>(prev).includes(val) ? prev.filter(v => v !== val) : [...ensureArray<string>(prev), val]));
+        setStatusFilter(prev => (safeArray<string>(prev).includes(val) ? prev.filter(v => v !== val) : [...safeArray<string>(prev), val]));
     }, []);
 
     const toggleFormat = useCallback((val: string) => {
-        setFormatFilter(prev => (ensureArray<string>(prev).includes(val) ? prev.filter(v => v !== val) : [...ensureArray<string>(prev), val]));
+        setFormatFilter(prev => (safeArray<string>(prev).includes(val) ? prev.filter(v => v !== val) : [...safeArray<string>(prev), val]));
     }, []);
 
     const filtered = useMemo(() => {
-        let items = ensureArray<DisplayMedia>(animeList);
+        let items = safeArray<DisplayMedia>(animeList);
 
         if (statusFilter.length > 0) {
             items = items.filter(i => statusFilter.includes(i.status));

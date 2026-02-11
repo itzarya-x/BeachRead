@@ -8,10 +8,10 @@ import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-
 import { CloudStorageProvider } from "@/lib/storage/cloud";
 import type { ActivityLog, UserEntry } from "@/lib/storage/types";
 import { dbClearAllLocalTierData, dbGetAllLocalAssignments, dbGetAllLocalTiers, getAllTierBoards as dbGetAllTierBoards } from "@/lib/tierDatabase";
-import { ensureArray } from "@/lib/utils";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
 import type { GdprData } from "@/types/gdpr";
+import { safeArray } from "@/utils/safeArray";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 
@@ -196,11 +196,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                             title: data.title || { romaji: "Unknown", english: null, native: null },
                             coverImage: data.coverImage || null,
                             bannerImage: data.bannerImage || null,
-                            genres: ensureArray<string>(data.genres),
-                            tags: ensureArray<any>(data.tags),
+                            genres: safeArray<string>(data.genres),
+                            tags: safeArray<any>(data.tags),
                             format: data.format || null,
-                            customLists: ensureArray<string>(data.customLists),
-                            advancedScores: ensureArray<number>(data.advancedScores),
+                            customLists: safeArray<string>(data.customLists),
+                            advancedScores: safeArray<number>(data.advancedScores),
                             _entryId: edit.entryId,
                             _seriesId: edit.seriesId,
                             _userId: edit.userId,
@@ -530,18 +530,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const getAnimeByStatus = useCallback((status: MediaStatus) => {
         const { animeList: storeAnimeList } = getMediaStoreState();
-        return ensureArray<DisplayMedia>(storeAnimeList).filter(e => e.status === status);
+        return safeArray<DisplayMedia>(storeAnimeList).filter(e => e.status === status);
     }, []);
 
     const getMangaByStatus = useCallback((status: MediaStatus) => {
         const { mangaList: storeMangaList } = getMediaStoreState();
-        return ensureArray<DisplayMedia>(storeMangaList).filter(e => e.status === status);
+        return safeArray<DisplayMedia>(storeMangaList).filter(e => e.status === status);
     }, []);
 
     const getCustomListEntries = useCallback((listName: string, type: MediaType) => {
         const { animeList: storeAnimeList, mangaList: storeMangaList } = getMediaStoreState();
         const list = type === "ANIME" ? storeAnimeList : storeMangaList;
-        return ensureArray<DisplayMedia>(list).filter(e => ensureArray<string>(e.customLists).includes(listName));
+        return safeArray<DisplayMedia>(list).filter(e => safeArray<string>(e.customLists).includes(listName));
     }, []);
 
     // TASK 4: Add entry

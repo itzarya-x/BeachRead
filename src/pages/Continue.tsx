@@ -1,8 +1,8 @@
 import { MediaRowCard } from "@/components/home/MediaRowCard";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
-import { ensureArray } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { Play } from "lucide-react";
 import { useMemo } from "react";
 
@@ -11,8 +11,8 @@ const Continue = () => {
 
     const currentItems = useMemo(() => {
         const all = [
-            ...ensureArray<DisplayMedia>(animeList), 
-            ...ensureArray<DisplayMedia>(mangaList)
+            ...safeArray<DisplayMedia>(animeList), 
+            ...safeArray<DisplayMedia>(mangaList)
         ];
         return all
             .filter(item => item.status === "CURRENT")

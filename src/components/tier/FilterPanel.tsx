@@ -3,6 +3,7 @@
  */
 
 import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { useMemo } from "react";
 
 interface FilterPanelProps {
@@ -20,13 +21,13 @@ interface FilterPanelProps {
 export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelProps) {
     const allGenres = useMemo(() => {
         const genres = new Set<string>();
-        allMedia.forEach(m => m.genres.forEach(g => genres.add(g)));
+        safeArray<DisplayMedia>(allMedia).forEach(m => safeArray<string>(m.genres).forEach(g => genres.add(g)));
         return Array.from(genres).sort();
     }, [allMedia]);
 
     const allStatuses = useMemo(() => {
         const statuses = new Set<string>();
-        allMedia.forEach(m => statuses.add(m.status));
+        safeArray<DisplayMedia>(allMedia).forEach(m => statuses.add(m.status));
         return Array.from(statuses).sort();
     }, [allMedia]);
 

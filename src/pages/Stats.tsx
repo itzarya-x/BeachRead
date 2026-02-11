@@ -2,8 +2,8 @@ import { IdentityIntelligence } from "@/components/home/IdentityIntelligence";
 import { PersonalizedInsights } from "@/components/home/PersonalizedInsights";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
-import { ensureArray } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { motion } from "framer-motion";
 import { Activity, BarChart3, PieChart, TrendingUp, Zap } from "lucide-react";
 import { useMemo } from "react";
@@ -12,14 +12,14 @@ const Stats = () => {
     const { animeList, mangaList } = useData();
 
     const allMedia = useMemo(() => [
-        ...ensureArray<DisplayMedia>(animeList), 
-        ...ensureArray<DisplayMedia>(mangaList)
+        ...safeArray<DisplayMedia>(animeList), 
+        ...safeArray<DisplayMedia>(mangaList)
     ], [animeList, mangaList]);
 
     const genreStats = useMemo(() => {
         const counts: Record<string, number> = {};
-        ensureArray<DisplayMedia>(allMedia).forEach(m => {
-            ensureArray<string>(m.genres).forEach(g => counts[g] = (counts[g] || 0) + 1);
+        safeArray<DisplayMedia>(allMedia).forEach(m => {
+            safeArray<string>(m.genres).forEach(g => counts[g] = (counts[g] || 0) + 1);
         });
         return Object.entries(counts)
             .sort((a, b) => b[1] - a[1])

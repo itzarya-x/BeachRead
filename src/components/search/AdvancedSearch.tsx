@@ -6,8 +6,9 @@
 import { useData } from "@/context/DataContext";
 import { useMediaStore } from "@/store/mediaStore";
 import type { MediaType, OriginType } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
 import { Search, X } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 
 interface AdvancedSearchProps {
     mediaType: MediaType;
@@ -35,7 +36,7 @@ export function AdvancedSearch({ mediaType, onResults }: AdvancedSearchProps) {
     const list = mediaType === "ANIME" ? animeList : mangaList;
 
     const results = useMemo(() => {
-        let filtered = [...list];
+        let filtered = [...safeArray<any>(list)];
 
         // Title search
         if (searchQuery.trim()) {
@@ -49,7 +50,7 @@ export function AdvancedSearch({ mediaType, onResults }: AdvancedSearchProps) {
         // Genre filter
         if (filters.genres.length > 0) {
             filtered = filtered.filter(item => 
-                filters.genres.some(genre => item.genres.includes(genre))
+                safeArray<string>(filters.genres).some(genre => safeArray<string>(item.genres).includes(genre))
             );
         }
 
@@ -79,13 +80,13 @@ export function AdvancedSearch({ mediaType, onResults }: AdvancedSearchProps) {
     // Get unique values for filters
     const allGenres = useMemo(() => {
         const genres = new Set<string>();
-        list.forEach(item => item.genres.forEach(g => genres.add(g)));
+        safeArray<any>(list).forEach(item => safeArray<string>(item.genres).forEach(g => genres.add(g)));
         return Array.from(genres).sort();
     }, [list]);
 
     const allYears = useMemo(() => {
         const years = new Set<number>();
-        list.forEach(item => {
+        safeArray<any>(list).forEach(item => {
             if (item.seasonYear) years.add(item.seasonYear);
         });
         return Array.from(years).sort((a, b) => b - a);
