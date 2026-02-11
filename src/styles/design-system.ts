@@ -8,36 +8,38 @@
  */
 
 export const accent = {
-  primary: "hsl(199, 89%, 58%)",      // Professional blue - signature color
-  primaryHover: "hsl(199, 89%, 52%)",
-  primaryMuted: "hsl(199, 89%, 58%, 0.1)",
-  primaryBorder: "hsl(199, 89%, 58%, 0.2)",
+  primary: "#38bdf8",              // Electric Blue / Cyan (Task 14)
+  primaryHover: "#7dd3fc",
+  primaryMuted: "rgba(56, 189, 248, 0.1)",
+  primaryBorder: "rgba(56, 189, 248, 0.2)",
 } as const;
 
 export const radius = {
   sm: "0.5rem",      // 8px
-  md: "0.75rem",     // 12px
-  lg: "1rem",        // 16px
-  xl: "1.5rem",      // 24px
-  xxl: "2.5rem",     // 40px
+  md: "1rem",        // 16px (Task 20)
+  lg: "1.5rem",      // 24px
+  xl: "2rem",        // 32px
+  xxl: "3rem",       // 48px
   full: "9999px",
 } as const;
 
 export const shadow = {
-  sm: "0 1px 2px 0 rgb(0 0 0 / 0.1)",
-  md: "0 4px 6px -1px rgb(0 0 0 / 0.2)",
-  lg: "0 10px 15px -3px rgb(0 0 0 / 0.3)",
-  xl: "0 20px 25px -5px rgb(0 0 0 / 0.4)",
-  glow: "0 0 20px hsla(199, 89%, 58%, 0.3)",
-  spotlight: "0 0 60px hsla(199, 89%, 58%, 0.15)",
-  glass: "0 8px 32px 0 rgba(0, 0, 0, 0.4)",
+  sm: "0 2px 8px -2px rgba(0, 0, 0, 0.4)",
+  md: "0 8px 24px -4px rgba(0, 0, 0, 0.5)",
+  lg: "0 16px 40px -8px rgba(0, 0, 0, 0.6)",
+  xl: "0 32px 64px -12px rgba(0, 0, 0, 0.7)",
+  glow: "0 0 20px rgba(56, 189, 248, 0.25)",
+  spotlight: "0 0 60px rgba(56, 189, 248, 0.1)",
+  glass: "0 8px 32px 0 rgba(0, 0, 0, 0.6)",
 } as const;
 
 export const surface = {
-  base: "hsl(0, 0%, 5%)",           // Deep background
-  elevated1: "hsl(0, 0%, 8%)",      // Cards
-  elevated2: "hsl(0, 0%, 11%)",     // Modals
-  elevated3: "hsl(0, 0%, 14%)",     // Overlays
+  base: "#101827",           // Level 0: Background (Task 1)
+  container: "#0b1220",      // Level 1: Page Container (Task 2)
+  card: "#141e33",           // Level 2: Surface/Card (Task 2) - Slightly lighter than background
+  elevated1: "#141e33",
+  elevated2: "#1e293b",
+  elevated3: "#334155",
 } as const;
 
 export const glass = {
@@ -48,66 +50,67 @@ export const glass = {
 
 export const typography = {
   hero: {
-    size: "clamp(3rem, 10vw, 6rem)", // Dynamic large hero text
-    weight: "900",
-    lineHeight: "0.95",
-    letterSpacing: "-0.05em",
+    size: "clamp(3.5rem, 12vw, 8rem)", // Task 9: Huge bold
+    weight: "950",
+    lineHeight: "0.85",
+    letterSpacing: "-0.06em",
   },
   display: {
-    size: "3.5rem",
-    weight: "800",
-    lineHeight: "1.1",
-    letterSpacing: "-0.02em",
+    size: "4.5rem",
+    weight: "900",
+    lineHeight: "1",
+    letterSpacing: "-0.04em",
   },
   h1: {
-    size: "2.5rem",
+    size: "3rem",
+    weight: "800",
+    lineHeight: "1.1",
+  },
+  h2: {
+    size: "2.25rem",
     weight: "700",
     lineHeight: "1.2",
   },
-  h2: {
-    size: "1.875rem",
-    weight: "600",
-    lineHeight: "1.3",
-  },
   h3: {
-    size: "1.25rem",
-    weight: "600",
+    size: "1.5rem",
+    weight: "700",
     lineHeight: "1.4",
   },
   body: {
     size: "1rem",
-    weight: "400",
+    weight: "450",
     lineHeight: "1.6",
   },
   meta: {
     size: "0.875rem",
     weight: "500",
     lineHeight: "1.5",
+    color: "rgba(255, 255, 255, 0.5)", // Task 9: Muted
   },
   micro: {
     size: "0.75rem",
-    weight: "600",
+    weight: "700",
     lineHeight: "1.4",
-    letterSpacing: "0.05em",
+    letterSpacing: "0.1em",
     transform: "uppercase",
   },
 } as const;
 
 export const spacing = {
-  hero: "8rem",
-  section: "6rem",
-  block: "3rem",
-  group: "1.5rem",
-  inline: "0.75rem",
+  hero: "10rem",
+  section: "8rem",
+  block: "4rem",
+  group: "2rem",
+  inline: "1rem",
 } as const;
 
 export const motion = {
   duration: {
-    instant: 100,
-    fast: 200,
-    normal: 300,
-    slow: 500,
-    page: 600,
+    instant: 80,
+    fast: 160,     // Task 15: Fast 120-180ms
+    normal: 280,
+    slow: 450,
+    page: 550,
   },
   easing: {
     default: "cubic-bezier(0.16, 1, 0.3, 1)", // Cinematic ease-out-expo
@@ -118,25 +121,25 @@ export const motion = {
 
 export const animations = {
   cardEntry: {
-    initial: { opacity: 0, y: 30, scale: 0.95 },
+    initial: { opacity: 0, y: 30, scale: 0.98 },
     animate: { opacity: 1, y: 0, scale: 1 },
     transition: {
-      duration: 0.5,
+      duration: 0.4,
       ease: motion.easing.default,
     },
   },
   heroEntry: {
-    initial: { opacity: 0, scale: 1.1, y: 20 },
+    initial: { opacity: 0, scale: 1.05, y: 30 },
     animate: { opacity: 1, scale: 1, y: 0 },
     transition: {
-      duration: 1.2,
+      duration: 1,
       ease: motion.easing.default,
     },
   },
   hover: {
-    y: -8,
-    scale: 1.02,
-    transition: { duration: 0.3, ease: motion.easing.default },
+    y: -8,       // Task 15: Lift
+    scale: 1.03, // Task 15: Scale
+    transition: { duration: 0.16, ease: [0.23, 1, 0.32, 1] },
   },
 } as const;
 

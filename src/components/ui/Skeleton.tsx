@@ -14,107 +14,84 @@ export function Skeleton({ className }: SkeletonProps) {
     return (
         <div
             className={cn(
-                "animate-pulse rounded-lg bg-gradient-to-r from-surface-1 via-surface-2 to-surface-1 bg-[length:200%_100%]",
+                "relative overflow-hidden rounded-2xl bg-white/[0.03]",
                 className
             )}
-            style={{
-                animation: "shimmer 2s infinite linear",
-            }}
-        />
-    );
-}
-
-// Card Skeleton
-export function MediaCardSkeleton() {
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-card rounded-xl overflow-hidden ring-1 ring-border/10"
         >
-            {/* Cover */}
-            <Skeleton className="aspect-[2/3] w-full" />
-            
-            {/* Info */}
-            <div className="p-3 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
-            </div>
-        </motion.div>
+            <motion.div
+                animate={{
+                    x: ["-100%", "100%"],
+                }}
+                transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "linear",
+                }}
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.05] to-transparent"
+            />
+        </div>
     );
 }
 
-// Row Card Skeleton
+// Media Row Card Skeleton (Task 23)
 export function MediaRowCardSkeleton() {
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="shrink-0 w-[160px] md:w-[180px] space-y-2"
-        >
-            <Skeleton className="aspect-[2/3] w-full rounded-xl" />
-            <Skeleton className="h-4 w-full" />
-        </motion.div>
-    );
-}
-
-// List Item Skeleton
-export function ListItemSkeleton() {
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-4 p-4 bg-card rounded-lg"
-        >
-            <Skeleton className="w-16 h-24 rounded-lg shrink-0" />
-            <div className="flex-1 space-y-2">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-3 w-1/3" />
+        <div className="shrink-0 w-[240px] md:w-[320px] space-y-6">
+            <Skeleton className="aspect-[2/3] w-full rounded-[1.5rem]" />
+            <div className="space-y-3 px-2">
+                <Skeleton className="h-5 w-full rounded-lg" />
+                <Skeleton className="h-4 w-2/3 rounded-lg opacity-50" />
             </div>
-        </motion.div>
+        </div>
     );
 }
 
-// Stats Card Skeleton
-export function StatsCardSkeleton() {
+// Grid Card Skeleton
+export function MediaCardSkeleton() {
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-card rounded-xl p-6 space-y-3"
-        >
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-32" />
-        </motion.div>
+        <div className="bg-[#101827]/40 rounded-[1.5rem] overflow-hidden border border-white/5">
+            <Skeleton className="aspect-[2/3] w-full" />
+            <div className="p-5 space-y-3">
+                <Skeleton className="h-4 w-3/4 rounded-md" />
+                <Skeleton className="h-3 w-1/2 rounded-md opacity-50" />
+            </div>
+        </div>
     );
 }
 
-// Detail Page Skeleton
+// Media Detail Page Skeleton (Task 23)
 export function DetailPageSkeleton() {
     return (
-        <div className="space-y-6">
-            {/* Banner */}
-            <Skeleton className="w-full h-[400px] rounded-none" />
+        <div className="min-h-screen bg-background pb-32">
+            <Skeleton className="w-full h-[650px] md:h-[850px] rounded-none opacity-20" />
             
-            <div className="max-w-7xl mx-auto px-4 space-y-8">
-                {/* Title */}
-                <div className="space-y-3">
-                    <Skeleton className="h-10 w-2/3" />
-                    <Skeleton className="h-5 w-1/2" />
-                </div>
-                
-                {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2 space-y-6">
-                        <Skeleton className="h-32 w-full rounded-xl" />
-                        <Skeleton className="h-48 w-full rounded-xl" />
+            <div className="container mx-auto px-6 md:px-14 relative -mt-[400px] md:-mt-[550px] z-10">
+                <div className="flex flex-col lg:flex-row gap-16 md:gap-24">
+                    <div className="shrink-0 space-y-10">
+                        <Skeleton className="w-[320px] md:w-[420px] aspect-[2/3] rounded-[1.5rem]" />
+                        <Skeleton className="h-20 w-full rounded-2xl" />
                     </div>
-                    <div className="space-y-4">
-                        <Skeleton className="h-24 w-full rounded-xl" />
-                        <Skeleton className="h-24 w-full rounded-xl" />
-                        <Skeleton className="h-24 w-full rounded-xl" />
+                    
+                    <div className="flex-1 pt-20 space-y-16">
+                        <div className="space-y-8">
+                            <div className="flex gap-4">
+                                <Skeleton className="h-8 w-24 rounded-lg" />
+                                <Skeleton className="h-8 w-32 rounded-lg" />
+                            </div>
+                            <Skeleton className="h-24 md:h-40 w-full md:w-3/4 rounded-3xl" />
+                            <Skeleton className="h-20 w-1/2 rounded-2xl" />
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            {[1, 2, 3, 4].map(i => (
+                                <Skeleton key={i} className="h-10 w-24 rounded-xl" />
+                            ))}
+                        </div>
+                        
+                        <div className="space-y-6">
+                            <Skeleton className="h-6 w-32 rounded-lg" />
+                            <Skeleton className="h-40 w-full rounded-3xl" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -133,10 +110,10 @@ export function GridSkeleton({ count = 12, type = "card" }: GridSkeletonProps) {
     
     return (
         <div className={cn(
-            "grid gap-4",
+            "grid gap-8",
             type === "card" 
-                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-                : "grid-cols-1"
+                ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
         )}>
             {Array.from({ length: count }).map((_, i) => (
                 <SkeletonComponent key={i} />
@@ -145,13 +122,19 @@ export function GridSkeleton({ count = 12, type = "card" }: GridSkeletonProps) {
     );
 }
 
-// Table Skeleton
-export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+// Stats Card Skeleton
+export function StatsCardSkeleton() {
     return (
-        <div className="space-y-2">
-            {Array.from({ length: rows }).map((_, i) => (
-                <ListItemSkeleton key={i} />
-            ))}
+        <div className="bg-[#101827]/40 backdrop-blur-xl rounded-[2rem] p-8 border border-white/5 space-y-6">
+            <div className="flex justify-between">
+                <Skeleton className="w-14 h-14 rounded-2xl" />
+                <Skeleton className="w-20 h-4 rounded-full" />
+            </div>
+            <div className="space-y-3">
+                <Skeleton className="h-10 w-24 rounded-xl" />
+                <Skeleton className="h-4 w-32 rounded-lg opacity-50" />
+            </div>
+            <Skeleton className="h-2 w-full rounded-full" />
         </div>
     );
 }

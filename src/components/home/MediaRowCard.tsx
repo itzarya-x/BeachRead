@@ -3,16 +3,18 @@ import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
 import { motion } from "framer-motion";
-import { Edit2, Heart, Play } from "lucide-react";
+import { Play } from "lucide-react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
 interface MediaRowCardProps {
     media: DisplayMedia;
     index?: number;
     className?: string;
+    variant?: "continue" | "updated" | "trending" | "standard";
 }
 
-export function MediaRowCard({ media, index = 0, className }: MediaRowCardProps) {
+export function MediaRowCard({ media, index = 0, className, variant = "standard" }: MediaRowCardProps) {
     const { user, getTitle } = useData();
     const title = getTitle(media);
     const scoreFormat = user?.scoreFormat || "POINT_10";
@@ -23,97 +25,112 @@ export function MediaRowCard({ media, index = 0, className }: MediaRowCardProps)
             ? Math.min(100, (media.progress / (media.episodes || media.chapters || 1)) * 100)
             : 0;
 
+    const timeSince = useMemo(() => {
+        const diff = Date.now() - new Date(media.updatedAt).getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const days = Math.floor(hours / 24);
+        if (days > 0) return `${days}d ago`;
+        if (hours > 0) return `${hours}h ago`;
+        return "Just now";
+    }, [media.updatedAt]);
+
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ 
-                duration: 0.4, 
-                delay: index * 0.03,
+                duration: 0.8, 
+                delay: index * 0.05,
                 ease: [0.23, 1, 0.32, 1]
             }}
-            whileHover={{ y: -8 }}
-            className={cn("shrink-0", className || "w-[150px] md:w-[200px]")}
+            whileHover={{ y: -12 }}
+            className={cn("shrink-0 group/card", className || "w-[200px] md:w-[320px]")}
         >
-            <Link to={linkPath} className="group flex flex-col gap-3">
-                <div className="relative aspect-[2/3] rounded-[1.5rem] overflow-hidden bg-surface-2 shadow-sm group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] transition-all duration-500 ring-1 ring-white/5 group-hover:ring-primary/40">
+            <div className="relative flex flex-col gap-5">
+                <Link to={linkPath} className="relative aspect-[2/3] rounded-[1.5rem] overflow-hidden bg-[#101827] shadow-[0_20px_40px_rgba(0,0,0,0.4)] transition-all duration-500 ring-1 ring-white/5 group-hover/card:ring-primary/50 group-hover/card:shadow-[0_40px_80px_rgba(0,0,0,0.8)]">
                     {/* Cover Image */}
                     {media.coverImage ? (
                         <motion.img
                             src={media.coverImage}
                             alt={title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
                             loading="lazy"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-surface-elevated2">
-                            <Play className="w-10 h-10 text-muted-foreground/20" />
+                        <div className="w-full h-full flex items-center justify-center bg-white/5">
+                            <Play className="w-12 h-12 text-white/10" />
                         </div>
                     )}
 
-                    {/* Progress Bar (Task 4) */}
-                    {progressPercent > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/40 backdrop-blur-sm z-20">
+                    {/* Gradient Overlays */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+
+                    {/* Resume Action (Always available on hover for discovery) */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-300 z-30">
+                         <div className="w-20 h-20 rounded-full bg-primary text-primary-foreground shadow-glow flex items-center justify-center scale-75 group-hover/card:scale-100 transition-transform duration-500">
+                            <Play className="w-10 h-10 fill-current translate-x-1" />
+                         </div>
+                    </div>
+
+                    {/* Progress Bar (Always visible for Continue variant, or if progress > 0) */}
+                    {(variant === "continue" || progressPercent > 0) && (
+                        <div className="absolute bottom-0 left-0 right-0 h-2 bg-white/10 z-20">
                             <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progressPercent}%` }}
-                                className="h-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]"
+                                className="h-full bg-primary shadow-glow"
+                                transition={{ duration: 1.5, ease: "easeOut" }}
                             />
                         </div>
                     )}
 
-                    {/* Score Badge (Task 4) */}
-                    {media.score > 0 && (
-                        <div className="absolute top-3 right-3 z-20">
-                            <div className="backdrop-blur-xl bg-black/40 border border-white/10 rounded-xl px-2.5 py-1 shadow-2xl">
-                                <ScoreDisplay score={media.score} format={scoreFormat} size="sm" />
+                    {/* Float Indicators */}
+                    <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20 pointer-events-none">
+                         {variant === "updated" && (
+                            <div className="backdrop-blur-xl bg-primary/20 border border-primary/30 rounded-xl px-3 py-1 text-[10px] font-black uppercase tracking-widest text-primary shadow-2xl">
+                                UPDATED
                             </div>
-                        </div>
-                    )}
-
-                    {/* Hover Overlay with Quick Actions (Task 4) */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-center items-center gap-3">
-                        <motion.button 
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl shadow-primary/20"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                // TODO: Quick play action
-                            }}
-                        >
-                            <Play className="w-6 h-6 fill-current translate-x-0.5" />
-                        </motion.button>
-                        
-                        <div className="flex gap-2">
-                            <button className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
-                                <Heart className="w-5 h-5" />
-                            </button>
-                            <button className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
-                                <Edit2 className="w-4 h-4" />
-                            </button>
-                        </div>
+                         )}
+                         {media.score > 0 && variant !== "trending" && (
+                            <div className="ml-auto backdrop-blur-xl bg-black/40 border border-white/10 rounded-xl px-2.5 py-1">
+                                <ScoreDisplay score={media.score} format={scoreFormat} size="xs" />
+                            </div>
+                         )}
                     </div>
-                </div>
+                </Link>
 
-                {/* Content Info */}
-                <div className="space-y-1 px-1">
-                    <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                {/* Info Display (Minimal Reading) */}
+                <div className="space-y-2 px-1">
+                    <h3 className="text-lg md:text-xl font-black text-white line-clamp-1 tracking-tight group-hover/card:text-primary transition-colors">
                         {title}
                     </h3>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/60">
-                            {media.mediaType === "ANIME" ? "Motion" : "Print"}
-                        </span>
-                        {media.format && (
-                            <>
-                                <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                                <span className="text-[10px] font-bold text-muted-foreground/60">{media.format}</span>
-                            </>
+                    
+                    <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-[0.2em] text-white/20 group-hover/card:text-white/40 transition-colors">
+                        <div className="flex items-center gap-3">
+                             {variant === "continue" && (
+                                <span className="text-primary/60">
+                                    {media.mediaType === "ANIME" ? "EP" : "CH"} {media.progress} / {media.episodes || media.chapters || "?"}
+                                </span>
+                             )}
+                             {variant === "updated" && (
+                                <span className="text-primary/60">
+                                    {media.mediaType === "ANIME" ? `EP ${media.progress}` : `CH ${media.progress}`}
+                                </span>
+                             )}
+                             {variant !== "continue" && variant !== "updated" && (
+                                <span>{media.format || "FEATURE"}</span>
+                             )}
+                        </div>
+                        
+                        {variant === "updated" && (
+                            <div className="flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-white/10" />
+                                <span>{timeSince}</span>
+                            </div>
                         )}
                     </div>
                 </div>
-            </Link>
+            </div>
         </motion.div>
     );
 }

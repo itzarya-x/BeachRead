@@ -3,7 +3,6 @@
  * Professional empty states with illustrations, help text, and clear CTAs
  */
 
-import ds from "@/styles/design-system";
 import { motion } from "framer-motion";
 import {
     BarChart3,
@@ -40,39 +39,44 @@ export function EmptyState({
 }: EmptyStateProps) {
     return (
         <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-24 px-4 text-center relative overflow-hidden"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
+            className="flex flex-col items-center justify-center py-40 px-6 text-center relative"
         >
-            {/* Ambient Background (Task 2) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-primary/2 rounded-full blur-[100px] pointer-events-none" />
+            {/* Ambient Background Glow (Task 1/2) */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
             {/* Icon Spotlight */}
             <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.8, ease: ds.motion.easing.default as any }}
-                className="w-24 h-24 rounded-3xl bg-surface-elevated1 flex items-center justify-center mb-8 border border-white/5 shadow-depth1 relative group"
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 1, delay: 0.2 }}
+                className="w-32 h-32 rounded-[2.5rem] bg-[#101827] flex items-center justify-center mb-12 border border-white/5 shadow-2xl relative group"
             >
-                <div className="absolute inset-0 bg-primary/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Icon className="w-10 h-10 text-primary/40 group-hover:text-primary transition-colors" />
-                <div className="absolute -inset-1 bg-primary/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity rounded-full -z-10" />
+                <div className="absolute inset-0 bg-primary/10 rounded-[2.5rem] opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Icon className="w-12 h-12 text-primary" strokeWidth={1.5} />
+                {/* Microinteraction glow */}
+                <div className="absolute inset-0 border border-primary/20 rounded-[2.5rem] scale-0 group-hover:scale-110 transition-transform duration-500 opacity-0 group-hover:opacity-100" />
             </motion.div>
 
-            {/* Content */}
-            <div className="max-w-md space-y-4 mb-10 relative z-10">
-                <h3 className="text-3xl font-black text-foreground tracking-tighter uppercase">{title}</h3>
-                <p className="text-muted-foreground/60 leading-relaxed font-medium">{description}</p>
+            {/* Content (Task 9 Scale) */}
+            <div className="max-w-xl space-y-6 mb-12 relative z-10">
+                <h3 className="text-4xl md:text-5xl font-black text-white tracking-tighter leading-none">{title}</h3>
+                <p className="text-xl text-white/40 leading-relaxed font-medium tracking-tight px-10">
+                    {description}
+                </p>
             </div>
 
-            {/* Actions */}
+            {/* Actions (Premium Buttons) */}
             {(action || secondaryAction) && (
-                <div className="flex flex-wrap items-center justify-center gap-4 relative z-10">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 relative z-10">
                     {action && (
                         <Button
                             onClick={action.onClick}
                             variant="primary"
-                            className="px-8"
+                            size="lg"
+                            className="px-12 rounded-2xl font-black uppercase tracking-[0.2em] text-xs h-16 shadow-glow"
                         >
                             {action.label}
                         </Button>
@@ -81,7 +85,8 @@ export function EmptyState({
                         <Button
                             onClick={secondaryAction.onClick}
                             variant="secondary"
-                            className="px-8"
+                            size="lg"
+                            className="px-12 rounded-2xl font-black uppercase tracking-[0.2em] text-xs h-16 border-white/5 bg-white/5 hover:bg-white/10"
                         >
                             {secondaryAction.label}
                         </Button>
@@ -92,16 +97,16 @@ export function EmptyState({
     );
 }
 
-// Preset Empty States
+// Cinematic Presets (Task 13/24)
 
 export function EmptyAnimeList({ onImport }: { onImport?: () => void }) {
     return (
         <EmptyState
             icon={Wind}
-            title="Silence in the Vault"
-            description="The synthetic archive is currently devoid of signals. Initialize your synchronization to populate the command center."
+            title="THE ARCHIVE IS SILENT"
+            description="Your personal cinema has no reels to play. Connect your AniList protocol to begin the synchronization."
             action={onImport ? {
-                label: "Connect AniList",
+                label: "Connect Protocol",
                 onClick: onImport
             } : undefined}
         />
@@ -112,10 +117,10 @@ export function EmptyMangaList({ onImport }: { onImport?: () => void }) {
     return (
         <EmptyState
             icon={BookOpen}
-            title="Untouched Library"
-            description="The graphical archive remains uninitialized. Establish a data link to begin indexing your collection."
+            title="LIBRARY IS VACANT"
+            description="The graphical archives remain unindexed. Link your data streams to populate your curated collection."
             action={onImport ? {
-                label: "Establish Link",
+                label: "Initialize Link",
                 onClick: onImport
             } : undefined}
         />
@@ -126,8 +131,8 @@ export function EmptySearchResults() {
     return (
         <EmptyState
             icon={Search}
-            title="No Results Found"
-            description="We couldn't find any matches for your search. Try adjusting your filters or search terms."
+            title="SIGNAL LOST"
+            description="No matching fragments found within the current parameters. Adjust your search vectors to continue."
         />
     );
 }
@@ -136,10 +141,24 @@ export function EmptyTierList({ onCreate }: { onCreate?: () => void }) {
     return (
         <EmptyState
             icon={Trophy}
-            title="No Tier Lists Yet"
-            description="Create your first tier list to start ranking your favorite anime and manga. Organize your collection by quality, enjoyment, or any criteria you choose."
+            title="NO RANKINGS INDEXED"
+            description="Your hierarchies are empty. Create your first strategic tier list to rank your archival fragments."
             action={onCreate ? {
-                label: "Create Tier List",
+                label: "Create Ranking",
+                onClick: onCreate
+            } : undefined}
+        />
+    );
+}
+
+export function EmptyCustomList({ onCreate }: { onCreate?: () => void }) {
+    return (
+        <EmptyState
+            icon={ListPlus}
+            title="NO COLLECTIONS FOUND"
+            description="You haven't initialized any bespoke data structures. Create a custom list to organize your archival fragments."
+            action={onCreate ? {
+                label: "Initialize List",
                 onClick: onCreate
             } : undefined}
         />
@@ -150,27 +169,12 @@ export function EmptyStats() {
     return (
         <EmptyState
             icon={BarChart3}
-            title="Not Enough Data"
-            description="Add more entries to your collection to see detailed statistics and insights about your watching and reading habits."
+            title="INSUFFICIENT INTELLIGENCE"
+            description="Add more archival entries to generate a comprehensive diagnostic report of your media universe."
         />
     );
 }
 
-export function EmptyCustomList({ onCreate }: { onCreate?: () => void }) {
-    return (
-        <EmptyState
-            icon={ListPlus}
-            title="No Custom Lists"
-            description="Create custom lists to organize your collection. Group anime and manga by themes, moods, recommendations, or any way you like."
-            action={onCreate ? {
-                label: "Create List",
-                onClick: onCreate
-            } : undefined}
-        />
-    );
-}
-
-// Inline Empty State (for smaller contexts)
 interface InlineEmptyStateProps {
     message: string;
     icon?: LucideIcon;
@@ -178,9 +182,11 @@ interface InlineEmptyStateProps {
 
 export function InlineEmptyState({ message, icon: Icon = Inbox }: InlineEmptyStateProps) {
     return (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Icon className="w-8 h-8 text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">{message}</p>
+        <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-2">
+                <Icon className="w-8 h-8 text-white/20" strokeWidth={1.5} />
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">{message}</p>
         </div>
     );
 }

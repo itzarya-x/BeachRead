@@ -1,68 +1,61 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Overpass:wght@400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Overpass:wght@400;500;600;700;800&display=swap");
-
 @layer base {
     :root {
-        /* YURA DESIGN SYSTEM - Discovery Redux */
+        /* YURA DESIGN DNA - Cinematic Archive */
         
-        /* Base - Inky, content-focused dark */
-        --background: 0 0% 5%;
-        --foreground: 0 0% 95%;
+        /* Base - Layered deep colors (Task 1) */
+        --background-top: #101827;
+        --background-mid: #0b1220;
+        --background-bottom: #090f1a;
+        
+        /* Level 0 -> 3 Hierarchy (Task 2) */
+        --background: 222 47% 11%; /* #101827 approx */
+        --foreground: 210 40% 98%;
+        
+        --container: 224 48% 8%;   /* #0b1220 approx */
+        --card: 223 44% 14%;      /* #141e33 approx - slightly lighter */
+        --card-foreground: 210 40% 98%;
 
-        /* Surfaces - Glassy, deep elevation */
-        --card: 0 0% 8%;
-        --card-foreground: 0 0% 95%;
+        --popover: 222 47% 11%;
+        --popover-foreground: 210 40% 98%;
 
-        --popover: 0 0% 10%;
-        --popover-foreground: 0 0% 95%;
-
-        /* PRIMARY ACCENT - Electric Cyan (Task 10) */
+        /* PRIMARY ACCENT - Electric Cyan (Task 14) */
         --primary: 199 89% 58%;
-        --primary-foreground: 0 0% 5%;
+        --primary-foreground: 210 40% 98%;
 
-        /* Secondary - Muted and sophisticated */
-        --secondary: 0 0% 12%;
-        --secondary-foreground: 0 0% 70%;
+        --secondary: 222 47% 12%;
+        --secondary-foreground: 215 20% 65%;
 
-        --muted: 0 0% 12%;
-        --muted-foreground: 0 0% 45%;
+        --muted: 223 44% 14%;
+        --muted-foreground: 215 20% 65%;
 
-        /* Accent - sparingly used */
         --accent: 199 89% 58%;
-        --accent-foreground: 0 0% 5%;
+        --accent-foreground: 210 40% 98%;
 
-        /* Destructive */
         --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 100%;
+        --destructive-foreground: 210 40% 98%;
 
-        /* Borders - Paper thin */
-        --border: 0 0% 14%;
-        --input: 0 0% 16%;
+        /* Premium Borders & Radius (Tasks 2 & 20) */
+        --border: 223 44% 18%;
+        --input: 223 44% 18%;
         --ring: 199 89% 58%;
+        --radius: 1rem; /* 16px */
 
-        /* Modern rounding (Task 1.2) */
-        --radius: 1rem;
-
-        /* Nav & Static layers */
-        --surface-base: 0 0% 3%;
-        --surface-elevated1: 0 0% 6%;
-        --surface-elevated2: 0 0% 9%;
-        --surface-elevated3: 0 0% 12%;
-        
-        --nav-bg: 0 0% 6%;
+        --surface-base: var(--background-top);
+        --surface-elevated1: var(--card);
+        --surface-elevated2: #1e293b;
+        --surface-elevated3: #334155;
         
         /* Sidebar Refinement */
-        --sidebar-background: 0 0% 4%;
-        --sidebar-foreground: 0 0% 60%;
-        --sidebar-primary: 199 89% 58%;
-        --sidebar-primary-foreground: 0 0% 5%;
-        --sidebar-accent: 0 0% 10%;
-        --sidebar-accent-foreground: 0 0% 100%;
-        --sidebar-border: 0 0% 10%;
-        --sidebar-ring: 199 89% 58%;
+        --sidebar-background: #080c14;
+        --sidebar-foreground: rgba(255, 255, 255, 0.5);
+        --sidebar-primary: #38bdf8;
+        --sidebar-border: rgba(255, 255, 255, 0.05);
     }
 }
 
@@ -72,39 +65,66 @@
     }
 
     body {
-        @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-white;
+        background: linear-gradient(to bottom, var(--background-top), var(--background-mid), var(--background-bottom));
+        background-attachment: fixed;
+        color: hsl(var(--foreground));
         font-family: "Overpass", system-ui, sans-serif;
+        @apply antialiased selection:bg-primary/30 selection:text-white min-h-screen relative;
+    }
+
+    /* Cinematic Radial Light (Task 1) */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.03) 0%, transparent 70%);
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    /* Low Contrast Noise Texture (Task 1) */
+    body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.02;
+        pointer-events: none;
+        z-index: 2;
+        mix-blend-mode: overlay;
     }
 
     h1, h2, h3, h4, h5, h6 {
         font-family: "Outfit", "Overpass", system-ui, sans-serif;
         letter-spacing: -0.04em;
-        @apply font-black leading-[1.1];
+        @apply font-black leading-[0.9] tracking-tighter;
     }
 
-    h1 { @apply text-5xl md:text-7xl; }
-    h2 { @apply text-4xl md:text-5xl; }
-    h3 { @apply text-2xl md:text-3xl tracking-tight; }
+    h1 { @apply text-5xl md:text-8xl; }
+    h2 { @apply text-4xl md:text-6xl; }
+    h3 { @apply text-2xl md:text-4xl; }
     
-    /* Global image transitions */
     img {
         @apply transition-opacity duration-700 ease-in-out;
     }
 
-    /* Scrollbar styling - Minimal and sleek */
     ::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
+        width: 6px;
+        height: 6px;
     }
     ::-webkit-scrollbar-track {
         background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-        background: hsl(var(--muted));
-        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: hsl(var(--primary) / 0.5);
+        background: rgba(56, 189, 248, 0.3);
     }
 }
 

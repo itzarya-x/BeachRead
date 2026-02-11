@@ -49,10 +49,22 @@ const AppContent = () => {
     // Show loading state
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
-                <div className="text-center">
-                    <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-muted-foreground text-sm">Loading your library…</p>
+            <div className="flex min-h-screen items-center justify-center bg-[#090f1a] relative overflow-hidden">
+                {/* Ambient Glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+                
+                <div className="relative z-10 text-center space-y-8">
+                    <div className="relative">
+                        <div className="w-20 h-20 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto shadow-glow" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <h1 className="text-2xl font-black tracking-[0.3em] uppercase text-white/80">Yura</h1>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 animate-pulse">Initializing Neural Link</p>
+                    </div>
                 </div>
             </div>
         );

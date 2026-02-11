@@ -1,20 +1,22 @@
-import type { ScoreFormat } from "@/types/display";
 import { formatScore } from "@/lib/constants";
+import type { ScoreFormat } from "@/types/display";
 import { Star } from "lucide-react";
 
 interface ScoreDisplayProps {
   score: number;
   format: ScoreFormat;
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
 }
 
 export function ScoreDisplay({ score, format, size = "md" }: ScoreDisplayProps) {
   if (score === 0) return null;
 
   const sizeClasses = {
+    xs: "text-[10px]",
     sm: "text-xs",
     md: "text-sm",
     lg: "text-base",
+    xl: "text-lg",
   };
 
   if (format === "POINT_5") {

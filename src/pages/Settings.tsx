@@ -43,8 +43,9 @@ const LIST_ORDER_LABELS: Record<number, string> = {
 };
 
 const Settings = () => {
-    const { user, loading } = useData();
+    const { user, loading, migrateLocalData, clearLocalData } = useData();
     const { showToast } = useToast();
+    const [migrationProgress, setMigrationProgress] = React.useState<{ current: number; total: number } | null>(null);
 
     if (loading || !user) {
         return (
@@ -118,13 +119,10 @@ const Settings = () => {
         }
     };
 
-    const [migrationProgress, setMigrationProgress] = React.useState<{ current: number; total: number } | null>(null);
-
     const handleMigrateLocalData = async () => {
         if (!confirm("This will upload all your local data to the cloud. Continue?")) return;
 
         try {
-            const { migrateLocalData } = useData();
             await migrateLocalData((current, total) => {
                 setMigrationProgress({ current, total });
             });
@@ -132,7 +130,6 @@ const Settings = () => {
             showToast("All your local data is now in the cloud.", "success");
 
             if (confirm("Migration finished! Would you like to clear your local copy to prevent confusion? (Cloud data is safe)")) {
-                const { clearLocalData } = useData();
                 await clearLocalData();
                 showToast("Your local database is now empty.", "success");
             }
