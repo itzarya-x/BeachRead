@@ -52,6 +52,8 @@ export interface SupabaseUserMediaTierRow {
     tier_position: number | null;
 }
 
+const MEDIA_ID_BATCH_SIZE = 200;
+
 async function requireSupabaseAuth() {
     if (!supabase) {
         throw new Error("Supabase is not configured");
@@ -79,6 +81,11 @@ export async function getTiers(): Promise<SupabaseTier[]> {
         .order("order_index", { ascending: true });
 
     if (error) {
+        if ((error as { code?: string }).code === "42703") {
+            throw new Error(
+                "Supabase schema is outdated: tiers.user_id is missing. Run the latest migration before using Tier Maker.",
+            );
+        }
         throw error;
     }
 
@@ -94,17 +101,26 @@ export async function getTierAssignmentsForMedia(
     }
 
     const normalizedIds = mediaIds.map((id) => String(id));
-    const { data, error } = await client
-        .from("user_media")
-        .select("id,tier_id,tier_position")
-        .eq("user_id", user.id)
-        .in("id", normalizedIds);
+    const allRows: SupabaseUserMediaTierRow[] = [];
 
-    if (error) {
-        throw error;
+    for (let i = 0; i < normalizedIds.length; i += MEDIA_ID_BATCH_SIZE) {
+        const batchIds = normalizedIds.slice(i, i + MEDIA_ID_BATCH_SIZE);
+        const { data, error } = await client
+            .from("user_media")
+            .select("id,tier_id,tier_position")
+            .eq("user_id", user.id)
+            .in("id", batchIds);
+
+        if (error) {
+            throw error;
+        }
+
+        if (data?.length) {
+            allRows.push(...(data as SupabaseUserMediaTierRow[]));
+        }
     }
 
-    return (data ?? []) as SupabaseUserMediaTierRow[];
+    return allRows;
 }
 
 export async function createTier(name: string, color: string): Promise<SupabaseTier> {
