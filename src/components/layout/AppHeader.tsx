@@ -33,7 +33,7 @@ export function AppHeader() {
     const isMoreActive = moreNav.some(l => location.pathname === l.path);
 
     return (
-        <header className="sticky top-0 z-50 glass-strong">
+        <header className="sakura-glass sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-center h-16 gap-6">
                     {/* Brand */}
@@ -56,10 +56,10 @@ export function AppHeader() {
                                     key={link.path}
                                     to={link.path}
                                     className={cn(
-                                        "flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap relative group",
+                                        "sakura-sidebar-button flex items-center gap-2 px-4 py-2 text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap relative group",
                                         isActive
-                                            ? "text-primary bg-primary/5"
-                                            : "text-muted-foreground/60 hover:text-foreground hover:bg-white/[0.03]",
+                                            ? "is-active text-primary"
+                                            : "text-muted-foreground/60 hover:text-foreground",
                                     )}
                                 >
                                     <link.icon className={cn("w-3.5 h-3.5", isActive ? "text-primary" : "text-muted-foreground/40")} />
@@ -79,10 +79,10 @@ export function AppHeader() {
                             <DropdownMenuTrigger asChild>
                                 <button
                                     className={cn(
-                                        "flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+                                        "sakura-sidebar-button flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
                                         isMoreActive
-                                            ? "text-primary bg-primary/10"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
+                                            ? "is-active text-primary"
+                                            : "text-muted-foreground hover:text-foreground",
                                     )}
                                 >
                                     <MoreHorizontal className="w-4 h-4" />
@@ -92,7 +92,7 @@ export function AppHeader() {
                             <DropdownMenuContent align="end" className="w-44">
                                 {moreNav.map(link => (
                                     <DropdownMenuItem key={link.path} asChild>
-                                        <Link to={link.path} className="flex items-center gap-2 cursor-pointer">
+                                        <Link to={link.path} className="sakura-sidebar-button flex items-center gap-2 cursor-pointer">
                                             <link.icon className="w-4 h-4" />
                                             {link.label}
                                         </Link>

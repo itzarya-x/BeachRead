@@ -112,29 +112,29 @@ const MediaDetail = () => {
                         {media.bannerImage || media.coverImage ? (
                             <motion.img 
                                 initial={{ scale: 1.15, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 0.4 }}
-                                transition={{ duration: 1.8, ease: "easeOut" }}
+                                animate={{ scale: 1, opacity: 0.55 }}
+                                transition={{ duration: 1, ease: "easeOut" }}
                                 src={media.bannerImage || media.coverImage || ""} 
                                 alt="" 
                                 className="w-full h-full object-cover" 
-                                style={{ filter: "brightness(0.5) contrast(1.1) saturate(0.8)" }}
+                                style={{ filter: "brightness(0.95) contrast(1) saturate(0.9)" }}
                             />
                         ) : (
                             <div className="w-full h-full bg-gradient-to-b from-surface-elevated1 to-background" />
                         )}
                         {/* Layered Fades (Task 16) */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
-                        <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/20" />
-                        <div className="absolute inset-0 bg-black/20" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/15" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-background/65 via-transparent to-background/35" />
+                        <div className="absolute inset-0 bg-primary/[0.04]" />
                     </div>
 
                     {/* Back Navigation */}
                     <Link 
                         to={backPath}
-                        className="absolute top-10 left-10 z-40 px-6 py-3 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/5 flex items-center gap-3 text-white/50 hover:text-white hover:bg-black/60 transition-all group scale-90 md:scale-100"
+                        className="group absolute left-10 top-10 z-40 flex scale-90 items-center gap-3 rounded-2xl border border-border bg-card px-6 py-3 text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:text-foreground md:scale-100"
                     >
                         <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.25em]">Back to Archive</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Back to Library</span>
                     </Link>
                 </div>
 
@@ -147,31 +147,31 @@ const MediaDetail = () => {
                             <motion.div 
                                 initial={{ y: 60, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
-                                transition={{ duration: 1, delay: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                                className="w-[320px] md:w-[420px] aspect-[2/3] rounded-[1.5rem] overflow-hidden shadow-[0_64px_128px_-32px_rgba(0,0,0,0.8)] ring-1 ring-white/10 group-hover:ring-primary/40 transition-all duration-700 relative"
+                                transition={{ duration: 0.6, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                                className="relative aspect-[2/3] w-[320px] overflow-hidden rounded-[1.5rem] border border-border shadow-md ring-1 ring-border/70 transition-all duration-500 group-hover:ring-primary/35 md:w-[420px]"
                             >
                                 <img src={media.coverImage} alt={title} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                             </motion.div>
 
                             {/* Status Control Ribbon */}
-                            <div className="bg-white/5 backdrop-blur-2xl rounded-2xl p-2 border border-white/5 flex items-center gap-2 shadow-2xl">
+                            <div className="flex items-center gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm">
                                 <div className="flex-1 px-4">
-                                    <div className="text-[9px] font-black uppercase tracking-widest text-primary/40 mb-1">Vault Status</div>
+                                    <div className="mb-1 text-[9px] font-semibold uppercase tracking-widest text-primary/70">Status</div>
                                     <select 
-                                        className="w-full bg-transparent font-black text-sm uppercase tracking-widest outline-none py-1 cursor-pointer text-white/80 hover:text-primary transition-colors"
+                                        className="w-full cursor-pointer bg-transparent py-1 text-sm font-semibold uppercase tracking-widest text-foreground outline-none transition-colors hover:text-primary"
                                         value={media.status}
                                         onChange={(e) => handleSaveField("status", e.target.value)}
                                     >
                                         {Object.entries(STATUS_LABELS).map(([key, labelObj]) => (
-                                            <option key={key} value={key} className="bg-[#0b1220] text-foreground">
+                                            <option key={key} value={key} className="bg-card text-foreground">
                                                 {labelObj[mediaType] || key}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
-                                <div className="w-px h-10 bg-white/10" />
-                                <button className="p-4 text-white/20 hover:text-red-500 transition-all hover:scale-110 active:scale-90">
+                                <div className="h-10 w-px bg-border" />
+                                <button className="p-4 text-muted-foreground transition-all hover:scale-110 hover:text-destructive active:scale-90">
                                     <Heart className="w-6 h-6 fill-current" />
                                 </button>
                             </div>
@@ -187,20 +187,20 @@ const MediaDetail = () => {
                             >
                                 <div className="space-y-8">
                                     <div className="flex items-center gap-6">
-                                        <span className="px-5 py-2 bg-primary text-primary-foreground rounded-xl text-[10px] font-black uppercase tracking-[0.3em] shadow-glow">
+                                        <span className="rounded-xl border border-primary/25 bg-primary px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-primary-foreground shadow-sm">
                                             {media.mediaType}
                                         </span>
-                                        <span className="text-white/30 font-black text-xs tracking-[0.4em] uppercase">{media.format || "Standard Archive"}</span>
+                                        <span className="text-xs font-semibold uppercase tracking-[0.4em] text-muted-foreground">{media.format || "Standard Archive"}</span>
                                     </div>
                                     
-                                    <h1 className="text-6xl md:text-[10rem] font-black tracking-tighter leading-[0.8] text-balance">
+                                    <h1 className="text-balance text-6xl font-black leading-[0.8] tracking-tighter text-foreground md:text-[10rem]">
                                         {title}
                                     </h1>
 
                                     {/* Visual Stats Bar (Task 17) */}
                                     <div className="flex flex-wrap items-center gap-12 pt-4">
                                         <div className="space-y-2">
-                                            <div className="text-[10px] uppercase tracking-[0.3em] text-white/20 font-black">Archive Grade</div>
+                                            <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Archive Grade</div>
                                             <div className="flex items-end gap-3">
                                                 <div className="text-6xl font-black text-primary tabular-nums tracking-tighter leading-none">
                                                     {media.score > 0 ? media.score : "--"}
@@ -211,7 +211,7 @@ const MediaDetail = () => {
                                                             key={i} 
                                                             className={cn(
                                                                 "w-1.5 h-6 rounded-full",
-                                                                i < Math.round(media.score / 20) ? "bg-primary shadow-glow" : "bg-white/5"
+                                                                i < Math.round(media.score / 20) ? "bg-primary" : "bg-muted"
                                                             )} 
                                                         />
                                                     ))}
@@ -219,20 +219,20 @@ const MediaDetail = () => {
                                             </div>
                                         </div>
                                         
-                                        <div className="w-px h-16 bg-white/5 hidden md:block" />
+                                        <div className="hidden h-16 w-px bg-border md:block" />
                                         
                                         <div className="space-y-2 flex-1 max-w-[300px]">
                                             <div className="flex justify-between items-end">
-                                                <div className="text-[10px] uppercase tracking-[0.3em] text-white/20 font-black">Progression</div>
-                                                <div className="text-2xl font-black text-white tabular-nums tracking-tighter leading-none">
-                                                    {media.progress} <span className="text-sm text-white/20 font-bold ml-1">/ {media.episodes || media.chapters || "?"}</span>
+                                                <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Progression</div>
+                                                <div className="text-2xl font-black text-foreground tabular-nums tracking-tighter leading-none">
+                                                    {media.progress} <span className="ml-1 text-sm font-semibold text-muted-foreground">/ {media.episodes || media.chapters || "?"}</span>
                                                 </div>
                                             </div>
-                                            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative">
+                                            <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
                                                 <motion.div 
                                                     initial={{ width: 0 }}
                                                     animate={{ width: `${progressPercent}%` }}
-                                                    className="absolute inset-0 bg-primary shadow-glow rounded-full"
+                                                    className="absolute inset-0 rounded-full bg-primary"
                                                 />
                                             </div>
                                         </div>
@@ -242,7 +242,7 @@ const MediaDetail = () => {
                                 {/* Dynamic Genres */}
                                 <div className="flex flex-wrap gap-3">
                                     {media.genres.map(genre => (
-                                        <span key={genre} className="px-6 py-3 rounded-2xl bg-white/5 border border-white/5 text-[11px] font-black uppercase tracking-widest text-white/40 hover:text-primary hover:border-primary/40 transition-all cursor-default">
+                                        <span key={genre} className="cursor-default rounded-2xl border border-border bg-card px-6 py-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground transition-all hover:border-primary/40 hover:text-primary">
                                             {genre}
                                         </span>
                                     ))}
@@ -252,11 +252,11 @@ const MediaDetail = () => {
                                 {media.description && (
                                     <div className="max-w-4xl space-y-10">
                                         <div className="flex items-center gap-6">
-                                            <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-white/10 text-nowrap">The Narrative</h3>
-                                            <div className="h-px w-full bg-white/5" />
+                                            <h3 className="text-[10px] font-semibold uppercase tracking-[0.35em] text-muted-foreground text-nowrap">Synopsis</h3>
+                                            <div className="h-px w-full bg-border" />
                                         </div>
                                         <div 
-                                            className="text-2xl md:text-3xl text-white/70 leading-[1.6] font-medium tracking-tight detail-description"
+                                            className="detail-description text-2xl font-medium leading-[1.6] tracking-tight text-foreground/80 md:text-3xl"
                                             dangerouslySetInnerHTML={{ __html: media.description }}
                                         />
                                     </div>
@@ -265,16 +265,16 @@ const MediaDetail = () => {
                                 {/* Metadata Grid */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-10">
                                     <div className="space-y-6">
-                                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40 flex items-center gap-4">
-                                            <MessageSquare className="w-4 h-4" /> Personal Reflection
+                                        <h4 className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.4em] text-primary/70">
+                                            <MessageSquare className="w-4 h-4" /> Notes
                                         </h4>
-                                        <div className="bg-surface-elevated1/40 p-10 rounded-[2rem] border border-white/5 text-xl font-medium text-white/60 leading-relaxed italic relative">
-                                            <div className="absolute top-0 left-8 -translate-y-1/2 px-4 py-1 bg-background border border-white/5 rounded-full text-[9px] font-black uppercase tracking-widest text-white/20">Stored Data</div>
+                                        <div className="relative rounded-[2rem] border border-border bg-card p-10 text-xl font-medium italic leading-relaxed text-foreground/75 shadow-sm">
+                                            <div className="absolute left-8 top-0 -translate-y-1/2 rounded-full border border-border bg-background px-4 py-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">Saved note</div>
                                             {media.notes || "No reflection indexed yet..."}
                                         </div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary/40 flex items-center gap-4">
+                                        <h4 className="flex items-center gap-4 text-[10px] font-semibold uppercase tracking-[0.4em] text-primary/70">
                                             <Sparkles className="w-4 h-4" /> Attributes
                                         </h4>
                                         <div className="grid grid-cols-2 gap-4">
@@ -287,13 +287,13 @@ const MediaDetail = () => {
                                 </div>
 
                                 {/* Detailed Actions */}
-                                <div className="flex items-center gap-6 pt-16 border-t border-white/5">
-                                    <Button onClick={() => setShowEditModal(true)} size="lg" className="rounded-2xl px-12 gap-4 font-black text-sm uppercase tracking-[0.2em]">
-                                        <Edit3 className="w-5 h-5" /> Adjust Parameters
+                                <div className="flex items-center gap-6 border-t border-border pt-16">
+                                    <Button onClick={() => setShowEditModal(true)} size="lg" className="gap-4 rounded-2xl px-12 text-sm font-semibold uppercase tracking-[0.2em]">
+                                        <Edit3 className="w-5 h-5" /> Edit Entry
                                     </Button>
                                     <button 
                                         onClick={() => setShowDeleteConfirm(true)}
-                                        className="h-20 w-20 rounded-2xl bg-destructive/10 text-destructive border border-destructive/20 flex items-center justify-center hover:bg-destructive hover:text-white transition-all shadow-xl shadow-destructive/5"
+                                        className="flex h-20 w-20 items-center justify-center rounded-2xl border border-destructive/25 bg-destructive/10 text-destructive transition-all hover:bg-destructive hover:text-white"
                                     >
                                         <Trash2 className="w-7 h-7" />
                                     </button>
@@ -305,7 +305,7 @@ const MediaDetail = () => {
                     {/* Recommendations Row */}
                     {similarMedia.length > 0 && (
                         <div className="mt-60">
-                            <MediaRow title="Correlated Archetypes" icon={Sparkles}>
+                            <MediaRow title="More Like This" icon={Sparkles}>
                                 {similarMedia.map((item, i) => (
                                     <MediaRowCard key={item._seriesId} media={item} index={i} />
                                 ))}
@@ -326,22 +326,22 @@ const MediaDetail = () => {
 
             {/* Delete Confirmation Overlay (Task 13-ish) */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-2xl p-6">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 p-6">
                     <motion.div 
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        className="bg-[#0b1220] border border-destructive/20 p-12 md:p-16 rounded-[3rem] max-w-xl w-full text-center space-y-10 shadow-[0_0_120px_rgba(255,0,0,0.15)]"
+                        className="w-full max-w-xl space-y-10 rounded-[2rem] border border-destructive/20 bg-card p-12 text-center shadow-sm md:p-16"
                     >
-                        <div className="w-24 h-24 bg-destructive/20 rounded-3xl flex items-center justify-center mx-auto rotate-12">
+                        <div className="mx-auto flex h-24 w-24 rotate-12 items-center justify-center rounded-3xl bg-destructive/20">
                             <Trash2 className="w-12 h-12 text-destructive -rotate-12" />
                         </div>
                         <div className="space-y-4">
-                             <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">Purge Fragment?</h2>
-                             <p className="text-white/50 text-lg leading-relaxed">This action will permanently delete <span className="text-white font-bold">{title}</span> from your personal universe. Correlation data will be lost.</p>
+                             <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">Delete Entry?</h2>
+                             <p className="text-lg leading-relaxed text-muted-foreground">This will permanently remove <span className="font-bold text-foreground">{title}</span> from your vault.</p>
                         </div>
                         <div className="flex gap-4">
-                            <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 h-20 rounded-2xl bg-white/5 font-black uppercase text-xs tracking-widest hover:bg-white/10 transition-all">Abort Path</button>
-                            <button onClick={handleDelete} className="flex-1 h-20 rounded-2xl bg-destructive text-white font-black uppercase text-xs tracking-widest hover:bg-destructive/90 transition-all shadow-2xl shadow-destructive/40">Confirm Purge</button>
+                            <button onClick={() => setShowDeleteConfirm(false)} className="h-20 flex-1 rounded-2xl border border-border bg-muted text-xs font-semibold uppercase tracking-widest transition-all hover:bg-muted/70">Cancel</button>
+                            <button onClick={handleDelete} className="h-20 flex-1 rounded-2xl bg-destructive text-xs font-semibold uppercase tracking-widest text-white transition-all hover:bg-destructive/90">Delete</button>
                         </div>
                     </motion.div>
                 </div>
@@ -352,15 +352,14 @@ const MediaDetail = () => {
 
 function AttributeRow({ label, value, icon: Icon }: { label: string; value: string; icon: React.ElementType }) {
     return (
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1">
+        <div className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-1">
-                <Icon className="w-3 h-3 text-primary/40" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/30">{label}</span>
+                <Icon className="w-3 h-3 text-primary/50" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</span>
             </div>
-            <div className="text-sm font-bold text-white/80">{value}</div>
+            <div className="text-sm font-semibold text-foreground">{value}</div>
         </div>
     );
 }
 
 export default MediaDetail;
-

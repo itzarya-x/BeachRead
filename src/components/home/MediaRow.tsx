@@ -45,14 +45,14 @@ export function MediaRow({ title, icon: Icon, count, children, className }: Medi
     };
 
     return (
-        <section className={cn("relative group/row space-y-8", className)}>
+        <section className={cn("relative group/row space-y-5", className)}>
             <div className="section-header flex items-end justify-between px-6 lg:px-14">
                 <div className="space-y-1">
-                    <h2 className="text-3xl md:text-5xl font-black tracking-tighter flex items-center gap-4">
-                        {Icon && <Icon className="w-8 h-8 md:w-10 md:h-10 text-primary" />}
+                    <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
+                        {Icon && <Icon className="w-5 h-5 md:w-6 md:h-6 text-primary/90" />}
                         {title}
                         {count !== undefined && (
-                            <span className="text-xs font-bold text-white/20 ml-2">
+                            <span className="ml-2 text-[11px] font-semibold text-muted-foreground">
                                 / {count}
                             </span>
                         )}
@@ -64,25 +64,25 @@ export function MediaRow({ title, icon: Icon, count, children, className }: Medi
                         onClick={() => scroll("left")}
                         disabled={!canScrollLeft}
                         className={cn(
-                            "w-12 h-12 rounded-full border border-white/10 flex items-center justify-center transition-all bg-black/20 backdrop-blur-md",
+                            "flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card transition-all",
                             canScrollLeft
-                                ? "text-white hover:bg-primary hover:text-primary-foreground hover:scale-110"
-                                : "text-white/20 cursor-default",
+                                ? "text-foreground hover:scale-105 hover:border-primary/30 hover:bg-accent hover:text-primary"
+                                : "cursor-default text-muted-foreground/50",
                         )}
                     >
-                        <ChevronLeft className="w-6 h-6" />
+                        <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button
                         onClick={() => scroll("right")}
                         disabled={!canScrollRight}
                         className={cn(
-                            "w-12 h-12 rounded-full border border-white/10 flex items-center justify-center transition-all bg-black/20 backdrop-blur-md",
+                            "flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card transition-all",
                             canScrollRight
-                                ? "text-white hover:bg-primary hover:text-primary-foreground hover:scale-110"
-                                : "text-white/20 cursor-default",
+                                ? "text-foreground hover:scale-105 hover:border-primary/30 hover:bg-accent hover:text-primary"
+                                : "cursor-default text-muted-foreground/50",
                         )}
                     >
-                        <ChevronRight className="w-6 h-6" />
+                        <ChevronRight className="w-5 h-5" />
                     </button>
                 </div>
             </div>
@@ -104,7 +104,7 @@ export function MediaRow({ title, icon: Icon, count, children, className }: Medi
 
                 <div 
                     ref={scrollRef} 
-                    className="flex gap-6 overflow-x-auto scroll-smooth pb-10 hide-scrollbar px-6 lg:px-14 snap-x snap-mandatory"
+                    className="flex gap-5 overflow-x-auto scroll-smooth pb-8 hide-scrollbar px-6 lg:px-14 snap-x snap-mandatory"
                 >
                     {children}
                 </div>

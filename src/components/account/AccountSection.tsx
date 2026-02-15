@@ -10,6 +10,17 @@
  */
 
 import { Button } from "@/components/ui/button";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, LogOut, User } from "lucide-react";
@@ -54,16 +65,16 @@ export function AccountSection({ onLoginClick }: AccountSectionProps) {
     };
 
     return (
-        <div className="rounded-lg border border-gray-200 p-4 space-y-4">
-            <h3 className="font-semibold text-lg text-gray-900">Account</h3>
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-foreground">Account</h3>
 
             {isAuthenticated && user ? (
                 <div className="space-y-4">
                     {/* PHASE 3.1: "Signed in as" */}
-                    <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded p-3">
+                    <div className="flex items-center justify-between rounded-xl border border-primary/25 bg-accent p-3">
                         <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-600">Signed in as</span>
-                            <span className="font-semibold text-gray-900">{user.email}</span>
+                            <span className="text-sm font-medium text-muted-foreground">Signed in as</span>
+                            <span className="font-semibold text-foreground">{user.email}</span>
                         </div>
                     </div>
 
@@ -77,13 +88,13 @@ export function AccountSection({ onLoginClick }: AccountSectionProps) {
                                     className="w-12 h-12 rounded-full object-cover"
                                 />
                             ) : (
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
                                     <User className="w-6 h-6" />
                                 </div>
                             )}
                             {user.displayName && (
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-gray-900 truncate">{user.displayName}</p>
+                                    <p className="truncate font-semibold text-foreground">{user.displayName}</p>
                                 </div>
                             )}
                         </div>
@@ -92,50 +103,45 @@ export function AccountSection({ onLoginClick }: AccountSectionProps) {
                     {/* Status Badge */}
                     <div className="flex items-center gap-2 text-sm">
                         <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        <span className="text-gray-600">Cloud sync active</span>
+                        <span className="text-muted-foreground">Cloud sync active</span>
+                        <Badge className="ml-1 border border-emerald-300 bg-emerald-100 text-emerald-700">Online</Badge>
                     </div>
 
-                    {/* Logout Confirmation or Button */}
-                    {!showLogoutConfirm ? (
+                    {/* Logout Action */}
+                    <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
                         <Button
                             variant="outline"
                             size="sm"
-                            className="w-full justify-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="w-full justify-center gap-2 border-destructive/35 text-destructive hover:bg-destructive/10"
                             onClick={() => setShowLogoutConfirm(true)}
                             disabled={loading}
                         >
                             <LogOut className="w-4 h-4" />
                             Logout
                         </Button>
-                    ) : (
-                        <div className="bg-red-50 border border-red-200 rounded p-3 space-y-3">
-                            <p className="text-sm text-red-900">Are you sure? Your local data will be kept safe.</p>
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="flex-1"
+                        <AlertDialogContent className="border-border bg-card sm:rounded-2xl">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Log out from this device?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    You can sign back in anytime. Your local vault data stays intact.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
                                     onClick={handleLogout}
                                     disabled={loading}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                    {loading ? "Logging out..." : "Yes, logout"}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={() => setShowLogoutConfirm(false)}
-                                    disabled={loading}
-                                >
-                                    Cancel
-                                </Button>
-                            </div>
-                        </div>
-                    )}
+                                    {loading ? "Logging out..." : "Log out"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                         Sign in to enable cloud sync and access your vault on multiple devices.
                     </p>
                     <Button className="w-full justify-center gap-2" onClick={handleLogin} disabled={loading}>

@@ -38,7 +38,7 @@ export function SidebarAccountBlock({ collapsed = false }: SidebarAccountBlockPr
                     className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${
                         !isOnline
                             ? "bg-yellow-50 hover:bg-yellow-100 border border-yellow-200 text-yellow-700 cursor-not-allowed opacity-60"
-                            : "bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700"
+                            : "border border-primary/25 bg-accent text-primary hover:bg-accent/80"
                     } ${collapsed ? "justify-center" : ""}`}
                     title={
                         !isOnline ? "You are offline — internet required for sign in" : "Sign in to enable cloud sync"
@@ -59,20 +59,20 @@ export function SidebarAccountBlock({ collapsed = false }: SidebarAccountBlockPr
             <>
                 <button
                     onClick={() => setShowAccountPanel(true)}
-                    className="w-full flex items-center justify-center px-3 py-2.5 rounded-lg hover:bg-surface-2 transition-colors group relative"
+                    className="group relative flex w-full items-center justify-center rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
                     title={`${user?.email || "Account"} — ${!isOnline ? "Offline — sync paused" : "Click to manage"}`}
                 >
                     {user?.avatar ? (
                         <img src={user.avatar} alt={user.email} className="w-6 h-6 rounded-full object-cover" />
                     ) : (
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                             {(user?.email?.[0] || "U").toUpperCase()}
                         </div>
                     )}
 
                     {/* Status indicator: green when online, yellow when offline */}
                     <div
-                        className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-surface-1 ${
+                        className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card ${
                             isOnline ? "bg-green-500" : "bg-yellow-500"
                         }`}
                     />
@@ -88,20 +88,20 @@ export function SidebarAccountBlock({ collapsed = false }: SidebarAccountBlockPr
         <>
             <button
                 onClick={() => setShowAccountPanel(true)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-surface-2 transition-colors group"
+                className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
             >
                 <div className="relative">
                     {user?.avatar ? (
                         <img src={user.avatar} alt={user.email} className="w-10 h-10 rounded-full object-cover" />
                     ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground">
                             {(user?.email?.[0] || "U").toUpperCase()}
                         </div>
                     )}
 
                     {/* Status indicator: green when online, yellow when offline */}
                     <div
-                        className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-surface-1 ${
+                        className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card ${
                             isOnline ? "bg-green-500 animate-pulse" : "bg-yellow-500"
                         }`}
                     />

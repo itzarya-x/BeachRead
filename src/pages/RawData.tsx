@@ -1,6 +1,7 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { JsonExplorer } from "@/components/raw-data/JsonExplorer";
 import { useData } from "@/context/DataContext";
+import { Database } from "lucide-react";
 
 const RawData = () => {
     const { rawData, loading } = useData();
@@ -18,10 +19,13 @@ const RawData = () => {
             <PageWrapper>
                 <PageHeader
                     title="Raw Data Explorer"
-                    subtitle="Complete GDPR JSON export — searchable and expandable."
+                    subtitle="Inspect your full GDPR export with searchable nested JSON."
+                    icon={Database}
                 />
                 <PageContent>
-                    <p className="text-destructive">No raw data available.</p>
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-foreground">
+                        No raw data available.
+                    </div>
                 </PageContent>
             </PageWrapper>
         );
@@ -31,7 +35,8 @@ const RawData = () => {
         <PageWrapper>
             <PageHeader
                 title="Raw Data Explorer"
-                subtitle="Complete GDPR JSON export — searchable and expandable. All IDs visible here only."
+                subtitle="Complete GDPR JSON export — searchable, expandable, and intended for advanced inspection."
+                icon={Database}
             />
             <PageContent className="space-y-4">
                 <JsonExplorer data={rawData} />

@@ -71,19 +71,20 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
     return (
         <aside
             className={cn(
-                "fixed left-0 top-0 h-screen bg-sidebar-background/80 backdrop-blur-2xl border-r border-sidebar-border transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] flex flex-col z-40",
+                "sakura-glass fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border/80 bg-sidebar/85 backdrop-blur-[20px] transition-all duration-300",
                 "hidden md:flex", // Hide on mobile
                 collapsed ? "w-20" : "w-72",
             )}
+            style={{ transitionTimingFunction: "cubic-bezier(0.23,1,0.32,1)" }}
         >
             {/* Header */}
-            <div className="h-20 flex items-center justify-between px-8">
+            <div className={cn("flex h-20 items-center justify-between border-b border-sidebar-border", collapsed ? "px-4" : "px-6")}>
                 {!collapsed && (
                     <Link to="/" className="flex items-center gap-3 group">
-                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center rotate-3 group-hover:rotate-12 transition-all duration-500 shadow-glow">
-                             <div className="-rotate-3 group-hover:-rotate-12 transition-all duration-500 text-primary-foreground font-black text-xl">Y</div>
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/30 bg-primary text-primary-foreground shadow-[0_0_20px_-12px_hsl(var(--primary)/0.95)] transition-transform duration-200 group-hover:scale-105">
+                             <div className="text-xl font-black text-primary-foreground">Y</div>
                         </div>
-                        <span className="font-display font-black text-2xl tracking-tighter text-foreground">
+                        <span className="font-display text-2xl font-black tracking-tight text-foreground">
                             YURA
                         </span>
                     </Link>
@@ -91,24 +92,24 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                 <button
                     onClick={handleToggleCollapse}
                     className={cn(
-                        "p-2.5 rounded-xl hover:bg-white/5 text-white/20 hover:text-white transition-all",
+                        "sakura-sidebar-button rounded-xl p-2.5 text-sidebar-foreground hover:text-sidebar-accent-foreground",
                         collapsed ? "mx-auto" : "ml-auto"
                     )}
                 >
-                    <ChevronLeft className={cn("w-5 h-5 transition-transform duration-700 ease-in-out", collapsed && "rotate-180")} />
+                    <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300 ease-in-out", collapsed && "rotate-180")} />
                 </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto px-4 py-8 space-y-12 scrollbar-hide">
+            <nav className={cn("scrollbar-hide flex-1 overflow-y-auto", collapsed ? "space-y-7 px-3 py-6" : "space-y-8 px-4 py-7")}>
                 {mainNav.map((section, idx) => (
-                    <div key={idx} className="space-y-4">
+                    <div key={idx} className={cn("space-y-3", !collapsed && "px-2")}>
                         {!collapsed && (
-                            <h3 className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em] px-4">
+                            <h3 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                                 {section.title}
                             </h3>
                         )}
-                        <div className="space-y-1">
+                        <div className={cn("space-y-1.5", collapsed && "space-y-2.5")}>
                             {section.items.map(link => {
                                 const isActive = link.path === "/" 
                                     ? location.pathname === "/" 
@@ -119,11 +120,11 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                                         key={link.path}
                                         to={link.path}
                                         className={cn(
-                                            "relative flex items-center gap-5 px-5 py-3 rounded-xl transition-all duration-300 group",
+                                            "sakura-sidebar-button group relative flex items-center gap-4 rounded-xl border transition-all duration-200",
                                             isActive
-                                                ? "text-primary"
-                                                : "text-white/40 hover:text-white hover:bg-white/[0.03]",
-                                            collapsed && "justify-center px-0"
+                                                ? "is-active text-sidebar-accent-foreground font-medium"
+                                                : "text-sidebar-foreground hover:text-sidebar-accent-foreground",
+                                            collapsed ? "justify-center px-0 py-3.5" : "px-4 py-3"
                                         )}
                                         title={collapsed ? link.label : undefined}
                                     >
@@ -131,19 +132,19 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                                         {isActive && (
                                             <motion.div 
                                                 layoutId="sidebar-pill"
-                                                className="absolute left-0 w-1 h-8 bg-primary rounded-r-full shadow-[0_0_15px_rgba(56,189,248,0.8)]"
+                                                className="absolute left-0 h-8 w-1 rounded-r-full bg-primary"
                                             />
                                         )}
 
                                         <link.icon className={cn(
-                                            "w-5 h-5 shrink-0 transition-transform duration-300",
-                                            isActive ? "scale-110" : "group-hover:scale-110"
+                                            "h-5 w-5 shrink-0 transition-all duration-200",
+                                            isActive ? "scale-105 text-primary" : "group-hover:scale-105 group-hover:text-foreground"
                                         )} />
                                         
                                         {!collapsed && (
                                             <span className={cn(
-                                                "text-[13px] font-bold tracking-tight",
-                                                isActive ? "text-white" : ""
+                                                "text-[13px] font-medium tracking-wide",
+                                                isActive ? "text-foreground" : ""
                                             )}>
                                                 {link.label}
                                             </span>
@@ -157,7 +158,7 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             </nav>
 
             {/* Footer */}
-            <div className="p-4 border-t border-border/10 bg-black/20 backdrop-blur-md">
+            <div className="sakura-glass border-t border-sidebar-border/80 bg-card/45 p-4 backdrop-blur-[18px]">
                 <div className="space-y-4">
                     {/* Account Block */}
                     <SidebarAccountBlock collapsed={collapsed} />

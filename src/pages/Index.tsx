@@ -44,10 +44,37 @@ const Index = () => {
     const trendingItems = useMemo(
         () => [...safeArray<DisplayMedia>(allMedia)]
             .sort((a, b) => b.score - a.score)
-            .reverse()
             .slice(0, 12),
         [allMedia],
     );
+
+    const hiddenGems = useMemo(
+        () =>
+            [...safeArray<DisplayMedia>(allMedia)]
+                .filter(m => m.score >= 65 && m.score < 85 && m.status !== "DROPPED")
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 12),
+        [allMedia],
+    );
+
+    const becauseYouLikedSeed = useMemo(
+        () => [...safeArray<DisplayMedia>(allMedia)].sort((a, b) => b.score - a.score)[0] ?? null,
+        [allMedia],
+    );
+
+    const becauseYouLikedItems = useMemo(() => {
+        if (!becauseYouLikedSeed) return [];
+
+        return [...safeArray<DisplayMedia>(allMedia)]
+            .filter(m => m._seriesId !== becauseYouLikedSeed._seriesId)
+            .filter(m => {
+                const sameType = m.mediaType === becauseYouLikedSeed.mediaType;
+                const sharedGenre = m.genres?.some(g => becauseYouLikedSeed.genres?.includes(g));
+                return sameType || sharedGenre;
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 12);
+    }, [allMedia, becauseYouLikedSeed]);
 
     const recentActivity = useMemo(
         () =>
@@ -61,13 +88,13 @@ const Index = () => {
         return (
             <PageWrapper>
                 <div className="space-y-12 pb-20 p-6 lg:p-14">
-                    <div className="h-[25vh] w-full bg-white/5 rounded-[2.5rem] animate-pulse" />
+                    <div className="h-[25vh] w-full animate-pulse rounded-[2.5rem] border border-border bg-card/70 backdrop-blur-[18px]" />
                     {[...Array(3)].map((_, i) => (
                         <div key={i} className="space-y-6">
-                            <div className="h-10 w-64 bg-white/5 rounded-xl animate-pulse" />
+                            <div className="h-10 w-64 animate-pulse rounded-xl bg-muted/60" />
                             <div className="flex gap-6 overflow-hidden">
                                 {[...Array(6)].map((_, j) => (
-                                    <div key={j} className="w-[200px] md:w-[320px] aspect-[2/3] bg-white/5 rounded-[1.5rem] shrink-0 animate-pulse" />
+                                    <div key={j} className="aspect-[2/3] w-[200px] shrink-0 animate-pulse rounded-[1.5rem] bg-muted/60 md:w-[320px]" />
                                 ))}
                             </div>
                         </div>
@@ -81,49 +108,51 @@ const Index = () => {
 
     return (
         <PageWrapper>
-            <div className="space-y-24 pb-40">
+            <div className="space-y-14 pb-36">
                 {/* 🎬 SECTION 1 — COMPACT HERO */}
-                <section className="relative h-[25vh] min-h-[250px] flex items-center px-6 lg:px-14 overflow-hidden pt-10">
-                    {/* Ambient Glow */}
-                    <div className="absolute top-0 right-0 w-[50%] h-full bg-primary/5 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                <section className="relative flex min-h-[190px] items-center overflow-hidden px-6 pt-8 lg:px-14">
+                    <div className="sakura-hero-flare pointer-events-none absolute inset-0" />
+                    <div className="pointer-events-none absolute -right-28 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+                    <div className="pointer-events-none absolute -left-20 -top-12 h-52 w-52 rounded-full bg-accent/80 blur-2xl" />
                     
                     <motion.div 
                         initial={{ opacity: 0, x: -30 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 1, ease: [0.23, 1, 0.32, 1] }}
-                        className="relative z-10 space-y-4 max-w-4xl"
+                        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+                        className="relative z-10 space-y-3 max-w-4xl"
                     >
                         <div className="space-y-0.5">
-                            <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white/90">
+                            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
                                 Welcome back, <span className="text-primary">{user.displayName || "Explorer"}</span>
                             </h1>
+                            <p className="text-sm text-muted-foreground md:text-base">
+                                Pick up where you left off and discover your next collectible favorite.
+                            </p>
                         </div>
 
                         {/* Quick Stats Ribbon */}
-                        <div className="flex flex-wrap gap-8 items-center bg-white/[0.02] border border-white/5 backdrop-blur-md rounded-2xl p-4 w-fit">
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl font-black tabular-nums">{allMedia.length}</span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Entries</span>
+                        <div className="flex flex-wrap gap-2.5 items-center w-fit">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3.5 py-1.5 backdrop-blur-md">
+                                <span className="text-sm font-bold tabular-nums text-foreground">{allMedia.length}</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Entries</span>
                             </div>
-                            <div className="w-px h-6 bg-white/10" />
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl font-black tabular-nums text-primary">{continueItems.length}</span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-white/20">In Progress</span>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-primary/35 bg-primary/12 px-3.5 py-1.5">
+                                <span className="text-sm font-bold tabular-nums text-primary">{continueItems.length}</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">In Progress</span>
                             </div>
-                            <div className="w-px h-6 bg-white/10" />
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl font-black tabular-nums text-white/60">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3.5 py-1.5 backdrop-blur-md">
+                                <span className="text-sm font-bold tabular-nums text-foreground">
                                     {allMedia.length > 0 
                                         ? (allMedia.reduce((acc, m) => acc + m.score, 0) / allMedia.filter(m => m.score > 0).length || 0).toFixed(1)
                                         : "0.0"}
                                 </span>
-                                <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Avg Score</span>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg Score</span>
                             </div>
                         </div>
                     </motion.div>
                 </section>
 
-                <div className="space-y-24">
+                <div className="space-y-16">
                     {/* ▶ SECTION 2 — CONTINUE WATCHING (LARGE) */}
                     {continueItems.length > 0 && (
                         <MediaRow title="Continue Journey" icon={History}>
@@ -135,7 +164,7 @@ const Index = () => {
 
                     {/* ✨ SECTION 3 — JUST UPDATED */}
                     {justUpdatedItems.length > 0 && (
-                        <MediaRow title="Just Updated" icon={Sparkles}>
+                        <MediaRow title="Recently Updated" icon={Sparkles}>
                             {justUpdatedItems.map((item, i) => (
                                 <MediaRowCard key={`upd-${item._seriesId}`} media={item} index={i} variant="updated" />
                             ))}
@@ -144,7 +173,7 @@ const Index = () => {
 
                     {/* 🔥 SECTION 4 — TRENDING NOW */}
                     {trendingItems.length > 0 && (
-                        <MediaRow title="Trending Now" icon={Flame}>
+                        <MediaRow title="Trending" icon={Flame}>
                             {trendingItems.map((item, i) => (
                                 <MediaRowCard key={`trend-${item._seriesId}`} media={item} index={i} variant="trending" />
                             ))}
@@ -153,30 +182,48 @@ const Index = () => {
 
                     {/* 🏆 SECTION 5 — FROM YOUR S / A TIERS */}
                     {sATierItems.length > 0 && (
-                        <MediaRow title="From Your S/A Tiers" icon={Star}>
+                        <MediaRow title="From Your Tiers" icon={Star}>
                             {sATierItems.map((item, i) => (
                                 <MediaRowCard key={`rank-${item._seriesId}`} media={item} index={i} />
                             ))}
                         </MediaRow>
                     )}
 
-                    {/* 🕒 SECTION 6 — RECENT ACTIVITY (FEED CARDS) */}
+                    {/* 💎 SECTION 6 — HIDDEN GEMS */}
+                    {hiddenGems.length > 0 && (
+                        <MediaRow title="Hidden Gems" icon={Sparkles}>
+                            {hiddenGems.map((item, i) => (
+                                <MediaRowCard key={`gems-${item._seriesId}`} media={item} index={i} />
+                            ))}
+                        </MediaRow>
+                    )}
+
+                    {/* ❤️ SECTION 7 — BECAUSE YOU LIKED X */}
+                    {becauseYouLikedSeed && becauseYouLikedItems.length > 0 && (
+                        <MediaRow title={`Because You Liked ${getTitle(becauseYouLikedSeed)}`} icon={History}>
+                            {becauseYouLikedItems.map((item, i) => (
+                                <MediaRowCard key={`because-${item._seriesId}`} media={item} index={i} />
+                            ))}
+                        </MediaRow>
+                    )}
+
+                    {/* 🕒 SECTION 8 — RECENT ACTIVITY (FEED CARDS) */}
                     {recentActivity.length > 0 && (
                         <MediaRow title="Recent Activity" icon={History}>
                             {recentActivity.map((item, i) => (
                                 <motion.div 
                                     key={`act-${item._seriesId}`}
-                                    className="w-[280px] md:w-[340px] p-5 rounded-[1.5rem] bg-white/5 border border-white/5 flex gap-4 items-center shrink-0 hover:bg-white/10 transition-all cursor-pointer group snap-start"
+                                    className="group flex w-[280px] shrink-0 snap-start items-center gap-4 rounded-xl border border-border/80 bg-card/60 p-4 backdrop-blur-[16px] transition-all hover:-translate-y-1 hover:border-primary/30 md:w-[340px]"
                                 >
-                                    <div className="w-14 h-18 rounded-lg overflow-hidden shrink-0">
+                                    <div className="h-18 w-14 shrink-0 overflow-hidden rounded-lg">
                                         <img src={item.coverImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
                                     </div>
                                     <div className="min-w-0">
-                                        <h4 className="font-bold text-white line-clamp-1 text-sm">{getTitle(item)}</h4>
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-primary/60 mt-1">
+                                        <h4 className="line-clamp-1 text-sm font-semibold text-foreground">{getTitle(item)}</h4>
+                                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary/80">
                                             {item.mediaType === "ANIME" ? "EP" : "CH"} {item.progress} (+1)
                                         </p>
-                                        <p className="text-[9px] text-white/20 mt-0.5">{new Date(item.updatedAt).toLocaleDateString()}</p>
+                                        <p className="mt-0.5 text-[10px] text-muted-foreground">{new Date(item.updatedAt).toLocaleDateString()}</p>
                                     </div>
                                 </motion.div>
                             ))}
@@ -185,7 +232,7 @@ const Index = () => {
                 </div>
             </div>
 
-            <FloatingActionButton onClick={() => console.log("Add clicked")} />
+            <FloatingActionButton onClick={() => console.log("Add clicked")} label="Quick Add" />
         </PageWrapper>
     );
 };

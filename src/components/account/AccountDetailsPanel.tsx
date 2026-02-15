@@ -68,14 +68,14 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-surface-1 rounded-t-lg sm:rounded-lg shadow-lg w-full sm:max-w-md border border-surface-2">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/85 p-4 sm:items-center">
+            <div className="w-full rounded-t-lg border border-border bg-card shadow-sm sm:max-w-md sm:rounded-lg">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-surface-2">
+                <div className="flex items-center justify-between border-b border-border p-4">
                     <h2 className="text-lg font-semibold">Account</h2>
                     <button
                         onClick={() => onOpenChange(false)}
-                        className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
+                        className="rounded-lg p-1 transition-colors hover:bg-muted"
                     >
                         <X size={20} />
                     </button>
@@ -86,7 +86,7 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                     {/* Signed in as */}
                     <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2">SIGNED IN AS</p>
-                        <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                        <div className="flex items-center gap-3 rounded-lg border border-primary/25 bg-accent p-3">
                             {user?.avatar ? (
                                 <img
                                     src={user.avatar}
@@ -94,13 +94,13 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                                     className="w-10 h-10 rounded-full object-cover"
                                 />
                             ) : (
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                                     {(user?.email?.[0] || "U").toUpperCase()}
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">{user?.email}</p>
-                                <p className="text-xs text-blue-700">Verified account</p>
+                                <p className="text-xs text-primary">Verified account</p>
                             </div>
                         </div>
                     </div>
@@ -108,7 +108,7 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                     {/* Cloud sync status */}
                     <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2">CLOUD SYNC</p>
-                        <div className="flex items-center gap-2 p-3 rounded-lg border border-surface-2 bg-surface-2">
+                        <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/60 p-3">
                             <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
                             <div className="flex-1">
                                 <p className="text-sm font-medium">Enabled</p>
@@ -122,7 +122,7 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                     <div className="space-y-2">
                         <button
                             onClick={handleResync}
-                            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors font-medium text-sm"
+                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
                         >
                             <RefreshCw size={16} />
                             Re-sync now
@@ -131,7 +131,7 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                         {!showLogoutConfirm && (
                             <button
                                 onClick={() => setShowLogoutConfirm(true)}
-                                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg hover:bg-red-50 text-red-600 hover:text-red-700 transition-colors font-medium text-sm border border-transparent hover:border-red-200"
+                                className="flex w-full items-center justify-center gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:border-destructive/20 hover:bg-destructive/10"
                             >
                                 <LogOut size={16} />
                                 Sign out
@@ -141,17 +141,17 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
 
                     {/* Logout confirmation */}
                     {showLogoutConfirm && (
-                        <div className="space-y-3 p-3 rounded-lg bg-red-50 border border-red-200">
+                        <div className="space-y-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3">
                             <div>
-                                <p className="text-sm font-medium text-red-900">Sign out?</p>
-                                <p className="text-xs text-red-700 mt-1">
+                                <p className="text-sm font-medium text-destructive">Sign out?</p>
+                                <p className="mt-1 text-xs text-destructive/90">
                                     Your local data will stay on this device, but cloud sync will be disabled.
                                 </p>
                             </div>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setShowLogoutConfirm(false)}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-white border border-red-200 text-red-700 hover:bg-red-50 transition-colors text-sm font-medium"
+                                    className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                                 >
                                     Cancel
                                 </button>
@@ -168,7 +168,7 @@ export function AccountDetailsPanel({ isOpen, onOpenChange }: AccountDetailsPane
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 border-t border-surface-2 bg-surface-2 text-center text-xs text-muted-foreground">
+                <div className="border-t border-border bg-muted/60 px-4 py-3 text-center text-xs text-muted-foreground">
                     Your data stays on your device.
                 </div>
             </div>

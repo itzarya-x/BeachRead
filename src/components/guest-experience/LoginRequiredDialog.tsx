@@ -39,20 +39,20 @@ export function LoginRequiredDialog({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg max-w-sm w-full p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
                 {/* Icon */}
                 <div className="flex justify-center mb-4">
                     <div className="text-4xl">🔐</div>
                 </div>
 
                 {/* Title */}
-                <h2 className="text-xl font-bold text-center mb-2 dark:text-gray-100">
+                <h2 className="mb-2 text-center text-xl font-bold text-foreground">
                     Sign in required
                 </h2>
 
                 {/* Description */}
-                <p className="text-gray-600 dark:text-gray-400 text-center mb-6">
+                <p className="mb-6 text-center text-muted-foreground">
                     To {action}, you need to sign in with your AniList account.
                 </p>
 
@@ -60,14 +60,14 @@ export function LoginRequiredDialog({
                 <div className="flex gap-3">
                     <button
                         onClick={onClose}
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                        className="flex-1 rounded-lg border border-border px-4 py-2 font-medium text-foreground transition-colors hover:bg-muted"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleLogin}
                         disabled={isLoggingIn}
-                        className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         {isLoggingIn ? (
                             <>

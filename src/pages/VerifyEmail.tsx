@@ -7,7 +7,7 @@
 
 import { useToast } from "@/hooks/use-toast";
 import { Check, RotateCw, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 export function VerifyEmail() {
@@ -21,20 +21,7 @@ export function VerifyEmail() {
     const [error, setError] = useState("");
     const [resending, setResending] = useState(false);
 
-    useEffect(() => {
-        const verificationToken = searchParams.get("token");
-        const email = searchParams.get("email");
-
-        if (!verificationToken) {
-            setVerifying(false);
-            return;
-        }
-
-        setToken(verificationToken);
-        verifyEmail(verificationToken);
-    }, [searchParams]);
-
-    const verifyEmail = async (verificationToken: string) => {
+    const verifyEmail = useCallback(async (verificationToken: string) => {
         try {
             // TODO: Call backend verify-email endpoint
             // const response = await fetch(
@@ -57,7 +44,18 @@ export function VerifyEmail() {
         } finally {
             setVerifying(false);
         }
-    };
+    }, [navigate, toast]);
+
+    useEffect(() => {
+        const verificationToken = searchParams.get("token");
+        if (!verificationToken) {
+            setVerifying(false);
+            return;
+        }
+
+        setToken(verificationToken);
+        verifyEmail(verificationToken);
+    }, [searchParams, verifyEmail]);
 
     const handleResendEmail = async () => {
         setResending(true);
@@ -88,11 +86,15 @@ export function VerifyEmail() {
 
     if (verifying) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+                </div>
                 <div className="w-full max-w-md">
-                    <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6 text-center space-y-4">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
-                            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
+                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold">Verifying Email</h1>
@@ -108,11 +110,15 @@ export function VerifyEmail() {
 
     if (verified) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+                </div>
                 <div className="w-full max-w-md">
-                    <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6 text-center space-y-4">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
-                            <Check className="w-6 h-6 text-green-600" />
+                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
+                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(152_52%_16%_/_0.48)]">
+                            <Check className="h-6 w-6 text-[hsl(152_72%_64%)]" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold">Email Verified!</h1>
@@ -127,12 +133,16 @@ export function VerifyEmail() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+            </div>
             <div className="w-full max-w-md">
-                <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6 space-y-4">
+                <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
                     {/* Icon */}
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
-                        <X className="w-6 h-6 text-red-600" />
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
+                        <X className="h-6 w-6 text-destructive" />
                     </div>
 
                     {/* Content */}
@@ -148,7 +158,7 @@ export function VerifyEmail() {
                         <button
                             onClick={handleResendEmail}
                             disabled={resending}
-                            className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="sakura-ripple-button is-default flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {resending ? (
                                 <>
@@ -164,7 +174,7 @@ export function VerifyEmail() {
                         </button>
                         <button
                             onClick={() => navigate("/login")}
-                            className="w-full px-4 py-2.5 rounded-lg bg-surface-2 text-foreground font-medium hover:bg-surface-3 transition-colors"
+                            className="sakura-ripple-button is-outline w-full px-4 py-2.5 font-medium text-foreground"
                         >
                             Back to Sign In
                         </button>

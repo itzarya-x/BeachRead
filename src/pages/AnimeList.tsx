@@ -2,13 +2,21 @@ import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWr
 import { AddMediaModal } from "@/components/media/AddMediaModal";
 import { FilterChips } from "@/components/media/FilterChips";
 import { MediaGrid } from "@/components/media/MediaGrid";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { GridSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { STATUS_LABELS, STATUS_ORDER } from "@/lib/constants";
 import type { DisplayMedia } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
-import { Plus, Search, SlidersHorizontal, Tv } from "lucide-react";
+import { ArrowDownWideNarrow, Plus, Search, Tv } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 const SORT_OPTIONS = [
@@ -90,8 +98,8 @@ const AnimeList = () => {
         return (
             <PageWrapper className="p-6">
                 <div className="flex justify-between items-center mb-8">
-                    <div className="h-10 w-48 bg-surface-2 rounded-lg animate-pulse" />
-                    <div className="h-10 w-32 bg-surface-2 rounded-lg animate-pulse" />
+                    <div className="h-10 w-48 rounded-lg bg-muted animate-pulse" />
+                    <div className="h-10 w-32 rounded-lg bg-muted animate-pulse" />
                 </div>
                 <GridSkeleton count={12} />
             </PageWrapper>
@@ -107,30 +115,34 @@ const AnimeList = () => {
             />
             <PageContent className="animate-fade-in">
                 {/* Search & sort */}
-                <div className="flex items-center gap-3 mb-4 flex-wrap">
-                    <div className="flex items-center gap-2 bg-card border border-border/50 rounded-xl px-3 py-2 flex-1 max-w-sm">
-                        <Search className="w-4 h-4 text-muted-foreground" />
-                        <input
+                <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/80" />
+                        <Input
                             type="text"
-                            placeholder="Search anime…"
+                            placeholder="Search anime titles..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1"
+                            className="h-10 rounded-xl border-border bg-input pl-9"
                         />
                     </div>
-                    <div className="flex items-center gap-2">
-                        <SlidersHorizontal className="w-4 h-4 text-muted-foreground" />
-                        <select
+                    <div className="flex items-center gap-2 min-w-[170px]">
+                        <ArrowDownWideNarrow className="w-4 h-4 text-muted-foreground/70" />
+                        <Select
                             value={sortBy}
-                            onChange={e => setSortBy(e.target.value)}
-                            className="bg-card border border-border/50 rounded-xl px-3 py-2 text-sm text-foreground outline-none"
+                            onValueChange={setSortBy}
                         >
-                            {SORT_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
+                            <SelectTrigger className="h-10 rounded-xl border-border bg-input">
+                                <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SORT_OPTIONS.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <Button
                         onClick={() => setShowAddModal(true)}
@@ -161,7 +173,7 @@ const AnimeList = () => {
                 </div>
 
                 {/* Results count */}
-                <p className="text-xs text-muted-foreground mb-4">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Showing {filtered.length} of {animeList.length}
                 </p>
 

@@ -4,7 +4,7 @@
 
 import type { Tier, TierAssignment } from "@/lib/tierDatabase";
 import type { DisplayMedia } from "@/types/display";
-import { BarChart3, TrendingUp } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 interface TierAnalyticsProps {
     tiers: Tier[];
@@ -14,9 +14,9 @@ interface TierAnalyticsProps {
 
 export function TierAnalytics({ tiers, assignments, allMedia }: TierAnalyticsProps) {
     // Get media for each tier
-    const getMediaForTier = (tierId: number | null) => {
-        const tierAssignments = assignments.filter(a => a.tierId === tierId);
-        return tierAssignments.map(a => allMedia.find(m => m._entryId === a.mediaId)).filter(Boolean) as DisplayMedia[];
+    const getMediaForTier = (tierId: string | number | null) => {
+        const tierAssignments = assignments.filter(a => String(a.tierId) === String(tierId));
+        return tierAssignments.map(a => allMedia.find(m => String(m._entryId) === String(a.mediaId))).filter(Boolean) as DisplayMedia[];
     };
 
     // Calculate stats
@@ -39,27 +39,27 @@ export function TierAnalytics({ tiers, assignments, allMedia }: TierAnalyticsPro
     const totalUnranked = allMedia.length - totalRanked;
 
     return (
-        <div className="bg-card border border-border rounded-lg p-4">
-            <h3 className="font-semibold mb-4 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-foreground">
                 <BarChart3 className="w-4 h-4" />
                 Tier Analytics
             </h3>
             <div className="space-y-4">
                 {/* Overview */}
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-secondary/50 rounded-lg p-3">
-                        <div className="text-sm text-muted-foreground">Ranked</div>
-                        <div className="text-2xl font-bold">{totalRanked}</div>
+                    <div className="rounded-xl border border-border bg-muted/40 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Ranked</div>
+                        <div className="text-2xl font-extrabold tracking-tight">{totalRanked}</div>
                     </div>
-                    <div className="bg-secondary/50 rounded-lg p-3">
-                        <div className="text-sm text-muted-foreground">Unranked</div>
-                        <div className="text-2xl font-bold">{totalUnranked}</div>
+                    <div className="rounded-xl border border-border bg-muted/40 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Unranked</div>
+                        <div className="text-2xl font-extrabold tracking-tight">{totalUnranked}</div>
                     </div>
                 </div>
 
                 {/* Tier Distribution */}
                 <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Distribution</h4>
+                    <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Distribution</h4>
                     {tierStats.map(({ tier, count, avgScore, percentage }) => (
                         <div key={tier.id} className="space-y-1">
                             <div className="flex items-center justify-between text-sm">
@@ -68,13 +68,13 @@ export function TierAnalytics({ tiers, assignments, allMedia }: TierAnalyticsPro
                                         className="w-3 h-3 rounded"
                                         style={{ backgroundColor: tier.color }}
                                     />
-                                    <span>{tier.name}</span>
+                                    <span className="font-semibold">{tier.name}</span>
                                 </div>
-                                <span className="text-muted-foreground">
+                                <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
                                     {count} ({percentage.toFixed(1)}%)
                                 </span>
                             </div>
-                            <div className="w-full bg-secondary rounded-full h-2">
+                            <div className="h-2 w-full rounded-full bg-muted">
                                 <div
                                     className="h-full rounded-full transition-all"
                                     style={{
@@ -84,7 +84,7 @@ export function TierAnalytics({ tiers, assignments, allMedia }: TierAnalyticsPro
                                 />
                             </div>
                             {avgScore > 0 && (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[11px] text-muted-foreground">
                                     Avg Score: {avgScore.toFixed(1)}
                                 </div>
                             )}

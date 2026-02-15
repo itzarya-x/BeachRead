@@ -2,6 +2,15 @@
  * PHASE 4: Filter Panel for TierMaker
  */
 
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import type { DisplayMedia } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
 import { useMemo } from "react";
@@ -32,9 +41,9 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
     }, [allMedia]);
 
     return (
-        <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Filters</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-foreground">Filters</h3>
                 <button
                     onClick={() => onFiltersChange({
                         mediaType: "all",
@@ -43,7 +52,7 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
                         maxScore: 100,
                         status: [],
                     })}
-                    className="text-xs text-muted-foreground hover:text-foreground"
+                    className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground hover:text-foreground"
                 >
                     Clear all
                 </button>
@@ -51,24 +60,30 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
 
             {/* Media Type */}
             <div>
-                <label className="block text-sm font-medium mb-2">Media Type</label>
-                <select
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Media Type</label>
+                <Select
                     value={filters.mediaType}
-                    onChange={(e) => onFiltersChange({ ...filters, mediaType: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                    onValueChange={(value) =>
+                        onFiltersChange({ ...filters, mediaType: value as FilterPanelProps["filters"]["mediaType"] })
+                    }
                 >
-                    <option value="all">All</option>
-                    <option value="anime">Anime</option>
-                    <option value="manga">Manga</option>
-                    <option value="manhua">Manhua</option>
-                    <option value="manhwa">Manhwa</option>
-                </select>
+                    <SelectTrigger className="h-10 rounded-xl border-border bg-input">
+                        <SelectValue placeholder="Select media type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="anime">Anime</SelectItem>
+                        <SelectItem value="manga">Manga</SelectItem>
+                        <SelectItem value="manhua">Manhua</SelectItem>
+                        <SelectItem value="manhwa">Manhwa</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             {/* Genres */}
             <div>
-                <label className="block text-sm font-medium mb-2">Genres</label>
-                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Genres</label>
+                <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
                     {allGenres.map(genre => (
                         <button
                             key={genre}
@@ -78,10 +93,10 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
                                     : [...filters.genres, genre];
                                 onFiltersChange({ ...filters, genres: newGenres });
                             }}
-                            className={`px-2 py-1 rounded text-xs transition-colors ${
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                                 filters.genres.includes(genre)
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary hover:bg-secondary/80"
+                                    ? "border-primary/45 bg-primary/12 text-primary"
+                                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                             }`}
                         >
                             {genre}
@@ -92,32 +107,48 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
 
             {/* Score Range */}
             <div>
-                <label className="block text-sm font-medium mb-2">
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Score: {filters.minScore} - {filters.maxScore}
                 </label>
-                <div className="flex gap-2">
-                    <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={filters.minScore}
-                        onChange={(e) => onFiltersChange({ ...filters, minScore: parseInt(e.target.value) })}
-                        className="flex-1"
+                <div className="space-y-3 rounded-xl border border-border bg-muted/50 p-3">
+                    <Slider
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={[filters.minScore]}
+                        onValueChange={(value) => onFiltersChange({ ...filters, minScore: value[0] ?? 0 })}
                     />
-                    <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={filters.maxScore}
-                        onChange={(e) => onFiltersChange({ ...filters, maxScore: parseInt(e.target.value) })}
-                        className="flex-1"
+                    <Slider
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={[filters.maxScore]}
+                        onValueChange={(value) => onFiltersChange({ ...filters, maxScore: value[0] ?? 100 })}
                     />
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input
+                            type="number"
+                            value={filters.minScore}
+                            min={0}
+                            max={filters.maxScore}
+                            onChange={(e) => onFiltersChange({ ...filters, minScore: Number(e.target.value) || 0 })}
+                            className="h-9 rounded-lg border-border bg-input text-xs"
+                        />
+                        <Input
+                            type="number"
+                            value={filters.maxScore}
+                            min={filters.minScore}
+                            max={100}
+                            onChange={(e) => onFiltersChange({ ...filters, maxScore: Number(e.target.value) || 100 })}
+                            className="h-9 rounded-lg border-border bg-input text-xs"
+                        />
+                    </div>
                 </div>
             </div>
 
             {/* Status */}
             <div>
-                <label className="block text-sm font-medium mb-2">Status</label>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Status</label>
                 <div className="flex flex-wrap gap-2">
                     {allStatuses.map(status => (
                         <button
@@ -128,10 +159,10 @@ export function FilterPanel({ filters, onFiltersChange, allMedia }: FilterPanelP
                                     : [...filters.status, status];
                                 onFiltersChange({ ...filters, status: newStatus });
                             }}
-                            className={`px-2 py-1 rounded text-xs transition-colors ${
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                                 filters.status.includes(status)
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary hover:bg-secondary/80"
+                                    ? "border-primary/45 bg-primary/12 text-primary"
+                                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                             }`}
                         >
                             {status}

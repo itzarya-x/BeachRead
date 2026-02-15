@@ -71,25 +71,25 @@ export default function TierList() {
                 {boards.length === 0 ? (
                     <EmptyTierList onCreate={handleCreateBoard} />
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                         {boards.map(board => (
                             <Link 
                                 key={board.id} 
                                 to={`/tier-maker?board=${board.id}`}
-                                className="group relative bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+                                className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/45 hover:-translate-y-0.5 hover:shadow-md"
                             >
-                                <div className="aspect-video bg-gradient-to-br from-primary/5 to-secondary flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-                                    <LayoutGrid className="w-12 h-12 text-primary/20 group-hover:text-primary/40 transition-colors" />
+                                <div className="aspect-video bg-gradient-to-br from-primary/10 via-card to-secondary/50 flex items-center justify-center">
+                                    <LayoutGrid className="w-12 h-12 text-primary/25 transition-colors group-hover:text-primary/50" />
                                 </div>
                                 
                                 <div className="p-5">
-                                    <h3 className="text-lg font-bold group-hover:text-primary transition-colors mb-1">{board.name}</h3>
-                                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                                    <h3 className="mb-1 text-lg font-extrabold tracking-tight transition-colors group-hover:text-primary">{board.name}</h3>
+                                    <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
                                         {board.description || "No description"}
                                     </p>
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground/60">
+                                    <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
                                         <span>Created {new Date(board.createdAt).toLocaleDateString()}</span>
-                                        <span className="group-hover:translate-x-1 transition-transform">Open Board →</span>
+                                        <span className="transition-transform group-hover:translate-x-1">Open →</span>
                                     </div>
                                 </div>
                             </Link>

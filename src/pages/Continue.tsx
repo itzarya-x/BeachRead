@@ -22,10 +22,10 @@ const Continue = () => {
     if (loading) {
         return (
             <PageWrapper className="p-6">
-                <div className="h-10 w-48 bg-surface-2 rounded-lg animate-pulse mb-8" />
+                <div className="mb-8 h-10 w-48 animate-pulse rounded-lg bg-muted" />
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
                     {[...Array(12)].map((_, i) => (
-                        <div key={i} className="aspect-[2/3] bg-surface-2 rounded-xl animate-pulse" />
+                        <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-muted" />
                     ))}
                 </div>
             </PageWrapper>
@@ -48,7 +48,7 @@ const Continue = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                        <div className="w-20 h-20 rounded-full bg-surface-2 flex items-center justify-center">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-border bg-card shadow-sm">
                             <Play className="w-10 h-10 text-muted-foreground" />
                         </div>
                         <div className="space-y-2">

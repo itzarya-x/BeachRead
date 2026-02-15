@@ -4,9 +4,29 @@
  */
 
 import { useData } from "@/context/DataContext";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { STATUS_LABELS } from "@/lib/constants";
 import type { DisplayMedia, MediaStatus } from "@/types/display";
-import { Save, Trash2, X } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface EditMediaModalProps {
@@ -76,206 +96,191 @@ export function EditMediaModal({ media, onClose, onDelete }: EditMediaModalProps
     const allStatuses: MediaStatus[] = ["CURRENT", "PLANNING", "COMPLETED", "DROPPED", "PAUSED", "REPEATING"];
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-card border border-border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-border">
-                    <h2 className="text-xl font-semibold">Edit Entry</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-secondary rounded-lg transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-border bg-card p-0 sm:rounded-2xl">
+                <DialogHeader className="border-b border-border px-6 py-5">
+                    <DialogTitle className="text-xl font-extrabold tracking-tight">Edit Entry</DialogTitle>
+                    <DialogDescription>
+                        Update progress, status, scoring, and personal metadata for this title.
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Form */}
-                <div className="p-6 space-y-6">
-                    {/* Status */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Status</label>
-                        <select
-                            value={formData.status || "PLANNING"}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value as MediaStatus })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                        >
-                            {allStatuses.map(status => (
-                                <option key={status} value={status}>
-                                    {STATUS_LABELS[status]?.[media.mediaType] || status}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Score */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Score</label>
-                        <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={formData.score ?? 0}
-                            onChange={(e) => setFormData({ ...formData, score: parseInt(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                        />
-                    </div>
-
-                    {/* Progress */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Progress {media.mediaType === "ANIME" ? "(Episodes)" : "(Chapters)"}
-                        </label>
-                        <input
-                            type="number"
-                            min="0"
-                            value={formData.progress ?? 0}
-                            onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                        />
-                    </div>
-
-                    {media.mediaType === "MANGA" && (
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Volumes</label>
-                            <input
+                <div className="space-y-5 px-6 py-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <Select
+                                value={formData.status || "PLANNING"}
+                                onValueChange={(value) => setFormData({ ...formData, status: value as MediaStatus })}
+                            >
+                                <SelectTrigger className="h-10 rounded-xl border-border bg-input">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {allStatuses.map(status => (
+                                        <SelectItem key={status} value={status}>
+                                            {STATUS_LABELS[status]?.[media.mediaType] || status}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Score</Label>
+                            <Input
                                 type="number"
                                 min="0"
-                                value={formData.progressVolumes ?? 0}
-                                onChange={(e) => setFormData({ ...formData, progressVolumes: parseInt(e.target.value) || 0 })}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                                max="100"
+                                value={formData.score ?? 0}
+                                onChange={(e) => setFormData({ ...formData, score: parseInt(e.target.value) || 0 })}
+                                className="h-10 rounded-xl border-border bg-input"
                             />
                         </div>
-                    )}
-
-                    {/* Repeat */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Repeat Count</label>
-                        <input
-                            type="number"
-                            min="0"
-                            value={formData.repeat ?? 0}
-                            onChange={(e) => setFormData({ ...formData, repeat: parseInt(e.target.value) || 0 })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                        />
                     </div>
 
-                    {/* Priority/Tier */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Priority/Tier</label>
-                        <select
-                            value={formData.priority ?? 0}
-                            onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
-                        >
-                            <option value={0}>None</option>
-                            <option value={1}>Low</option>
-                            <option value={2}>Medium</option>
-                            <option value={3}>High</option>
-                        </select>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Progress {media.mediaType === "ANIME" ? "(Episodes)" : "(Chapters)"}</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.progress ?? 0}
+                                onChange={(e) => setFormData({ ...formData, progress: parseInt(e.target.value) || 0 })}
+                                className="h-10 rounded-xl border-border bg-input"
+                            />
+                        </div>
+                        {media.mediaType === "MANGA" && (
+                            <div className="space-y-2">
+                                <Label>Volumes</Label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={formData.progressVolumes ?? 0}
+                                    onChange={(e) => setFormData({ ...formData, progressVolumes: parseInt(e.target.value) || 0 })}
+                                    className="h-10 rounded-xl border-border bg-input"
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    {/* Notes */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Notes</label>
-                        <textarea
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Repeat Count</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                value={formData.repeat ?? 0}
+                                onChange={(e) => setFormData({ ...formData, repeat: parseInt(e.target.value) || 0 })}
+                                className="h-10 rounded-xl border-border bg-input"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Priority</Label>
+                            <Select
+                                value={String(formData.priority ?? 0)}
+                                onValueChange={(value) => setFormData({ ...formData, priority: parseInt(value) })}
+                            >
+                                <SelectTrigger className="h-10 rounded-xl border-border bg-input">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">None</SelectItem>
+                                    <SelectItem value="1">Low</SelectItem>
+                                    <SelectItem value="2">Medium</SelectItem>
+                                    <SelectItem value="3">High</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Notes</Label>
+                        <Textarea
                             value={formData.notes || ""}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value || null })}
                             rows={4}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg resize-none"
+                            className="resize-none rounded-xl border-border bg-input"
                             placeholder="Add your notes here..."
                         />
                     </div>
 
-                    {/* Custom Lists */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">Custom Lists</label>
-                        <input
+                    <div className="space-y-2">
+                        <Label>Custom Lists</Label>
+                        <Input
                             type="text"
                             value={formData.customLists?.join(", ") || ""}
-                            onChange={(e) => setFormData({ 
-                                ...formData, 
-                                customLists: e.target.value.split(",").map(s => s.trim()).filter(Boolean) 
+                            onChange={(e) => setFormData({
+                                ...formData,
+                                customLists: e.target.value.split(",").map(s => s.trim()).filter(Boolean)
                             })}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                            className="h-10 rounded-xl border-border bg-input"
                             placeholder="Comma-separated list names"
                         />
                     </div>
 
-                    {/* Privacy */}
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="isPrivate"
-                            checked={formData.isPrivate ?? false}
-                            onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
-                            className="w-4 h-4"
-                        />
-                        <label htmlFor="isPrivate" className="text-sm">Private</label>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3">
+                            <Checkbox
+                                id="isPrivate"
+                                checked={formData.isPrivate ?? false}
+                                onCheckedChange={(checked) => setFormData({ ...formData, isPrivate: Boolean(checked) })}
+                            />
+                            <Label htmlFor="isPrivate" className="cursor-pointer">Private</Label>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 p-3">
+                            <Checkbox
+                                id="hiddenDefault"
+                                checked={formData.hiddenDefault ?? false}
+                                onCheckedChange={(checked) => setFormData({ ...formData, hiddenDefault: Boolean(checked) })}
+                            />
+                            <Label htmlFor="hiddenDefault" className="cursor-pointer">Hidden from default view</Label>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="hiddenDefault"
-                            checked={formData.hiddenDefault ?? false}
-                            onChange={(e) => setFormData({ ...formData, hiddenDefault: e.target.checked })}
-                            className="w-4 h-4"
-                        />
-                        <label htmlFor="hiddenDefault" className="text-sm">Hidden from default view</label>
-                    </div>
-
-                    {/* Dates */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Started At</label>
-                            <input
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Started At</Label>
+                            <Input
                                 type="date"
                                 value={formData.startedAt ? new Date(formData.startedAt).toISOString().split('T')[0] : ""}
                                 onChange={(e) => setFormData({ ...formData, startedAt: e.target.value || null })}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                                className="h-10 rounded-xl border-border bg-input"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Completed At</label>
-                            <input
+                        <div className="space-y-2">
+                            <Label>Completed At</Label>
+                            <Input
                                 type="date"
                                 value={formData.completedAt ? new Date(formData.completedAt).toISOString().split('T')[0] : ""}
                                 onChange={(e) => setFormData({ ...formData, completedAt: e.target.value || null })}
-                                className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                                className="h-10 rounded-xl border-border bg-input"
                             />
                         </div>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between p-6 border-t border-border">
-                    <button
+                <DialogFooter className="flex items-center justify-between border-t border-border px-6 py-4 sm:justify-between">
+                    <Button
+                        type="button"
+                        variant="destructive"
                         onClick={handleDelete}
                         disabled={loading}
-                        className="px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="rounded-xl"
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="h-4 w-4" />
                         Delete
-                    </button>
-                    <div className="flex gap-3">
-                        <button
-                            onClick={onClose}
-                            disabled={loading}
-                            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
-                        >
+                    </Button>
+                    <div className="flex gap-2">
+                        <Button type="button" variant="secondary" onClick={onClose} disabled={loading} className="rounded-xl">
                             Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={loading}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            <Save className="w-4 h-4" />
+                        </Button>
+                        <Button type="button" onClick={handleSave} disabled={loading} className="rounded-xl">
+                            <Save className="h-4 w-4" />
                             Save
-                        </button>
+                        </Button>
                     </div>
-                </div>
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

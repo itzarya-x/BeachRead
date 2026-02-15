@@ -29,7 +29,7 @@ export function OfflineBanner() {
 
     if (!isOnline) {
         return (
-            <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex items-center gap-2 text-sm text-yellow-800">
+            <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
                 <WifiOff className="w-4 h-4 flex-shrink-0" />
                 <span className="flex-1">
                     You're offline. Your changes will sync automatically when you're back online. Sign in unavailable.
@@ -40,7 +40,7 @@ export function OfflineBanner() {
 
     if (showReconnectMessage) {
         return (
-            <div className="bg-green-50 border-b border-green-200 px-4 py-2 flex items-center gap-2 text-sm text-green-800 animate-in fade-in">
+            <div className="animate-in fade-in flex items-center gap-2 border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200">
                 <CheckCircle className="w-4 h-4 flex-shrink-0" />
                 <span>Back online! Syncing your changes now...</span>
             </div>

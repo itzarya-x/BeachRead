@@ -70,7 +70,7 @@ export function AuthCallback() {
 
     if (status === "loading") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
+            <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
                 <div className="text-center">
                     <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                     <p className="text-muted-foreground text-sm">Completing sign in…</p>
@@ -81,7 +81,7 @@ export function AuthCallback() {
 
     if (status === "error") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
+            <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
                 <div className="text-center max-w-md">
                     <p className="text-destructive mb-2 font-semibold text-lg">Sign In Failed</p>
                     <p className="text-sm text-muted-foreground mb-4">
@@ -90,13 +90,13 @@ export function AuthCallback() {
                     <div className="flex gap-2 justify-center flex-wrap">
                         <button
                             onClick={() => navigate("/", { replace: true })}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+                            className="sakura-ripple-button is-default px-4 py-2 text-sm"
                         >
                             Go Home
                         </button>
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 text-sm"
+                            className="sakura-ripple-button is-outline px-4 py-2 text-sm"
                         >
                             Try Again
                         </button>
@@ -108,7 +108,7 @@ export function AuthCallback() {
 
     // Success state (brief moment before redirect)
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
             <div className="text-center">
                 <div className="text-3xl mb-4">✓</div>
                 <p className="text-foreground font-medium">Welcome back!</p>

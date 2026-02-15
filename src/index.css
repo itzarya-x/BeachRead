@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Overpass:wght@400;500;600;700;800&display=swap");
+@import "./styles/sakura-theme.css";
 
 @tailwind base;
 @tailwind components;
@@ -6,56 +7,74 @@
 
 @layer base {
     :root {
-        /* YURA DESIGN DNA - Cinematic Archive */
-        
-        /* Base - Layered deep colors (Task 1) */
-        --background-top: #101827;
-        --background-mid: #0b1220;
-        --background-bottom: #090f1a;
-        
-        /* Level 0 -> 3 Hierarchy (Task 2) */
-        --background: 222 47% 11%; /* #101827 approx */
-        --foreground: 210 40% 98%;
-        
-        --container: 224 48% 8%;   /* #0b1220 approx */
-        --card: 223 44% 14%;      /* #141e33 approx - slightly lighter */
-        --card-foreground: 210 40% 98%;
+        --bg-primary: #0f0b14;
+        --bg-secondary: #1a1323;
+        --bg-glass: rgba(255, 255, 255, 0.04);
 
-        --popover: 222 47% 11%;
-        --popover-foreground: 210 40% 98%;
+        --sakura: 340 65% 58%;
+        --sakura-soft: 340 65% 68%;
+        --sakura-lavender: 274 72% 72%;
+        --sakura-accent-gradient: linear-gradient(120deg, hsl(340 68% 66%), hsl(330 78% 76%));
+        --sakura-glow-rgb: 255 120 170;
+        --sakura-glow: rgba(255, 120, 170, 0.35);
 
-        /* PRIMARY ACCENT - Electric Cyan (Task 14) */
-        --primary: 199 89% 58%;
-        --primary-foreground: 210 40% 98%;
+        --text-primary: #f3eaf4;
+        --text-muted: #bca9c5;
 
-        --secondary: 222 47% 12%;
-        --secondary-foreground: 215 20% 65%;
+        --border-glass: rgba(255, 255, 255, 0.08);
+        --danger: #b33a3a;
+        --success: #3ab37a;
 
-        --muted: 223 44% 14%;
-        --muted-foreground: 215 20% 65%;
+        --radius-lg: 18px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+        --transition: 0.25s ease;
 
-        --accent: 199 89% 58%;
-        --accent-foreground: 210 40% 98%;
+        --background: 260 24% 7%;
+        --foreground: 295 26% 94%;
+        --card: 262 28% 12%;
+        --card-foreground: 295 26% 94%;
+        --muted: 262 20% 18%;
+        --muted-foreground: 284 21% 72%;
 
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 210 40% 98%;
+        --popover: 262 28% 12%;
+        --popover-foreground: 295 26% 94%;
 
-        /* Premium Borders & Radius (Tasks 2 & 20) */
-        --border: 223 44% 18%;
-        --input: 223 44% 18%;
-        --ring: 199 89% 58%;
-        --radius: 1rem; /* 16px */
+        --primary: var(--sakura);
+        --primary-foreground: 0 0% 100%;
+        --secondary: 262 20% 18%;
+        --secondary-foreground: 295 26% 94%;
 
-        --surface-base: var(--background-top);
-        --surface-elevated1: var(--card);
-        --surface-elevated2: #1e293b;
-        --surface-elevated3: #334155;
-        
-        /* Sidebar Refinement */
-        --sidebar-background: #080c14;
-        --sidebar-foreground: rgba(255, 255, 255, 0.5);
-        --sidebar-primary: #38bdf8;
-        --sidebar-border: rgba(255, 255, 255, 0.05);
+        --accent: 340 30% 24%;
+        --accent-foreground: 295 26% 94%;
+
+        --warning: 45 95% 55%;
+        --destructive: 0 51% 47%;
+        --destructive-foreground: 0 0% 100%;
+
+        --border: 340 35% 76% / 0.15;
+        --input: 262 24% 11%;
+        --ring: 340 65% 58%;
+        --radius: 12px;
+
+        --surface-base: hsl(260 24% 7%);
+        --surface-elevated1: hsl(262 28% 12%);
+        --surface-elevated2: hsl(262 20% 18%);
+        --surface-elevated3: hsl(340 30% 24%);
+
+        --sidebar-background: 262 30% 10%;
+        --sidebar-foreground: 290 24% 86%;
+        --sidebar-primary: hsl(var(--sakura));
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 340 35% 20%;
+        --sidebar-accent-foreground: 295 26% 94%;
+        --sidebar-border: 340 30% 72% / 0.18;
+        --sidebar-ring: hsl(var(--ring));
+        --chart-1: 340 65% 58%;
+        --chart-2: 274 72% 72%;
+        --chart-3: 330 68% 66%;
+        --chart-4: 340 46% 70%;
+        --chart-5: 292 42% 64%;
     }
 }
 
@@ -65,43 +84,41 @@
     }
 
     body {
-        background: linear-gradient(to bottom, var(--background-top), var(--background-mid), var(--background-bottom));
+        background:
+            radial-gradient(circle at 20% 20%, rgba(120, 40, 90, 0.35), #0e0b14 60%),
+            linear-gradient(160deg, #120d18 0%, #0f0b14 52%, #0b0811 100%);
         background-attachment: fixed;
         color: hsl(var(--foreground));
         font-family: "Overpass", system-ui, sans-serif;
-        @apply antialiased selection:bg-primary/30 selection:text-white min-h-screen relative;
+        @apply antialiased min-h-screen selection:bg-primary/20 selection:text-white;
+        position: relative;
+        overflow-x: hidden;
     }
 
-    /* Cinematic Radial Light (Task 1) */
     body::before {
         content: "";
         position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100vw;
-        height: 100vh;
-        background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.03) 0%, transparent 70%);
+        inset: 0;
         pointer-events: none;
-        z-index: 1;
+        background:
+            radial-gradient(780px 320px at 18% -12%, rgba(255, 120, 170, 0.2), transparent 72%),
+            radial-gradient(620px 280px at 86% 6%, rgba(192, 141, 231, 0.18), transparent 74%);
+        z-index: -1;
     }
 
-    /* Low Contrast Noise Texture (Task 1) */
     body::after {
         content: "";
         position: fixed;
         inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        opacity: 0.02;
         pointer-events: none;
-        z-index: 2;
-        mix-blend-mode: overlay;
+        background: radial-gradient(110% 85% at 50% 8%, transparent 64%, rgba(255, 120, 170, 0.08) 100%);
+        z-index: -1;
     }
 
     h1, h2, h3, h4, h5, h6 {
         font-family: "Outfit", "Overpass", system-ui, sans-serif;
-        letter-spacing: -0.04em;
-        @apply font-black leading-[0.9] tracking-tighter;
+        letter-spacing: -0.03em;
+        @apply font-black leading-[0.94] tracking-tight;
     }
 
     h1 { @apply text-5xl md:text-8xl; }
@@ -112,6 +129,19 @@
         @apply transition-opacity duration-700 ease-in-out;
     }
 
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]),
+    textarea,
+    select {
+        background: hsl(260 24% 8% / 0.55);
+        border-color: hsl(340 34% 72% / 0.22);
+        color: hsl(340 65% 94%);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: hsl(340 26% 74% / 0.45);
+    }
+
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -120,30 +150,17 @@
         background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.14);
         border-radius: 10px;
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: rgba(56, 189, 248, 0.3);
+        background: rgba(255, 120, 170, 0.35);
     }
 }
 
 @layer components {
     /* TASK 1.5 — Reduce Noise: Minimal borders, use contrast */
     
-    /* Glass morphism card - Subtle borders */
-    .glass {
-        background: hsl(var(--card) / 0.6);
-        backdrop-filter: blur(20px);
-        border: 1px solid hsl(var(--border) / 0.3);
-    }
-
-    .glass-strong {
-        background: hsl(var(--card) / 0.85);
-        backdrop-filter: blur(30px);
-        border: 1px solid hsl(var(--border) / 0.4);
-    }
-
     /* Status badges */
     .status-badge {
         @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide;
@@ -177,16 +194,14 @@
     /* Media card hover effect */
     .media-card {
         @apply relative overflow-hidden rounded-xl transition-all duration-300;
-        box-shadow: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+        box-shadow: 0 4px 10px -6px rgba(0, 0, 0, 0.12);
     }
     .media-card:hover {
-        @apply scale-[1.04];
-        box-shadow:
-            0 20px 40px -12px hsl(0 0% 0% / 0.6),
-            0 0 20px -4px hsl(var(--primary) / 0.15);
+        @apply scale-[1.02];
+        box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.2);
     }
     .media-card .media-overlay {
-        @apply absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 transition-all duration-300;
+        @apply absolute inset-0 bg-gradient-to-t from-black/45 via-black/15 to-transparent opacity-0 transition-all duration-300;
     }
     .media-card:hover .media-overlay {
         @apply opacity-100;
@@ -232,7 +247,7 @@
         @apply flex items-center justify-between mb-4;
     }
     .section-title {
-        @apply text-lg font-bold text-foreground flex items-center gap-2.5;
+        @apply text-lg md:text-xl font-bold text-foreground flex items-center gap-2.5;
         font-family: "Outfit", sans-serif;
     }
 
@@ -247,10 +262,10 @@
 
     /* Glow effects */
     .glow-primary {
-        box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.3);
+        box-shadow: none;
     }
     .glow-accent {
-        box-shadow: 0 0 20px -4px hsl(var(--accent) / 0.3);
+        box-shadow: none;
     }
 
     /* Tier badges */
@@ -392,8 +407,434 @@
     .bg-surface-elevated2 { background-color: hsl(var(--surface-elevated2)); }
     .bg-surface-elevated3 { background-color: hsl(var(--surface-elevated3)); }
 
-    .shadow-glow { box-shadow: 0 0 20px -4px hsla(199, 89%, 58%, 0.4); }
-    .shadow-depth1 { box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5); }
-    .shadow-depth2 { box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.6); }
-    .shadow-depth3 { box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8); }
+    .shadow-glow { box-shadow: none; }
+    .shadow-depth1 { box-shadow: 0 8px 18px -12px rgba(0, 0, 0, 0.18); }
+    .shadow-depth2 { box-shadow: 0 14px 26px -14px rgba(0, 0, 0, 0.2); }
+    .shadow-depth3 { box-shadow: 0 20px 32px -18px rgba(0, 0, 0, 0.24); }
+}
+
+@layer components {
+    .sakura-app-shell {
+        position: relative;
+        min-height: 100vh;
+        background:
+            radial-gradient(720px 320px at 12% -8%, hsl(340 66% 60% / 0.18), transparent 72%),
+            radial-gradient(640px 300px at 88% 0%, hsl(274 72% 72% / 0.18), transparent 74%),
+            linear-gradient(150deg, hsl(324 28% 12%) 0%, hsl(248 24% 7%) 56%, hsl(248 20% 5%) 100%);
+    }
+
+    .sakura-title {
+        color: hsl(340 88% 93%);
+        text-shadow: 0 0 26px hsl(340 65% 58% / 0.35);
+    }
+
+    .sakura-underline {
+        width: 130px;
+        height: 3px;
+        border-radius: 9999px;
+        background: linear-gradient(90deg, hsl(340 65% 58%), hsl(274 72% 72%));
+        animation: sakuraUnderline 2.8s ease-in-out infinite;
+        transform-origin: left;
+    }
+
+    .sakura-glass {
+        position: relative;
+        overflow: hidden;
+        border-radius: 1rem;
+        border: 1px solid hsl(340 35% 76% / 0.18);
+        background: linear-gradient(155deg, hsl(334 30% 16% / 0.74), hsl(255 26% 12% / 0.6));
+        backdrop-filter: blur(16px);
+        box-shadow: 0 16px 30px -26px hsl(336 54% 3% / 0.9), inset 0 1px 0 hsl(340 58% 84% / 0.11);
+    }
+
+    .sakura-glass::after {
+        content: "";
+        position: absolute;
+        inset: -200% 0;
+        width: 30%;
+        transform: rotate(16deg);
+        background: linear-gradient(90deg, transparent, hsl(340 68% 78% / 0.12), transparent);
+        animation: sakuraShimmer 9s linear infinite;
+        pointer-events: none;
+    }
+
+    .sakura-sidebar-button {
+        position: relative;
+        display: block;
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: 0.85rem;
+        background: transparent;
+        padding: 0.7rem 0.75rem;
+        transition: all 220ms ease;
+    }
+
+    .sakura-sidebar-button:hover {
+        border-color: hsl(340 65% 58% / 0.28);
+        background: hsl(340 50% 58% / 0.09);
+        box-shadow: 0 0 20px -14px hsl(340 65% 58% / 0.8);
+    }
+
+    .sakura-sidebar-button.is-active {
+        border-color: hsl(340 65% 58% / 0.45);
+        background: hsl(340 60% 58% / 0.16);
+        box-shadow: 0 0 0 1px hsl(340 65% 58% / 0.28), 0 0 24px -12px hsl(340 65% 58% / 0.9);
+    }
+
+    .sakura-upload-panel {
+        border-radius: 0.95rem;
+        border: 1px dashed hsl(340 65% 58% / 0.35);
+        background: hsl(340 28% 16% / 0.42);
+        padding: 1rem;
+    }
+
+    .sakura-control-row {
+        border: 1px solid hsl(340 25% 72% / 0.14);
+        border-radius: 0.9rem;
+        background: hsl(260 28% 9% / 0.42);
+        padding: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        transition: border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    .sakura-control-row:hover {
+        border-color: hsl(340 65% 58% / 0.34);
+        box-shadow: 0 0 18px -14px hsl(340 65% 58% / 0.9);
+    }
+
+    .sakura-method-row {
+        border: 1px solid hsl(340 30% 72% / 0.14);
+        border-radius: 0.95rem;
+        background: hsl(258 26% 9% / 0.46);
+        padding: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .sakura-method-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.8rem;
+        border: 1px solid hsl(340 35% 72% / 0.3);
+        background: hsl(340 50% 58% / 0.1);
+        color: hsl(340 82% 80%);
+    }
+
+    .sakura-device-card {
+        border-radius: 0.95rem;
+        border: 1px solid hsl(340 30% 72% / 0.14);
+        background: hsl(260 24% 10% / 0.5);
+        padding: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .security-indicator {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border-radius: 9999px;
+        padding: 0.28rem 0.7rem;
+        border: 1px solid;
+    }
+
+    .security-indicator.is-secure {
+        color: hsl(142 70% 74%);
+        background: hsl(140 62% 20% / 0.32);
+        border-color: hsl(142 65% 52% / 0.38);
+    }
+
+    .security-indicator.is-warning {
+        color: hsl(45 88% 72%);
+        background: hsl(45 80% 20% / 0.3);
+        border-color: hsl(45 95% 55% / 0.4);
+    }
+
+    .security-indicator.is-alert {
+        color: hsl(0 84% 76%);
+        background: hsl(0 70% 20% / 0.32);
+        border-color: hsl(0 75% 62% / 0.44);
+    }
+
+    .sakura-input {
+        border-color: hsl(340 34% 72% / 0.22);
+        background: hsl(260 24% 8% / 0.55);
+        color: hsl(340 65% 94%);
+        border-radius: 0.75rem;
+    }
+
+    .sakura-input::placeholder {
+        color: hsl(340 26% 74% / 0.45);
+    }
+
+    .sakura-input:focus-visible {
+        border-color: hsl(340 65% 58% / 0.75);
+        box-shadow: 0 0 0 1px hsl(340 65% 58% / 0.55), 0 0 18px -9px hsl(340 65% 58% / 0.9);
+    }
+
+    .sakura-select-trigger {
+        border-color: hsl(340 34% 72% / 0.22);
+        background: hsl(260 24% 8% / 0.55);
+        color: hsl(340 65% 94%);
+    }
+
+    .sakura-select-trigger:focus {
+        box-shadow: 0 0 0 1px hsl(340 65% 58% / 0.55), 0 0 18px -9px hsl(340 65% 58% / 0.9);
+    }
+
+    .sakura-select-content {
+        border-color: hsl(340 30% 72% / 0.22);
+        background: hsl(261 32% 10% / 0.96);
+        color: hsl(340 65% 93%);
+    }
+
+    .sakura-switch[data-state="checked"] {
+        background: hsl(340 65% 58% / 0.95);
+        box-shadow: 0 0 16px -8px hsl(340 65% 58% / 0.92);
+    }
+
+    .sakura-switch[data-state="unchecked"] {
+        background: hsl(255 12% 28% / 0.95);
+    }
+
+    .sakura-slider [data-radix-slider-track] {
+        background: hsl(268 15% 28% / 0.85);
+    }
+
+    .sakura-slider [data-radix-slider-range] {
+        background: var(--sakura-accent-gradient);
+    }
+
+    .sakura-slider [data-radix-slider-thumb] {
+        border-color: hsl(340 65% 58%);
+        background: hsl(330 42% 14%);
+        box-shadow: 0 0 14px -8px hsl(340 65% 58%);
+    }
+
+    .sakura-preview {
+        border-radius: 0.95rem;
+        border: 1px solid hsl(340 30% 72% / 0.16);
+        padding: 0.65rem;
+        background: hsl(260 26% 9% / 0.55);
+    }
+
+    .sakura-preview-canvas {
+        position: relative;
+        border-radius: 0.8rem;
+        border: 1px solid hsl(340 30% 72% / 0.2);
+        height: 170px;
+        padding: 0.7rem;
+        overflow: hidden;
+    }
+
+    .sakura-preview-canvas.petals::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 18% 28%, hsl(340 65% 58% / 0.32), transparent 20%), radial-gradient(circle at 62% 14%, hsl(340 65% 58% / 0.25), transparent 16%);
+        animation: sakuraPetals 3s ease-in-out infinite;
+    }
+
+    .preview-chip {
+        width: 0.8rem;
+        height: 0.8rem;
+        border-radius: 9999px;
+        box-shadow: 0 0 16px -6px currentColor;
+        margin-bottom: 0.45rem;
+    }
+
+    .accent-color-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        border-radius: 0.75rem;
+        border: 1px solid hsl(340 30% 72% / 0.2);
+        background: hsl(262 24% 10% / 0.62);
+        color: hsl(340 65% 94%);
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.45rem;
+        transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .accent-color-button:hover,
+    .accent-color-button.is-active {
+        border-color: hsl(340 65% 58% / 0.5);
+        box-shadow: 0 0 20px -12px hsl(340 65% 58% / 0.9);
+    }
+
+    .danger-zone-panel {
+        border-radius: 1rem;
+        border: 1px solid hsl(0 62% 60% / 0.35);
+        background: linear-gradient(150deg, hsl(355 48% 22% / 0.42), hsl(335 28% 10% / 0.55));
+    }
+
+    .sakura-tooltip {
+        border: 1px solid hsl(340 40% 72% / 0.2);
+        background: hsl(262 30% 14% / 0.95);
+        color: hsl(340 72% 90%);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 14px 28px -24px hsl(340 65% 58% / 0.8);
+    }
+
+    .sakura-ripple-button {
+        position: relative;
+        border-radius: 0.75rem;
+        border: 1px solid transparent;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.83rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        overflow: hidden;
+        transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease, background-color 220ms ease;
+    }
+
+    .sakura-ripple-button:hover {
+        transform: translateY(-1px);
+    }
+
+    .sakura-ripple-button.is-default {
+        color: hsl(335 20% 6%);
+        background: var(--sakura-accent-gradient);
+        box-shadow: 0 0 24px -10px hsl(340 65% 58% / 0.92);
+    }
+
+    .sakura-ripple-button.is-outline {
+        color: hsl(340 72% 89%);
+        background: hsl(260 25% 9% / 0.36);
+        border-color: hsl(340 65% 58% / 0.4);
+    }
+
+    .sakura-ripple-button.is-soft,
+    .sakura-ripple-button.is-ghost {
+        color: hsl(340 72% 89%);
+        background: hsl(340 65% 58% / 0.2);
+        border-color: hsl(340 65% 58% / 0.42);
+    }
+
+    .sakura-ripple-button.is-danger {
+        color: hsl(0 0% 98%);
+        background: hsl(0 68% 52% / 0.45);
+        border-color: hsl(0 74% 62% / 0.44);
+    }
+
+    .sakura-ripple-button:is(.is-outline, .is-soft, .is-ghost, .is-danger):hover {
+        box-shadow: 0 0 20px -12px hsl(340 65% 58% / 0.85);
+    }
+
+    .sakura-ripple-dot {
+        position: absolute;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 9999px;
+        background: hsl(340 80% 92% / 0.55);
+        transform: translate(-50%, -50%) scale(0);
+        animation: sakuraRipple 500ms ease-out forwards;
+    }
+
+    .sakura-particle-layer {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 70;
+        overflow: hidden;
+    }
+
+    .sakura-particle {
+        position: absolute;
+        bottom: 4rem;
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 2px 8px 8px 8px;
+        background: linear-gradient(120deg, hsl(340 76% 76%), hsl(327 80% 86%));
+        box-shadow: 0 0 14px -8px hsl(340 65% 58%);
+        opacity: 0;
+        animation: sakuraFloat 1.5s ease-out forwards;
+    }
+
+    .sakura-hero-flare {
+        background:
+            radial-gradient(640px 280px at 16% 0%, hsl(340 66% 60% / 0.22), transparent 72%),
+            radial-gradient(540px 260px at 84% 8%, hsl(274 72% 72% / 0.2), transparent 74%);
+    }
+
+    @media (max-width: 767px) {
+        .sakura-glass {
+            backdrop-filter: blur(12px);
+        }
+
+        .sakura-glass::after {
+            opacity: 0.5;
+        }
+    }
+
+    @keyframes sakuraUnderline {
+        0%,
+        100% {
+            transform: scaleX(0.62);
+            opacity: 0.75;
+        }
+        50% {
+            transform: scaleX(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes sakuraShimmer {
+        0% {
+            transform: translateX(-280%) rotate(16deg);
+        }
+        100% {
+            transform: translateX(380%) rotate(16deg);
+        }
+    }
+
+    @keyframes sakuraRipple {
+        0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0.6;
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(8);
+            opacity: 0;
+        }
+    }
+
+    @keyframes sakuraFloat {
+        0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-160px) translateX(26px) rotate(180deg);
+            opacity: 0;
+        }
+    }
+
+    @keyframes sakuraPetals {
+        0%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.5;
+        }
+        50% {
+            transform: translateY(4px);
+            opacity: 0.9;
+        }
+    }
 }

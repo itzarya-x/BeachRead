@@ -40,7 +40,7 @@ export function StatusChart({ items, mediaType, onStatusClick }: StatusChartProp
   }, [items, mediaType]);
 
   return (
-    <div className="bg-card rounded-lg p-4 border border-border/50">
+    <div className="sakura-glass rounded-lg border border-border/50 bg-[hsl(260_24%_10%_/_0.5)] p-4">
       <h3 className="text-sm font-medium text-foreground mb-4">
         Status Distribution ({mediaType === "ANIME" ? "Anime" : "Manga"})
       </h3>
@@ -65,17 +65,17 @@ export function StatusChart({ items, mediaType, onStatusClick }: StatusChartProp
               <Cell
                 key={entry.status}
                 fill={STATUS_COLOR_MAP[entry.status]}
-                stroke="hsl(var(--card))"
+                stroke="hsl(340 30% 72% / 0.12)"
                 strokeWidth={2}
               />
             ))}
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
+              backgroundColor: "hsl(262 30% 14% / 0.95)",
+              border: "1px solid hsl(340 40% 72% / 0.2)",
               borderRadius: "6px",
-              color: "hsl(var(--foreground))",
+              color: "hsl(340 72% 90%)",
             }}
             formatter={(value: number) => [`${value} entries`, "Count"]}
           />

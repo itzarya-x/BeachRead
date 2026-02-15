@@ -94,19 +94,19 @@ export function ScoreChart({ items, mediaType, scoreFormat, onBucketClick }: Sco
 
   const getBarColor = (index: number, total: number) => {
     const ratio = index / Math.max(total - 1, 1);
-    if (ratio > 0.7) return "hsl(var(--score-high))";
-    if (ratio > 0.3) return "hsl(var(--score-mid))";
-    return "hsl(var(--score-low))";
+    if (ratio > 0.7) return "hsl(330 78% 76%)";
+    if (ratio > 0.3) return "hsl(340 65% 58%)";
+    return "hsl(274 72% 72%)";
   };
 
   return (
-    <div className="bg-card rounded-lg p-4 border border-border/50">
+    <div className="sakura-glass rounded-lg border border-border/50 bg-[hsl(260_24%_10%_/_0.5)] p-4">
       <h3 className="text-sm font-medium text-foreground mb-4">
         Score Distribution ({mediaType === "ANIME" ? "Anime" : "Manga"})
       </h3>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(340 30% 72% / 0.12)" />
           <XAxis
             dataKey="label"
             tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
@@ -118,10 +118,10 @@ export function ScoreChart({ items, mediaType, scoreFormat, onBucketClick }: Sco
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
+              backgroundColor: "hsl(262 30% 14% / 0.95)",
+              border: "1px solid hsl(340 40% 72% / 0.2)",
               borderRadius: "6px",
-              color: "hsl(var(--foreground))",
+              color: "hsl(340 72% 90%)",
             }}
             formatter={(value: number) => [`${value} entries`, "Count"]}
             labelFormatter={(label) => `Score: ${label}`}

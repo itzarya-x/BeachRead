@@ -49,7 +49,7 @@ export function Register() {
 
         if (score <= 1) return { score, label: "Weak", color: "text-red-600" };
         if (score <= 2) return { score, label: "Fair", color: "text-yellow-600" };
-        if (score <= 3) return { score, label: "Good", color: "text-blue-600" };
+        if (score <= 3) return { score, label: "Good", color: "text-primary" };
         return { score, label: "Strong", color: "text-green-600" };
     };
 
@@ -145,9 +145,13 @@ export function Register() {
     const passwordStrength = checkPasswordStrength(formData.password);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+            </div>
             <div className="w-full max-w-md">
-                <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6">
+                <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
                     {/* Header */}
                     <div className="text-center mb-6">
                         <h1 className="text-2xl font-bold">Create Account</h1>
@@ -176,12 +180,12 @@ export function Register() {
                                             email: e.target.value,
                                         })
                                     }
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
                                     disabled={loading}
                                 />
                             </div>
                             {errors.email && (
-                                <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                                     <X size={12} />
                                     {errors.email}
                                 </p>
@@ -206,12 +210,12 @@ export function Register() {
                                             name: e.target.value,
                                         })
                                     }
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
                                     disabled={loading}
                                 />
                             </div>
                             {errors.name && (
-                                <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                                     <X size={12} />
                                     {errors.name}
                                 </p>
@@ -236,7 +240,7 @@ export function Register() {
                                             password: e.target.value,
                                         })
                                     }
-                                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
                                     disabled={loading}
                                 />
                                 <button
@@ -256,7 +260,7 @@ export function Register() {
                                             <div
                                                 key={i}
                                                 className={`h-1 flex-1 rounded-full transition-colors ${
-                                                    i < passwordStrength.score ? passwordStrength.color : "bg-surface-2"
+                                                    i < passwordStrength.score ? passwordStrength.color : "bg-muted"
                                                 }`}
                                             />
                                         ))}
@@ -268,7 +272,7 @@ export function Register() {
                             )}
 
                             {errors.password && (
-                                <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                                     <X size={12} />
                                     {errors.password}
                                 </p>
@@ -293,7 +297,7 @@ export function Register() {
                                             confirmPassword: e.target.value,
                                         })
                                     }
-                                    className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
                                     disabled={loading}
                                 />
                                 <button
@@ -305,7 +309,7 @@ export function Register() {
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="text-red-600 text-xs mt-1 flex items-center gap-1">
+                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
                                     <X size={12} />
                                     {errors.confirmPassword}
                                 </p>
@@ -318,12 +322,12 @@ export function Register() {
                                 type="checkbox"
                                 checked={acceptTerms}
                                 onChange={e => setAcceptTerms(e.target.checked)}
-                                className="w-4 h-4 rounded border-surface-2 bg-surface-2 accent-blue-600"
+                                className="h-4 w-4 rounded border-border bg-input accent-primary"
                                 disabled={loading}
                             />
                             <span className="text-muted-foreground">
                                 I agree to the{" "}
-                                <a href="#" className="text-blue-600 hover:underline">
+                                <a href="#" className="text-primary hover:underline">
                                     Terms of Service
                                 </a>
                             </span>
@@ -333,7 +337,7 @@ export function Register() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                            className="sakura-ripple-button is-default mt-6 flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {loading ? (
                                 <>
@@ -352,7 +356,7 @@ export function Register() {
                     {/* Footer */}
                     <p className="text-center text-sm text-muted-foreground mt-4">
                         Already have an account?{" "}
-                        <a href="/login" className="text-blue-600 hover:underline font-medium">
+                        <a href="/login" className="font-medium text-primary hover:underline">
                             Sign in
                         </a>
                     </p>

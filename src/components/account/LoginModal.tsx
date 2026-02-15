@@ -111,10 +111,10 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface-1 rounded-lg shadow-lg max-w-md w-full border border-surface-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+            <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-sm">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-surface-2">
+                <div className="flex items-center justify-between border-b border-border p-4">
                     <h2 className="text-lg font-semibold">Sign in</h2>
                     <button
                         onClick={() => {
@@ -122,7 +122,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                             setMode("methods");
                             setEmail("");
                         }}
-                        className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
+                        className="rounded-lg p-1 transition-colors hover:bg-muted"
                     >
                         <X size={20} />
                     </button>
@@ -135,7 +135,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                             <button
                                 onClick={handleOAuthLogin}
                                 disabled={loading}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-white border border-surface-2 hover:bg-surface-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-3 font-medium transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <svg viewBox="0 0 24 24" className="w-5 h-5">
                                     <path
@@ -160,10 +160,10 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
 
                             <div className="relative">
                                 <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-surface-2" />
+                                    <div className="w-full border-t border-border" />
                                 </div>
                                 <div className="relative flex justify-center text-sm">
-                                    <span className="px-2 bg-surface-1 text-muted-foreground">or</span>
+                                    <span className="bg-card px-2 text-muted-foreground">or</span>
                                 </div>
                             </div>
 
@@ -173,14 +173,14 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                                     placeholder="your@email.com"
                                     value={email}
                                     onChange={e => setEmail(e.target.value)}
-                                    className="w-full px-3 py-2 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                                     disabled={loading}
                                 />
 
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                    className="flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary px-4 py-3 font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <Mail size={18} />
                                     Send magic link
@@ -205,7 +205,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                                     setMode("methods");
                                     setEmail("");
                                 }}
-                                className="w-full px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors"
+                                className="w-full rounded-lg border border-border bg-muted px-4 py-2 transition-colors hover:bg-muted/70"
                             >
                                 Back
                             </button>
@@ -253,7 +253,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                                 ) : (
                                     <button
                                         disabled
-                                        className="w-full px-4 py-2 rounded-lg bg-surface-2 text-muted-foreground cursor-not-allowed opacity-50 font-medium"
+                                        className="w-full cursor-not-allowed rounded-lg border border-border bg-muted px-4 py-2 font-medium text-muted-foreground opacity-50"
                                     >
                                         Waiting for connection...
                                     </button>
@@ -263,7 +263,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                                         onOpenChange(false);
                                         setMode("methods");
                                     }}
-                                    className="w-full px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors text-muted-foreground"
+                                    className="w-full rounded-lg border border-border bg-card px-4 py-2 text-muted-foreground transition-colors hover:bg-muted"
                                 >
                                     Continue offline
                                 </button>
@@ -273,7 +273,7 @@ export function LoginModal({ isOpen, onOpenChange }: LoginModalProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-3 border-t border-surface-2 bg-surface-2 text-center text-xs text-muted-foreground">
+                <div className="border-t border-border bg-muted/60 px-4 py-3 text-center text-xs text-muted-foreground">
                     Your data stays on your device. Cloud sync is optional.
                 </div>
             </div>

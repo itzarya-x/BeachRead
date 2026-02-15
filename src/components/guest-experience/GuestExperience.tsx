@@ -37,18 +37,18 @@ export function GuestExperience({
             </div>
 
             {/* Title */}
-            <h2 className="text-2xl font-bold text-center mb-2 dark:text-gray-100">
+            <h2 className="mb-2 text-center text-2xl font-bold text-foreground">
                 {title}
             </h2>
 
             {/* Description */}
-            <p className="text-gray-600 dark:text-gray-400 text-center max-w-md mb-8">
+            <p className="mb-8 max-w-md text-center text-muted-foreground">
                 {description}
             </p>
 
             {/* Storage Mode Indicator */}
-            <div className="mb-6 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+            <div className="mb-6 rounded-lg border border-primary/25 bg-accent px-4 py-2">
+                <p className="text-sm font-medium text-primary">
                     💾 Storage Mode: Guest (Offline)
                 </p>
             </div>
@@ -57,7 +57,7 @@ export function GuestExperience({
             {showSignIn && (
                 <button
                     onClick={() => login()}
-                    className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors shadow-md"
+                    className="rounded-lg border border-primary/25 bg-primary px-6 py-3 font-semibold text-primary-foreground transition-colors hover:bg-primary/90 shadow-sm"
                 >
                     Sign In with AniList
                 </button>
@@ -65,24 +65,24 @@ export function GuestExperience({
 
             {/* Features List */}
             <div className="mt-12 max-w-md">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+                <p className="mb-4 text-sm font-semibold text-foreground">
                     Get started after signing in:
                 </p>
-                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <ul className="space-y-2 text-sm text-muted-foreground">
                     <li className="flex items-start">
-                        <span className="mr-3 text-blue-500">✓</span>
+                        <span className="mr-3 text-primary">✓</span>
                         <span>Sync your AniList library to the cloud</span>
                     </li>
                     <li className="flex items-start">
-                        <span className="mr-3 text-blue-500">✓</span>
+                        <span className="mr-3 text-primary">✓</span>
                         <span>Track and manage your anime & manga ratings</span>
                     </li>
                     <li className="flex items-start">
-                        <span className="mr-3 text-blue-500">✓</span>
+                        <span className="mr-3 text-primary">✓</span>
                         <span>Create tier maker lists and rankings</span>
                     </li>
                     <li className="flex items-start">
-                        <span className="mr-3 text-blue-500">✓</span>
+                        <span className="mr-3 text-primary">✓</span>
                         <span>View detailed statistics about your library</span>
                     </li>
                 </ul>

@@ -4,8 +4,20 @@
  */
 
 import { useData } from "@/context/DataContext";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { DisplayMedia, MediaType } from "@/types/display";
-import { X, Search, Plus, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 interface AddMediaModalProps {
@@ -111,165 +123,142 @@ export function AddMediaModal({ mediaType, onClose }: AddMediaModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-card border border-border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto m-4">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-border">
-                    <h2 className="text-xl font-semibold">Add {mediaType === "ANIME" ? "Anime" : "Manga"}</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 hover:bg-secondary rounded-lg transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-3xl border-border bg-card p-0 sm:rounded-2xl">
+                <DialogHeader className="border-b border-border px-6 py-5">
+                    <DialogTitle className="text-xl font-extrabold tracking-tight">
+                        Add {mediaType === "ANIME" ? "Anime" : "Manga"}
+                    </DialogTitle>
+                    <DialogDescription>
+                        Search AniList for quick add, or create a manual entry.
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Mode Toggle */}
-                <div className="p-6 border-b border-border">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setMode("search")}
-                            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                                mode === "search"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary text-secondary-foreground"
-                            }`}
-                        >
-                            <Search className="w-4 h-4" />
-                            Search AniList
-                        </button>
-                        <button
-                            onClick={() => setMode("manual")}
-                            className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                                mode === "manual"
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-secondary text-secondary-foreground"
-                            }`}
-                        >
-                            <Plus className="w-4 h-4" />
-                            Manual Entry
-                        </button>
-                    </div>
-                </div>
+                <div className="px-6 py-5">
+                    <Tabs value={mode} onValueChange={(value) => setMode(value as "search" | "manual")} className="space-y-4">
+                        <TabsList className="grid h-10 w-full grid-cols-2 rounded-xl border border-border bg-muted/50">
+                            <TabsTrigger value="search" className="gap-2">
+                                <Search className="h-4 w-4" />
+                                Search AniList
+                            </TabsTrigger>
+                            <TabsTrigger value="manual" className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Manual Entry
+                            </TabsTrigger>
+                        </TabsList>
 
-                {/* Content */}
-                <div className="p-6">
-                    {mode === "search" ? (
-                        <div className="space-y-4">
-                            {/* Search Input */}
+                        <TabsContent value="search" className="space-y-4">
                             <div className="flex gap-2">
-                                <input
+                                <Input
                                     type="text"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                                     placeholder="Search AniList..."
-                                    className="flex-1 px-3 py-2 bg-background border border-border rounded-lg"
+                                    className="h-10 rounded-xl border-border bg-input"
                                 />
-                                <button
+                                <Button
                                     onClick={handleSearch}
                                     disabled={searching}
-                                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                    className="h-10 rounded-xl"
                                 >
-                                    {searching ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Search className="w-4 h-4" />
-                                    )}
+                                    {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                     Search
-                                </button>
+                                </Button>
                             </div>
 
-                            {/* Search Results */}
                             {searchResults.length > 0 && (
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {searchResults.map((result) => (
-                                        <div
-                                            key={result._seriesId}
-                                            className="flex items-center gap-4 p-4 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors cursor-pointer"
-                                            onClick={() => handleAddFromSearch(result)}
-                                        >
-                                            {result.coverImage && (
-                                                <img
-                                                    src={result.coverImage}
-                                                    alt={result.title.romaji}
-                                                    className="w-16 h-24 object-cover rounded"
-                                                />
-                                            )}
-                                            <div className="flex-1">
-                                                <h3 className="font-semibold">{result.title.romaji}</h3>
-                                                {result.title.english && (
-                                                    <p className="text-sm text-muted-foreground">{result.title.english}</p>
-                                                )}
-                                                {result.description && (
-                                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                        {result.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleAddFromSearch(result);
+                                <ScrollArea className="h-96 rounded-xl border border-border bg-muted/30 p-2">
+                                    <div className="space-y-2 pr-2">
+                                        {searchResults.map((result) => (
+                                            <div
+                                                key={result._seriesId}
+                                                role="button"
+                                                tabIndex={0}
+                                                className="flex w-full items-center gap-4 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                                onClick={() => handleAddFromSearch(result)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "Enter" || e.key === " ") {
+                                                        e.preventDefault();
+                                                        handleAddFromSearch(result);
+                                                    }
                                                 }}
-                                                disabled={loading}
-                                                className="px-3 py-1 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                                             >
-                                                Add
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                                                {result.coverImage && (
+                                                    <img
+                                                        src={result.coverImage}
+                                                        alt={result.title.romaji}
+                                                        className="h-24 w-16 rounded-md object-cover"
+                                                    />
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <h3 className="line-clamp-1 font-semibold">{result.title.romaji}</h3>
+                                                    {result.title.english && (
+                                                        <p className="line-clamp-1 text-sm text-muted-foreground">{result.title.english}</p>
+                                                    )}
+                                                    {result.description && (
+                                                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                                            {result.description}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAddFromSearch(result);
+                                                    }}
+                                                    disabled={loading}
+                                                    className="h-9 rounded-lg"
+                                                >
+                                                    Add
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
                             )}
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Title</label>
-                                <input
+                        </TabsContent>
+
+                        <TabsContent value="manual" className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Title</label>
+                                <Input
                                     type="text"
                                     value={manualForm.title}
                                     onChange={(e) => setManualForm({ ...manualForm, title: e.target.value })}
                                     placeholder="Enter title..."
-                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                                    className="h-10 rounded-xl border-border bg-input"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Series ID (optional)</label>
-                                <input
+                            <div className="space-y-2">
+                                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Series ID (optional)</label>
+                                <Input
                                     type="number"
                                     value={manualForm.seriesId || ""}
                                     onChange={(e) => setManualForm({ ...manualForm, seriesId: parseInt(e.target.value) || 0 })}
                                     placeholder="AniList series ID (if known)"
-                                    className="w-full px-3 py-2 bg-background border border-border rounded-lg"
+                                    className="h-10 rounded-xl border-border bg-input"
                                 />
                             </div>
-                            <button
+                            <Button
                                 onClick={handleAddManual}
                                 disabled={loading || !manualForm.title.trim()}
-                                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="h-10 w-full rounded-xl"
                             >
-                                {loading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Plus className="w-4 h-4" />
-                                )}
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                                 Add Entry
-                            </button>
-                        </div>
-                    )}
+                            </Button>
+                        </TabsContent>
+                    </Tabs>
                 </div>
 
-                {/* Footer */}
-                <div className="flex justify-end p-6 border-t border-border">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
-                    >
+                <DialogFooter className="border-t border-border px-6 py-4">
+                    <Button type="button" variant="secondary" onClick={onClose} className="rounded-xl">
                         Cancel
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

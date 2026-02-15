@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { ChevronRight, ChevronDown, Copy, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 interface JsonExplorerProps {
   data: unknown;
@@ -10,21 +11,21 @@ export function JsonExplorer({ data }: JsonExplorerProps) {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="bg-card rounded-lg border border-border/50 overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       {/* Search bar */}
-      <div className="flex items-center gap-2 p-3 border-b border-border/50 bg-surface-1">
-        <Search className="w-4 h-4 text-muted-foreground" />
-        <input
+      <div className="relative border-b border-border bg-muted/60 p-3">
+        <Search className="pointer-events-none absolute left-6 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/75" />
+        <Input
           type="text"
           placeholder="Search keys or values…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1"
+          className="h-10 border-border bg-input pl-9"
         />
       </div>
 
       {/* Tree view */}
-      <div className="p-3 max-h-[70vh] overflow-auto font-mono text-sm">
+      <div className="max-h-[70vh] overflow-auto p-3 font-mono text-sm">
         <JsonNode value={data} path="" depth={0} search={search} defaultExpanded />
       </div>
     </div>

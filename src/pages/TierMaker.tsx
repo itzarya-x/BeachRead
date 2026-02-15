@@ -501,7 +501,7 @@ export default function TierMaker() {
         return (
             <PageWrapper className="p-6">
                 <div className="space-y-8">
-                    <div className="h-10 w-64 bg-surface-2 rounded-lg animate-pulse" />
+                    <div className="h-10 w-64 rounded-lg bg-muted animate-pulse" />
                     <GridSkeleton count={12} />
                 </div>
             </PageWrapper>
@@ -524,12 +524,12 @@ export default function TierMaker() {
                     onDragEnd={handleDragEnd}
                 >
                     {/* Toolbar */}
-                    <div className="flex flex-wrap items-center gap-3 mb-6 p-1">
+                    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm">
                         <Button
                             onClick={handleAutoAssign}
                             variant="outline"
                             icon={RotateCcw}
-                            className="bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary"
+                            className="border-primary/25 bg-accent text-primary hover:bg-accent/80"
                         >
                             Auto Rank
                         </Button>
@@ -585,7 +585,7 @@ export default function TierMaker() {
 
                         <button
                             onClick={handleCreateTier}
-                            className="w-full py-3 border-2 border-dashed border-border/50 rounded-xl flex items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-3 text-sm font-semibold text-muted-foreground transition-colors hover:border-primary/45 hover:text-primary"
                         >
                             <Plus className="w-4 h-4" /> Add Tier
                         </button>
@@ -594,8 +594,8 @@ export default function TierMaker() {
                     {/* Unassigned Pool */}
                     <div className="mt-12">
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                Unassigned <span className="text-sm font-normal text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{unassignedMedia.length}</span>
+                            <h3 className="flex items-center gap-2 text-xl font-extrabold tracking-tight">
+                                Unassigned <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-sm font-semibold text-muted-foreground">{unassignedMedia.length}</span>
                             </h3>
                         </div>
                         <UnassignedPool media={unassignedMedia} id="pool" />
@@ -652,15 +652,15 @@ function TierRow({
     };
 
     return (
-        <div ref={setNodeRef} className="flex flex-col md:flex-row rounded-xl overflow-hidden bg-card border border-border/50 shadow-sm min-h-[120px]">
+        <div ref={setNodeRef} className="flex min-h-[120px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm md:flex-row">
             {/* Header/Label */}
             <div
-                className="w-full md:w-44 flex flex-col items-center justify-center p-4 gap-2 relative group"
+                className="group relative flex w-full flex-col items-center justify-center gap-2 p-4 md:w-44"
                 style={{ backgroundColor: `${color}15`, borderRight: `4px solid ${color}` }}
             >
                 {isEditing ? (
                     <div className="flex flex-col gap-2 w-full">
-                        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full text-center bg-background rounded border px-1 py-0.5 text-sm" autoFocus />
+                        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded border border-border bg-input px-1 py-1 text-center text-sm" autoFocus />
                         <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-full h-6 cursor-pointer" />
                         <div className="flex gap-1 justify-center">
                             <IconButton onClick={handleSave} icon={Check} label="Save" size="sm" variant="primary" />
@@ -669,7 +669,7 @@ function TierRow({
                     </div>
                 ) : (
                     <>
-                        <h3 className="text-xl font-black text-center break-words leading-tight" style={{ color }}>{tier.name}</h3>
+                        <h3 className="break-words text-center text-xl font-black leading-tight tracking-tight" style={{ color }}>{tier.name}</h3>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-1 md:static md:opacity-100">
                             <IconButton onClick={() => onMoveTier(tier.id!, "up")} icon={ArrowUp} label="Move Up" size="sm" disabled={!canMoveUp} />
                             <IconButton onClick={() => onMoveTier(tier.id!, "down")} icon={ArrowDown} label="Move Down" size="sm" disabled={!canMoveDown} />
@@ -681,14 +681,14 @@ function TierRow({
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-3 bg-surface-1/50 flex flex-wrap gap-2 content-start">
+            <div className="flex flex-1 flex-wrap content-start gap-2 bg-muted/45 p-3">
                 <SortableContext items={media.map((m) => m._entryId)} strategy={rectSortingStrategy}>
                     {media.map((m) => (
                         <TierMediaItem key={String(m._entryId)} id={m._entryId} media={m} compact />
                     ))}
                 </SortableContext>
                 {media.length === 0 && (
-                    <div className="w-full h-full min-h-[80px] flex items-center justify-center text-muted-foreground/20 text-sm font-medium italic border-2 border-dashed border-border/20 rounded-lg">
+                    <div className="flex h-full min-h-[80px] w-full items-center justify-center rounded-lg border-2 border-dashed border-border text-sm font-medium italic text-muted-foreground">
                         Drop items here
                     </div>
                 )}
@@ -701,14 +701,14 @@ function UnassignedPool({ media, id }: { media: DisplayMedia[]; id: string }) {
     const { setNodeRef } = useDroppable({ id });
 
     return (
-        <div ref={setNodeRef} className="bg-surface-1/30 rounded-xl p-4 border border-border/30 min-h-[200px]">
+        <div ref={setNodeRef} className="min-h-[200px] rounded-xl border border-border bg-card p-4 shadow-sm">
             <SortableContext items={media.map((m) => m._entryId)} strategy={rectSortingStrategy}>
                 <div className="flex flex-wrap gap-3">
                     {media.map((m) => (
                         <TierMediaItem key={String(m._entryId)} id={m._entryId} media={m} />
                     ))}
                     {media.length === 0 && (
-                        <div className="w-full py-10 text-center text-muted-foreground">
+                        <div className="w-full py-10 text-center text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                             All items ranked!
                         </div>
                     )}

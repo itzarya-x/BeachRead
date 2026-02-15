@@ -30,7 +30,7 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-popover/95 border border-border p-3 rounded-lg shadow-xl backdrop-blur-md">
+                <div className="sakura-tooltip rounded-lg border p-3 shadow-xl backdrop-blur-md">
                     <p className="text-xs font-bold text-foreground">{label}</p>
                     <p className="text-sm text-primary font-semibold">{payload[0].value} actions</p>
                 </div>
@@ -42,14 +42,14 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Hourly Trends */}
-            <div className="bg-card/50 border border-border/50 rounded-xl p-6 backdrop-blur-sm">
+            <div className="sakura-glass rounded-xl border border-border/50 bg-[hsl(260_24%_10%_/_0.5)] p-6 backdrop-blur-sm">
                 <h3 className="text-lg font-semibold text-foreground mb-1">Peak Hours</h3>
                 <p className="text-sm text-muted-foreground mb-6">When are you most active?</p>
                 
                 <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={hourlyData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(340 30% 72% / 0.12)" vertical={false} />
                             <XAxis 
                                 dataKey="hour" 
                                 axisLine={false} 
@@ -58,12 +58,12 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
                                 interval={3}
                             />
                             <YAxis hide />
-                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "hsl(340 65% 58% / 0.1)" }} />
                             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                                 {hourlyData.map((entry, index) => {
                                     // Highlight night hours
                                     const isNight = entry.rawHour >= 22 || entry.rawHour <= 4;
-                                    return <Cell key={`cell-${index}`} fill={isNight ? "#845ef7" : "#339af0"} fillOpacity={0.8} />;
+                                    return <Cell key={`cell-${index}`} fill={isNight ? "hsl(274 72% 72%)" : "hsl(340 65% 58%)"} fillOpacity={0.86} />;
                                 })}
                             </Bar>
                         </BarChart>
@@ -71,25 +71,25 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
                 </div>
                 <div className="flex items-center gap-4 mt-4 justify-center">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-[#339af0]" />
+                        <div className="w-2 h-2 rounded-full bg-[hsl(340_65%_58%)]" />
                         <span>Daylight</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-[#845ef7]" />
+                        <div className="w-2 h-2 rounded-full bg-[hsl(274_72%_72%)]" />
                         <span>Late Night</span>
                     </div>
                 </div>
             </div>
 
             {/* Weekday Trends */}
-            <div className="bg-card/50 border border-border/50 rounded-xl p-6 backdrop-blur-sm">
+            <div className="sakura-glass rounded-xl border border-border/50 bg-[hsl(260_24%_10%_/_0.5)] p-6 backdrop-blur-sm">
                 <h3 className="text-lg font-semibold text-foreground mb-1">Weekly Rhythm</h3>
                 <p className="text-sm text-muted-foreground mb-6">Activity by day of week</p>
                 
                 <div className="h-[250px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={weekdayData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(340 30% 72% / 0.12)" vertical={false} />
                             <XAxis 
                                 dataKey="day" 
                                 axisLine={false} 
@@ -97,11 +97,11 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
                                 tick={{ fontSize: 11, fill: "#868e96" }}
                             />
                             <YAxis hide />
-                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
+                            <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: "hsl(340 65% 58% / 0.1)" }} />
                             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                                 {weekdayData.map((entry, index) => {
                                     const isWeekend = index === 0 || index === 6;
-                                    return <Cell key={`cell-${index}`} fill={isWeekend ? "#f06595" : "#20c997"} fillOpacity={0.8} />;
+                                    return <Cell key={`cell-${index}`} fill={isWeekend ? "hsl(330 78% 76%)" : "hsl(340 65% 58%)"} fillOpacity={0.86} />;
                                 })}
                             </Bar>
                         </BarChart>
@@ -109,11 +109,11 @@ export function HabitsCharts({ data }: HabitsChartsProps) {
                 </div>
                 <div className="flex items-center gap-4 mt-4 justify-center">
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-[#20c997]" />
+                        <div className="w-2 h-2 rounded-full bg-[hsl(340_65%_58%)]" />
                         <span>Weekday</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <div className="w-2 h-2 rounded-full bg-[#f06595]" />
+                        <div className="w-2 h-2 rounded-full bg-[hsl(330_78%_76%)]" />
                         <span>Weekend</span>
                     </div>
                 </div>

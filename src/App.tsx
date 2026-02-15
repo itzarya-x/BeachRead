@@ -13,8 +13,10 @@ import { ToastProvider } from "@/components/ui/ToastNotification";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { DataProvider, useData } from "@/context/DataContext";
+import { FeatureFlagsProvider } from "@/context/FeatureFlags";
 import { StatsFilterProvider } from "@/context/StatsFilterContext";
 import { SyncUIProvider, useSyncUIContext } from "@/context/SyncUIContext";
+import { ThemeProvider } from "@/context/ThemeProvider";
 import { cn } from "@/lib/utils";
 import { downloadVaultFromCloud, markVaultSkipped, mergeVaults, migrateVaultToCloud } from "@/lib/vault-migration";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -49,9 +51,9 @@ const AppContent = () => {
     // Show loading state
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#090f1a] relative overflow-hidden">
+            <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
                 {/* Ambient Glow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="pointer-events-none absolute left-1/2 top-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/15 blur-[120px]" />
                 
                 <div className="relative z-10 text-center space-y-8">
                     <div className="relative">
@@ -62,8 +64,8 @@ const AppContent = () => {
                     </div>
                     
                     <div className="space-y-2">
-                        <h1 className="text-2xl font-black tracking-[0.3em] uppercase text-white/80">Yura</h1>
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/20 animate-pulse">Initializing Neural Link</p>
+                        <h1 className="text-2xl font-black tracking-[0.3em] uppercase text-foreground/85">Yura</h1>
+                        <p className="animate-pulse text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/50">Initializing Neural Link</p>
                     </div>
                 </div>
             </div>
@@ -80,13 +82,13 @@ const AppContent = () => {
                     <div className="flex gap-2 justify-center">
                         <button
                             onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 text-sm"
+                            className="sakura-ripple-button is-default px-4 py-2 text-sm"
                         >
                             Retry
                         </button>
                         <button
                             onClick={() => (window.location.href = "/")}
-                            className="px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/90 text-sm"
+                            className="sakura-ripple-button is-outline px-4 py-2 text-sm"
                         >
                             Home
                         </button>
@@ -104,7 +106,7 @@ const AppContent = () => {
                     <p className="text-destructive mb-4">Failed to load profile data.</p>
                     <button
                         onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                        className="sakura-ripple-button is-default px-4 py-2"
                     >
                         Retry
                     </button>
@@ -115,7 +117,8 @@ const AppContent = () => {
 
     return (
         <>
-            <div className="flex min-h-screen bg-background flex-col">
+            <div className="sakura-app-shell flex min-h-screen flex-col">
+                <div className="sakura-particle-layer" aria-hidden="true" />
                 <OfflineBanner />
                 <div className="flex flex-1">
                     <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
@@ -230,23 +233,27 @@ const AppContent = () => {
 
 const App = () => (
     <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-                <AuthProvider>
-                    <DataProvider>
-                        <StatsFilterProvider>
-                            <SyncUIProvider>
-                                <ToastProvider>
-                                    <AppContent />
-                                </ToastProvider>
-                            </SyncUIProvider>
-                        </StatsFilterProvider>
-                    </DataProvider>
-                </AuthProvider>
-            </BrowserRouter>
-        </TooltipProvider>
+        <ThemeProvider>
+            <FeatureFlagsProvider>
+                <TooltipProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                        <AuthProvider>
+                            <DataProvider>
+                                <StatsFilterProvider>
+                                    <SyncUIProvider>
+                                        <ToastProvider>
+                                            <AppContent />
+                                        </ToastProvider>
+                                    </SyncUIProvider>
+                                </StatsFilterProvider>
+                            </DataProvider>
+                        </AuthProvider>
+                    </BrowserRouter>
+                </TooltipProvider>
+            </FeatureFlagsProvider>
+        </ThemeProvider>
     </QueryClientProvider>
 );
 

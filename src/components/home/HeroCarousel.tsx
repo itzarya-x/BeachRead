@@ -37,8 +37,8 @@ export function HeroCarousel({ items }: HeroCarouselProps) {
                     ))}
                 </CarouselContent>
                 <div className="hidden md:flex opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                     <CarouselPrevious className="left-8 bg-black/40 backdrop-blur-md border-white/10 hover:bg-black/60 w-12 h-12" />
-                     <CarouselNext className="right-8 bg-black/40 backdrop-blur-md border-white/10 hover:bg-black/60 w-12 h-12" />
+                     <CarouselPrevious className="left-8 h-12 w-12 border-border bg-card/90 text-foreground shadow-sm hover:border-primary/25 hover:bg-accent" />
+                     <CarouselNext className="right-8 h-12 w-12 border-border bg-card/90 text-foreground shadow-sm hover:border-primary/25 hover:bg-accent" />
                 </div>
             </Carousel>
         </div>
@@ -52,7 +52,7 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
     const linkPath = `/${media.mediaType.toLowerCase()}/${media._seriesId}`;
 
     return (
-        <div className="relative h-[500px] md:h-[650px] w-full overflow-hidden rounded-[2.5rem] border border-white/5 shadow-2xl">
+        <div className="relative h-[500px] w-full overflow-hidden rounded-[2.5rem] border border-border/80 shadow-sm md:h-[650px]">
             {/* Background Image (Cinematic Backdrop) */}
             <div className="absolute inset-0">
                 {media.bannerImage || media.coverImage ? (
@@ -62,17 +62,17 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
                         transition={{ duration: 1.5, ease: [0.23, 1, 0.32, 1] }}
                         src={media.bannerImage || media.coverImage || ""}
                         alt=""
-                        className="w-full h-full object-cover opacity-60 transition-transform duration-[40s] ease-linear"
-                        style={{ filter: "brightness(0.7) contrast(1.1)" }}
+                        className="h-full w-full object-cover opacity-55 transition-transform ease-linear"
+                        style={{ filter: "brightness(0.88) contrast(1.02)", transitionDuration: "40s" }}
                     />
                 ) : (
                     <div className="w-full h-full bg-surface-base" />
                 )}
                 
                 {/* Dynamic Overlays */}
-                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-                <div className="absolute inset-0 bg-black/20" />
+                <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/45 to-transparent" />
+                <div className="absolute inset-0 bg-primary/[0.05]" />
             </div>
 
             {/* Content Container */}
@@ -85,11 +85,11 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
                     transition={{ delay: 0.3 }}
                     className="flex items-center gap-3 mb-4"
                 >
-                    <span className="bg-primary/20 backdrop-blur-md px-3 py-1 rounded-lg text-primary text-[10px] font-black uppercase tracking-[0.2em] border border-primary/20">
+                    <span className="rounded-lg border border-primary/25 bg-accent px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
                         Featured {media.mediaType}
                     </span>
                     {media.score > 0 && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-white/80">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/85">
                             <ScoreDisplay score={media.score} format={scoreFormat} size="sm" />
                         </div>
                     )}
@@ -115,7 +115,7 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.6 }}
-                        className="text-white/60 text-base md:text-lg max-w-xl mb-10 line-clamp-3 leading-relaxed font-medium"
+                        className="mb-10 max-w-xl line-clamp-3 text-base font-medium leading-relaxed text-foreground/75 md:text-lg"
                         dangerouslySetInnerHTML={{ __html: media.description }}
                     />
                 )}
@@ -129,7 +129,7 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
                 >
                     <Button 
                         size="lg" 
-                        className="h-14 rounded-2xl px-10 gap-3 font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
+                        className="h-14 gap-3 rounded-2xl bg-primary px-10 text-sm font-semibold uppercase tracking-widest shadow-sm transition-all hover:scale-105 hover:bg-primary/90 active:scale-95"
                         asChild
                     >
                         <Link to={linkPath}>
@@ -138,16 +138,15 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
                         </Link>
                     </Button>
                     
-                    <button className="h-14 w-14 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all hover:scale-110 active:scale-90 group backdrop-blur-md">
-                        <Heart className="w-6 h-6 text-white group-hover:fill-primary group-hover:text-primary transition-all" />
+                    <button className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card/90 shadow-sm transition-all hover:scale-110 hover:border-primary/30 hover:bg-accent active:scale-90">
+                        <Heart className="h-6 w-6 text-foreground transition-all group-hover:fill-primary group-hover:text-primary" />
                     </button>
                     
-                    <button className="h-14 w-14 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all hover:scale-110 active:scale-90 group backdrop-blur-md">
-                        <Edit2 className="w-5 h-5 text-white group-hover:text-primary transition-all" />
+                    <button className="group flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card/90 shadow-sm transition-all hover:scale-110 hover:border-primary/30 hover:bg-accent active:scale-90">
+                        <Edit2 className="h-5 w-5 text-foreground transition-all group-hover:text-primary" />
                     </button>
                 </motion.div>
             </div>
         </div>
     );
 }
-

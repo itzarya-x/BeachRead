@@ -67,11 +67,15 @@ export function ForgotPassword() {
 
     if (submitted) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+                <div className="pointer-events-none absolute inset-0">
+                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+                </div>
                 <div className="w-full max-w-md">
-                    <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6 text-center space-y-4">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
-                            <Check className="w-6 h-6 text-green-600" />
+                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
+                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(152_52%_16%_/_0.48)]">
+                            <Check className="h-6 w-6 text-[hsl(152_72%_64%)]" />
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold">Check your email</h1>
@@ -80,13 +84,13 @@ export function ForgotPassword() {
                                 <span className="font-medium text-foreground">{email}</span>
                             </p>
                         </div>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900">
+                        <div className="rounded-lg border border-primary/25 bg-primary/12 p-3 text-sm text-foreground">
                             <p className="font-medium mb-1">💡 Tip:</p>
                             <p>Check your spam folder if you don't see the email in a few minutes.</p>
                         </div>
                         <button
                             onClick={() => navigate("/login")}
-                            className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+                            className="sakura-ripple-button is-default w-full px-4 py-2.5 font-medium"
                         >
                             Back to Sign In
                         </button>
@@ -97,9 +101,13 @@ export function ForgotPassword() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-surface-1 to-surface-2 flex items-center justify-center p-4">
+        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
+            </div>
             <div className="w-full max-w-md">
-                <div className="bg-surface-1 border border-surface-2 rounded-xl shadow-lg p-6">
+                <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
                     {/* Header */}
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold">Reset Password</h1>
@@ -126,19 +134,19 @@ export function ForgotPassword() {
                                         setEmail(e.target.value);
                                         setError("");
                                     }}
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-surface-2 bg-surface-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
                                     disabled={loading}
                                     autoFocus
                                 />
                             </div>
-                            {error && <p className="text-red-600 text-xs mt-1">{error}</p>}
+                            {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
                         </div>
 
                         {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+                            className="sakura-ripple-button is-default mt-6 flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {loading ? (
                                 <>
@@ -157,7 +165,7 @@ export function ForgotPassword() {
                     {/* Back Link */}
                     <button
                         onClick={() => navigate("/login")}
-                        className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4 flex items-center justify-center gap-1 py-2"
+                        className="sakura-ripple-button is-ghost mt-4 flex w-full items-center justify-center gap-1 py-2 text-center text-sm text-muted-foreground hover:text-foreground"
                     >
                         <ArrowLeft size={16} />
                         Back to Sign In

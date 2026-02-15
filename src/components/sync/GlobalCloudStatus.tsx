@@ -8,8 +8,17 @@
  */
 
 import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
-import { CheckCircle2, CloudOff, X, XCircle } from "lucide-react";
+import { CheckCircle2, CloudOff, XCircle } from "lucide-react";
 import { useState } from "react";
 
 type SyncState = "connected" | "not-connected" | "not-configured";
@@ -27,22 +36,22 @@ const SYNC_CONFIG: Record<SyncState, SyncConfig> = {
         state: "connected",
         icon: <CheckCircle2 size={14} />,
         label: "Synced",
-        color: "text-green-700",
-        bgColor: "bg-green-50 border-green-200",
+        color: "text-emerald-700",
+        bgColor: "bg-emerald-100 border-emerald-300",
     },
     "not-connected": {
         state: "not-connected",
         icon: <XCircle size={14} />,
         label: "Not connected",
         color: "text-amber-700",
-        bgColor: "bg-amber-50 border-amber-200",
+        bgColor: "bg-amber-100 border-amber-300",
     },
     "not-configured": {
         state: "not-configured",
         icon: <CloudOff size={14} />,
         label: "Not configured",
-        color: "text-gray-700",
-        bgColor: "bg-gray-50 border-gray-200",
+        color: "text-muted-foreground",
+        bgColor: "bg-muted border-border",
     },
 };
 
@@ -57,73 +66,65 @@ export function GlobalCloudStatus() {
 
     // Use status from hook
     const state: SyncState = syncStatus.status as SyncState;
-    const config = SYNC_CONFIG[state];
+    const config = SYNC_CONFIG[state] || SYNC_CONFIG["not-configured"];
 
     return (
         <>
             <button
                 onClick={() => setShowDetails(true)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors hover:opacity-80 ${config.color} ${config.bgColor}`}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${config.color} ${config.bgColor}`}
                 title={config.label}
             >
                 {config.icon}
                 <span className="hidden sm:inline">{config.label}</span>
             </button>
 
-            {/* Details Drawer */}
-            {showDetails && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-                    <div className="bg-surface-1 rounded-t-lg sm:rounded-lg shadow-lg w-full sm:max-w-md border border-surface-2">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-surface-2">
-                            <h2 className="text-lg font-semibold">Cloud Sync Status</h2>
-                            <button
-                                onClick={() => setShowDetails(false)}
-                                className="p-1 hover:bg-surface-2 rounded-lg transition-colors"
-                            >
-                                <X size={20} />
-                            </button>
+            <Dialog open={showDetails} onOpenChange={setShowDetails}>
+                <DialogContent className="max-w-md border-border bg-card sm:rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Cloud Sync Status</DialogTitle>
+                        <DialogDescription>Current account and synchronization health.</DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="rounded-lg border border-border bg-muted/50 p-3">
+                            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Account</p>
+                            <p className="text-sm font-medium text-foreground">{user?.email}</p>
                         </div>
 
-                        {/* Content */}
-                        <div className="p-4 space-y-4">
-                            {/* User info */}
-                            <div className="p-3 rounded-lg bg-surface-2 border border-surface-3">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">ACCOUNT</p>
-                                <p className="text-sm font-medium text-foreground">{user?.email}</p>
+                        <div className={`rounded-lg border p-3 ${config.bgColor}`}>
+                            <div className="mb-2 flex items-center gap-2">
+                                {config.icon}
+                                <p className={`text-sm font-semibold ${config.color}`}>{config.label}</p>
                             </div>
+                            <p className="text-xs text-muted-foreground">{syncStatus.message}</p>
+                        </div>
 
-                            {/* Status */}
-                            <div className={`p-3 rounded-lg border ${config.bgColor}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    {config.icon}
-                                    <p className="text-sm font-medium">{config.label}</p>
+                        <div className="rounded-lg border border-border bg-muted/50 p-3">
+                            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Sync State</p>
+                            <div className="space-y-1.5 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Configured</span>
+                                    <span className="font-medium text-foreground">{syncStatus.isConfigured ? "Yes" : "No"}</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{syncStatus.message}</p>
-                            </div>
-
-                            {/* Enabled status */}
-                            <div className="p-3 rounded-lg bg-surface-2 border border-surface-3">
-                                <p className="text-xs font-medium text-muted-foreground mb-2">CLOUD SYNC</p>
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-sm">
-                                        <span>Configured:</span>
-                                        <span className="font-medium">{syncStatus.isConfigured ? "Yes" : "No"}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span>Authenticated:</span>
-                                        <span className="font-medium">{syncStatus.isAuthenticated ? "Yes" : "No"}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span>Enabled:</span>
-                                        <span className="font-medium">{syncStatus.isEnabled ? "Yes" : "No"}</span>
-                                    </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Authenticated</span>
+                                    <span className="font-medium text-foreground">{syncStatus.isAuthenticated ? "Yes" : "No"}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Enabled</span>
+                                    <span className="font-medium text-foreground">{syncStatus.isEnabled ? "Yes" : "No"}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                    <DialogFooter>
+                        <Button type="button" variant="secondary" onClick={() => setShowDetails(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

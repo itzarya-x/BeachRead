@@ -7,8 +7,17 @@
  * - One-time display
  */
 
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
-import { CheckCircle2, Cloud, X } from "lucide-react";
+import { CheckCircle2, Cloud } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const FIRST_LOGIN_STORAGE_KEY = "yura_first_login_shown";
@@ -35,68 +44,55 @@ export function FirstLoginPrompt() {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-surface-1 rounded-lg shadow-lg max-w-md w-full border border-surface-2">
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-surface-2">
-                    <h2 className="text-xl font-bold">Welcome to Cloud Sync!</h2>
-                    <button onClick={handleDismiss} className="p-1 hover:bg-surface-2 rounded-lg transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
+        <Dialog open={showPrompt} onOpenChange={(open) => !open && handleDismiss()}>
+            <DialogContent className="max-w-md border-white/10 bg-card/95 sm:rounded-2xl">
+                <DialogHeader>
+                    <DialogTitle className="text-xl font-extrabold tracking-tight">Welcome to Cloud Sync</DialogTitle>
+                    <DialogDescription>
+                        Your vault can now stay in sync across devices.
+                    </DialogDescription>
+                </DialogHeader>
 
-                {/* Content */}
-                <div className="p-6 space-y-4">
-                    {/* Icon */}
+                <div className="space-y-4">
                     <div className="flex justify-center">
-                        <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
-                            <Cloud className="w-8 h-8 text-blue-600" />
+                        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-primary/15">
+                            <Cloud className="h-7 w-7 text-primary" />
                         </div>
                     </div>
 
-                    {/* Message */}
-                    <div className="text-center space-y-2">
-                        <p className="text-foreground">Your anime library is now synced to the cloud.</p>
-                        <p className="text-sm text-muted-foreground">
-                            Your data is automatically backed up and secured.
-                        </p>
+                    <div className="space-y-2 text-center">
+                        <p className="text-foreground">Your media library is now synced to cloud storage.</p>
+                        <p className="text-sm text-muted-foreground">Backups are automatic and your data remains recoverable.</p>
                     </div>
 
-                    {/* Benefits */}
-                    <div className="space-y-2 pt-2">
+                    <div className="space-y-2 pt-1">
                         <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                            <span className="text-sm">Access your lists from any device</span>
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                            <span className="text-sm">Access your vault from any signed-in device</span>
                         </div>
                         <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                            <span className="text-sm">Automatic daily backups</span>
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                            <span className="text-sm">Automatic cloud backup protection</span>
                         </div>
                         <div className="flex items-start gap-2">
-                            <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                            <span className="text-sm">Never lose your data again</span>
+                            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                            <span className="text-sm">Local data remains available on this device</span>
                         </div>
                     </div>
 
-                    {/* Callout */}
-                    <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                        <p className="text-xs text-blue-900">
-                            💡 Your local data stays on this device. Cloud is completely optional and can be disabled
-                            anytime.
+                    <div className="rounded-lg border border-primary/25 bg-primary/10 p-3">
+                        <p className="text-xs text-primary/90">
+                            Cloud sync is optional and can be disabled in settings at any time.
                         </p>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="px-6 py-3 border-t border-surface-2 flex gap-2">
-                    <button
-                        onClick={handleDismiss}
-                        className="flex-1 px-4 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors font-medium"
-                    >
+                <DialogFooter>
+                    <Button type="button" onClick={handleDismiss} className="w-full rounded-xl">
                         Got it
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

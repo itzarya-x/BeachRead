@@ -25,26 +25,26 @@ export function EmptyStateHint({ onSignInClick }: EmptyStateHintProps) {
     }
 
     return (
-        <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+        <div className="rounded-xl border border-primary/25 bg-accent p-4 shadow-sm">
             <div className="flex items-start gap-3">
-                <Cloud className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div className="flex-1">
-                    <p className="text-sm font-medium text-blue-900">Sign in to enable cloud sync</p>
-                    <p className="text-xs text-blue-700 mt-1">
+                    <p className="text-sm font-semibold text-foreground">Sign in to enable cloud sync</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                         Sync your anime and manga lists across all your devices. Your data stays safe.
                     </p>
                     <button
                         onClick={onSignInClick}
-                        className="mt-2 text-xs font-medium text-blue-600 hover:text-blue-700 underline"
+                        className="mt-2 text-xs font-semibold text-primary hover:text-primary/80 underline"
                     >
                         Learn more →
                     </button>
                 </div>
                 <button
                     onClick={() => setDismissed(true)}
-                    className="p-1 hover:bg-blue-100 rounded transition-colors shrink-0"
+                    className="shrink-0 rounded p-1 transition-colors hover:bg-muted"
                 >
-                    <X size={16} className="text-blue-600" />
+                    <X size={16} className="text-muted-foreground" />
                 </button>
             </div>
         </div>

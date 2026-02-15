@@ -9,6 +9,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useCloudSyncStatus } from "@/hooks/useCloudSyncStatus";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export function CloudSyncStatusIndicator() {
@@ -28,8 +29,8 @@ export function CloudSyncStatusIndicator() {
     // Connected: Show positive status
     if (syncStatus.isEnabled && syncStatus.isAuthenticated) {
         return (
-            <div className="flex items-center gap-2 text-xs text-green-600 px-3 py-1 bg-green-50 rounded-full border border-green-200 hover:bg-green-100 transition-colors cursor-default">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            <div className="flex cursor-default items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 transition-colors">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
                 <span>{syncStatus.message}</span>
             </div>
         );
@@ -40,9 +41,12 @@ export function CloudSyncStatusIndicator() {
         return (
             <button
                 onClick={() => navigate("/login")}
-                className="flex items-center gap-2 text-xs text-blue-600 px-3 py-1 bg-blue-50 rounded-full border border-blue-200 hover:bg-blue-100 transition-colors"
+                className={cn(
+                    "flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors",
+                    "border-primary/35 bg-primary/10 text-primary hover:bg-primary/15"
+                )}
             >
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                <span className="h-1.5 w-1.5 rounded-full bg-white/55" />
                 <span>{syncStatus.message}</span>
             </button>
         );

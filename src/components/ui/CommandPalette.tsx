@@ -1,10 +1,19 @@
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
-import ds from "@/styles/design-system";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, Command, Hash, Search, Tv, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ElementType } from "react";
 import { useNavigate } from "react-router-dom";
+
+const paletteEase = [0.23, 1, 0.32, 1] as const;
+
+type SearchResultItem = {
+    _seriesId: number;
+    coverImage: string | null;
+    status: string;
+    type: "ANIME" | "MANGA";
+};
 
 export function CommandPalette() {
     const [isOpen, setIsOpen] = useState(false);
@@ -36,15 +45,15 @@ export function CommandPalette() {
         }
     }, [isOpen]);
 
-    const results = query 
+    const results: SearchResultItem[] = query
         ? [
-            ...animeList.filter(m => getTitle(m).toLowerCase().includes(query.toLowerCase())).map(m => ({ ...m, type: 'ANIME' })),
-            ...mangaList.filter(m => getTitle(m).toLowerCase().includes(query.toLowerCase())).map(m => ({ ...m, type: 'MANGA' }))
-          ].slice(0, 8)
+            ...animeList.filter(m => getTitle(m).toLowerCase().includes(query.toLowerCase())).map(m => ({ ...m, type: "ANIME" as const })),
+            ...mangaList.filter(m => getTitle(m).toLowerCase().includes(query.toLowerCase())).map(m => ({ ...m, type: "MANGA" as const }))
+        ].slice(0, 8)
         : [];
 
-    const handleSelect = (item: any) => {
-        navigate(`/${item.type.toLowerCase()}/${item.id || item.seriesId}`);
+    const handleSelect = (item: SearchResultItem) => {
+        navigate(`/${item.type.toLowerCase()}/${item._seriesId}`);
         setIsOpen(false);
     };
 
@@ -70,7 +79,7 @@ export function CommandPalette() {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={() => setIsOpen(false)}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                        className="fixed inset-0 z-[100] bg-background/70"
                     />
                     
                     {/* Palette */}
@@ -78,10 +87,10 @@ export function CommandPalette() {
                         initial={{ opacity: 0, scale: 0.95, y: -20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                        transition={{ duration: 0.2, ease: ds.motion.easing.default as any }}
-                        className="fixed top-[15%] left-1/2 -translate-x-1/2 w-full max-w-xl bg-surface-elevated1 border border-white/5 rounded-3xl shadow-depth3 z-[101] overflow-hidden"
+                        transition={{ duration: 0.2, ease: paletteEase }}
+                        className="fixed left-1/2 top-[15%] z-[101] w-full max-w-xl -translate-x-1/2 overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
                     >
-                        <div className="flex items-center px-4 py-4 border-b border-white/5 gap-3">
+                        <div className="flex items-center gap-3 border-b border-border px-4 py-4">
                             <Search className="w-5 h-5 text-primary" />
                             <input
                                 ref={inputRef}
@@ -92,7 +101,7 @@ export function CommandPalette() {
                                 onKeyDown={handleKeyDown}
                                 className="bg-transparent flex-1 text-lg font-medium text-foreground outline-none placeholder:text-muted-foreground/30"
                             />
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5 text-[10px] font-black text-muted-foreground/40">
+                            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-[10px] font-semibold text-muted-foreground">
                                 <Command className="w-3 h-3" />
                                 <span>K</span>
                             </div>
@@ -107,10 +116,10 @@ export function CommandPalette() {
                                         onMouseEnter={() => setSelectedIndex(idx)}
                                         className={cn(
                                             "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group",
-                                            selectedIndex === idx ? "bg-primary/10" : "hover:bg-white/5"
+                                            selectedIndex === idx ? "bg-accent" : "hover:bg-muted/50"
                                         )}
                                     >
-                                        <div className="w-10 h-14 rounded-lg overflow-hidden bg-surface-base shrink-0 border border-white/5">
+                                        <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
                                             {item.coverImage ? (
                                                 <img src={item.coverImage} className="w-full h-full object-cover" />
                                             ) : (
@@ -126,14 +135,14 @@ export function CommandPalette() {
                                             )}>
                                                 {getTitle(item)}
                                             </div>
-                                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 mt-0.5">
+                                            <div className="mt-0.5 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                                                 <span>{item.type}</span>
                                                 <span>•</span>
                                                 <span>{item.status}</span>
                                             </div>
                                         </div>
                                         {selectedIndex === idx && (
-                                            <div className="px-2 py-1 rounded bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">
+                                            <div className="rounded bg-accent px-2 py-1 text-[8px] font-semibold uppercase tracking-widest text-primary">
                                                 Jump To
                                             </div>
                                         )}
@@ -141,13 +150,13 @@ export function CommandPalette() {
                                 ))}
                             </div>
                         ) : query ? (
-                            <div className="py-12 text-center text-muted-foreground/40 flex flex-col items-center gap-3">
+                            <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
                                 <Hash className="w-8 h-8 opacity-20" />
-                                <p className="text-sm font-black uppercase tracking-[0.2em]">No signals detected</p>
+                                <p className="text-sm font-semibold uppercase tracking-[0.2em]">No signals detected</p>
                             </div>
                         ) : (
                             <div className="p-6">
-                                <div className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/20 mb-4">Jump To Platform</div>
+                                <div className="mb-4 text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">Jump To Platform</div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <QuickAction icon={Tv} label="Archive" onClick={() => { navigate('/anime'); setIsOpen(false); }} />
                                     <QuickAction icon={BookOpen} label="Library" onClick={() => { navigate('/manga'); setIsOpen(false); }} />
@@ -163,14 +172,14 @@ export function CommandPalette() {
     );
 }
 
-function QuickAction({ icon: Icon, label, onClick }: { icon: any, label: string, onClick: () => void }) {
+function QuickAction({ icon: Icon, label, onClick }: { icon: ElementType; label: string; onClick: () => void }) {
     return (
         <button 
             onClick={onClick}
-            className="flex items-center gap-3 p-4 rounded-2xl bg-surface-base border border-white/5 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+            className="group flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-accent"
         >
-            <Icon className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-hover:text-foreground transition-colors">{label}</span>
+            <Icon className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground transition-colors group-hover:text-foreground">{label}</span>
         </button>
     );
 }

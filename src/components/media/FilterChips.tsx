@@ -21,7 +21,7 @@ export function FilterChips({ options, selected, onToggle, onClear, label }: Fil
   return (
     <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
       {label && (
-        <span className="text-xs text-muted-foreground font-medium shrink-0">{label}:</span>
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
       )}
       {options.map((opt) => {
         const isActive = selected.includes(opt.value);
@@ -29,11 +29,16 @@ export function FilterChips({ options, selected, onToggle, onClear, label }: Fil
           <button
             key={opt.value}
             onClick={() => onToggle(opt.value)}
-            className={cn("filter-chip", isActive && "active")}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all",
+              isActive
+                ? "border-primary/45 bg-primary/12 text-primary"
+                : "border-border bg-card text-muted-foreground hover:border-primary/25 hover:bg-muted hover:text-foreground"
+            )}
           >
             {opt.label}
             {opt.count !== undefined && (
-              <span className="ml-1 opacity-60">{opt.count}</span>
+              <span className="ml-1 opacity-70">{opt.count}</span>
             )}
           </button>
         );
@@ -41,7 +46,7 @@ export function FilterChips({ options, selected, onToggle, onClear, label }: Fil
       {hasSelection && onClear && (
         <button
           onClick={onClear}
-          className="filter-chip text-destructive border-destructive/30 hover:bg-destructive/10 flex items-center gap-1"
+          className="flex shrink-0 items-center gap-1 rounded-full border border-destructive/35 bg-destructive/10 px-3 py-1.5 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/20"
         >
           <X className="w-3 h-3" />
           Clear

@@ -29,7 +29,7 @@ export function StorageModeIndicator({
 
     if (variant === "inline") {
         return (
-            <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
+            <span className="text-xs font-mono text-muted-foreground">
                 [{storageMode}]
             </span>
         );
@@ -37,9 +37,9 @@ export function StorageModeIndicator({
 
     if (variant === "badge") {
         const isCloud = storageMode === "cloud";
-        const bgColor = isCloud ? "bg-green-100 dark:bg-green-900" : "bg-gray-100 dark:bg-gray-800";
-        const textColor = isCloud ? "text-green-700 dark:text-green-300" : "text-gray-700 dark:text-gray-300";
-        const borderColor = isCloud ? "border-green-300 dark:border-green-700" : "border-gray-300 dark:border-gray-600";
+        const bgColor = isCloud ? "bg-emerald-100" : "bg-muted";
+        const textColor = isCloud ? "text-emerald-700" : "text-muted-foreground";
+        const borderColor = isCloud ? "border-emerald-300" : "border-border";
         const icon = isCloud ? "☁️" : "👤";
 
         return (
@@ -53,9 +53,9 @@ export function StorageModeIndicator({
     // Full view
     const isCloud = storageMode === "cloud";
     return (
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div className={`w-2 h-2 rounded-full ${isCloud ? "bg-green-500" : "bg-gray-500"}`} />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+            <div className={`h-2 w-2 rounded-full ${isCloud ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+            <span className="text-sm font-medium text-foreground">
                 {isCloud ? "☁️ Cloud Storage" : "👤 Guest Mode"}
             </span>
         </div>

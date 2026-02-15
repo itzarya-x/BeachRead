@@ -8,7 +8,8 @@
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AlertCircle, Wifi, WifiOff } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AlertCircle, CheckCircle2, HelpCircle, Loader2, Wifi, WifiOff, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export type SyncStatus = "synced" | "syncing" | "error" | "offline" | "unknown";
@@ -24,34 +25,34 @@ interface SyncStatusIndicatorProps {
 
 const STATUS_CONFIG = {
     synced: {
-        icon: "🟢",
+        icon: <CheckCircle2 className="h-4 w-4 text-emerald-700" />,
         label: "Synced",
-        color: "text-green-600",
-        bgColor: "bg-green-50",
+        color: "text-emerald-700",
+        bgColor: "bg-emerald-100 border-emerald-300",
     },
     syncing: {
-        icon: "🟡",
+        icon: <Loader2 className="h-4 w-4 animate-spin text-amber-700" />,
         label: "Syncing...",
-        color: "text-amber-600",
-        bgColor: "bg-amber-50",
+        color: "text-amber-700",
+        bgColor: "bg-amber-100 border-amber-300",
     },
     error: {
-        icon: "🔴",
+        icon: <XCircle className="h-4 w-4 text-destructive" />,
         label: "Sync Error",
-        color: "text-red-600",
-        bgColor: "bg-red-50",
+        color: "text-destructive",
+        bgColor: "bg-destructive/12 border-destructive/35",
     },
     offline: {
-        icon: "⚫",
+        icon: <WifiOff className="h-4 w-4 text-muted-foreground" />,
         label: "Offline",
-        color: "text-gray-600",
-        bgColor: "bg-gray-50",
+        color: "text-muted-foreground",
+        bgColor: "bg-muted border-border",
     },
     unknown: {
-        icon: "❓",
+        icon: <HelpCircle className="h-4 w-4 text-muted-foreground" />,
         label: "Unknown",
-        color: "text-gray-600",
-        bgColor: "bg-gray-50",
+        color: "text-muted-foreground",
+        bgColor: "bg-muted border-border",
     },
 };
 
@@ -91,27 +92,32 @@ export function SyncStatusIndicator({
                 <Button
                     variant="ghost"
                     size="sm"
-                    className={`${config.color} hover:${config.bgColor} gap-2`}
+                    className={cn(
+                        "gap-2 rounded-full border px-2.5",
+                        config.bgColor,
+                        config.color,
+                        "hover:opacity-90"
+                    )}
                     title={config.label}
                 >
-                    <span className="text-lg">{config.icon}</span>
+                    {config.icon}
                     <span className="hidden sm:inline text-xs font-medium">{config.label}</span>
                 </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-64 p-4">
+            <DropdownMenuContent align="end" className="w-72 border-border bg-card p-4 shadow-sm">
                 <div className="space-y-3">
                     {/* Status Header */}
                     <div className="flex items-center gap-2">
-                        <span className="text-2xl">{config.icon}</span>
+                        {config.icon}
                         <div>
                             <p className={`font-semibold ${config.color}`}>{config.label}</p>
-                            <p className="text-xs text-gray-500">{syncTimeText}</p>
+                            <p className="text-xs text-muted-foreground">{syncTimeText}</p>
                         </div>
                     </div>
 
                     {/* Divider */}
-                    <div className="h-px bg-gray-200" />
+                    <div className="h-px bg-border" />
 
                     {/* Stats */}
                     {(itemsUploaded > 0 || itemsDownloaded > 0 || conflictCount > 0) && (
@@ -119,24 +125,24 @@ export function SyncStatusIndicator({
                             <div className="grid grid-cols-3 gap-2 text-center text-sm">
                                 {itemsUploaded > 0 && (
                                     <div>
-                                        <p className="font-semibold text-blue-600">{itemsUploaded}</p>
-                                        <p className="text-xs text-gray-500">Uploaded</p>
+                                        <p className="font-semibold text-primary">{itemsUploaded}</p>
+                                        <p className="text-xs text-muted-foreground">Uploaded</p>
                                     </div>
                                 )}
                                 {itemsDownloaded > 0 && (
                                     <div>
-                                        <p className="font-semibold text-green-600">{itemsDownloaded}</p>
-                                        <p className="text-xs text-gray-500">Downloaded</p>
+                                        <p className="font-semibold text-emerald-700">{itemsDownloaded}</p>
+                                        <p className="text-xs text-muted-foreground">Downloaded</p>
                                     </div>
                                 )}
                                 {conflictCount > 0 && (
                                     <div>
-                                        <p className="font-semibold text-red-600">{conflictCount}</p>
-                                        <p className="text-xs text-gray-500">Conflicts</p>
+                                        <p className="font-semibold text-destructive">{conflictCount}</p>
+                                        <p className="text-xs text-muted-foreground">Conflicts</p>
                                     </div>
                                 )}
                             </div>
-                            <div className="h-px bg-gray-200" />
+                            <div className="h-px bg-border" />
                         </>
                     )}
 
@@ -145,19 +151,19 @@ export function SyncStatusIndicator({
                         {isOnline ? (
                             <>
                                 <Wifi className="w-4 h-4 text-green-600" />
-                                <span className="text-green-600">Connected to internet</span>
+                                <span className="text-emerald-700">Connected to internet</span>
                             </>
                         ) : (
                             <>
-                                <WifiOff className="w-4 h-4 text-gray-600" />
-                                <span className="text-gray-600">Offline — changes will sync later</span>
+                                <WifiOff className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-muted-foreground">Offline — changes will sync later</span>
                             </>
                         )}
                     </div>
 
                     {/* Help Text */}
                     {status === "error" && (
-                        <div className="rounded bg-red-50 p-2 text-xs text-red-700">
+                        <div className="rounded bg-destructive/12 p-2 text-xs text-destructive">
                             <p className="flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" />
                                 <span>Sync encountered an error. Check settings for details.</span>
@@ -166,7 +172,7 @@ export function SyncStatusIndicator({
                     )}
 
                     {conflictCount > 0 && (
-                        <div className="rounded bg-yellow-50 p-2 text-xs text-yellow-700">
+                        <div className="rounded border border-amber-300 bg-amber-100 p-2 text-xs text-amber-700">
                             <p className="flex items-center gap-1">
                                 <AlertCircle className="w-3 h-3" />
                                 <span>
@@ -180,7 +186,7 @@ export function SyncStatusIndicator({
                     {/* Action Button */}
                     {onDetailsClick && (
                         <>
-                            <div className="h-px bg-gray-200" />
+                            <div className="h-px bg-border" />
                             <Button variant="outline" size="sm" className="w-full" onClick={onDetailsClick}>
                                 View Details
                             </Button>

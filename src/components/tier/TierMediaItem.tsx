@@ -40,7 +40,7 @@ export function TierMediaItem({ media, id, overlay, compact }: TierMediaItemProp
                 initial={{ scale: 0.9, rotate: -5 }}
                 animate={{ scale: 1.1, rotate: 5 }}
                 className={cn(
-                    "relative group overflow-hidden rounded-lg shadow-2xl ring-2 ring-primary cursor-grabbing",
+                    "relative group cursor-grabbing overflow-hidden rounded-xl border border-primary/40 shadow-md",
                     compact ? "w-16 h-24 md:w-20 md:h-28" : "w-24 h-36 md:w-28 md:h-40"
                 )}
             >
@@ -68,7 +68,7 @@ export function TierMediaItem({ media, id, overlay, compact }: TierMediaItemProp
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             className={cn(
-                "relative group overflow-hidden rounded-lg shadow-sm hover:shadow-xl transition-shadow ring-1 ring-border/10 hover:ring-primary/50 cursor-grab active:cursor-grabbing bg-card",
+                "relative group cursor-grab overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md active:cursor-grabbing",
                 compact ? "w-16 h-24 md:w-20 md:h-28" : "w-24 h-36 md:w-28 md:h-40"
             )}
             title={title}
@@ -91,9 +91,9 @@ export function TierMediaItem({ media, id, overlay, compact }: TierMediaItemProp
                 initial={{ opacity: 0 }}
                 whileHover={{ opacity: 1 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-2 pointer-events-none"
+                className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/75 via-black/10 to-transparent p-2"
             >
-                <span className="text-[10px] md:text-xs font-bold text-white line-clamp-2 leading-tight">
+                <span className="text-[10px] md:text-xs font-extrabold text-white line-clamp-2 leading-tight tracking-tight">
                     {title}
                 </span>
                 {media.score > 0 && (
@@ -101,7 +101,7 @@ export function TierMediaItem({ media, id, overlay, compact }: TierMediaItemProp
                         initial={{ x: -10, opacity: 0 }}
                         whileHover={{ x: 0, opacity: 1 }}
                         transition={{ delay: 0.1 }}
-                        className="text-[9px] text-primary-foreground/80 mt-0.5 font-medium"
+                        className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-primary-foreground/85"
                     >
                         ★ {media.score}
                     </motion.span>

@@ -6,7 +6,8 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Clock } from "lucide-react";
 import { useState } from "react";
@@ -15,12 +16,12 @@ export interface ConflictItem {
     id: string;
     title: string;
     localVersion: {
-        data: Record<string, any>;
+        data: Record<string, unknown>;
         updatedAt: Date;
         device?: string;
     };
     cloudVersion: {
-        data: Record<string, any>;
+        data: Record<string, unknown>;
         updatedAt: Date;
         device?: string;
     };
@@ -69,10 +70,10 @@ export function ConflictResolver({ isOpen, onClose, conflicts = [], onResolve }:
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+            <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto border-border bg-card sm:rounded-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                        <AlertCircle className="w-5 h-5 text-amber-400" />
                         Resolve {conflicts.length} conflict
                         {conflicts.length > 1 ? "s" : ""}
                     </DialogTitle>
@@ -81,30 +82,39 @@ export function ConflictResolver({ isOpen, onClose, conflicts = [], onResolve }:
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-2">
                     {/* Item Title */}
                     <div>
-                        <h3 className="font-semibold text-lg text-gray-900">{current.title}</h3>
+                        <h3 className="text-lg font-semibold text-foreground">{current.title}</h3>
                     </div>
 
                     {/* Comparison */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {/* Local Version */}
-                        <button
-                            onClick={() => handleResolve("local")}
-                            disabled={resolving !== null}
-                            className="rounded-lg border-2 border-blue-200 p-4 text-left hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        <div
+                            role="button"
+                            tabIndex={resolving !== null ? -1 : 0}
+                            aria-disabled={resolving !== null}
+                            onClick={() => resolving === null && handleResolve("local")}
+                            onKeyDown={(e) => {
+                                if (resolving !== null) return;
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    handleResolve("local");
+                                }
+                            }}
+                            className="rounded-xl border border-primary/35 bg-primary/10 p-4 text-left transition-colors hover:bg-primary/15 focus:outline-none focus:ring-2 focus:ring-primary/35 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                         >
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="font-semibold text-blue-900">Local (This Device)</p>
+                                    <p className="font-semibold text-primary">Local (This device)</p>
                                     {resolving === current.id && (
-                                        <span className="text-xs text-blue-600">Resolving...</span>
+                                        <span className="text-xs text-primary/80">Resolving...</span>
                                     )}
                                 </div>
 
                                 {/* Details */}
-                                <div className="space-y-1 text-xs text-gray-600">
+                                <div className="space-y-1 text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         <span>{current.localVersion.updatedAt.toLocaleString()}</span>
@@ -113,35 +123,43 @@ export function ConflictResolver({ isOpen, onClose, conflicts = [], onResolve }:
                                 </div>
 
                                 {/* Data Preview */}
-                                <div className="mt-3 p-2 bg-blue-100 rounded text-xs text-blue-900 font-mono max-h-24 overflow-y-auto">
-                                    <pre>
-                                        {JSON.stringify(current.localVersion.data, null, 2).substring(0, 200)}
-                                        ...
+                                <ScrollArea className="mt-3 h-28 rounded-lg border border-primary/25 bg-accent/70 p-2 text-xs text-foreground">
+                                    <pre className="font-mono whitespace-pre-wrap break-all">
+                                        {JSON.stringify(current.localVersion.data, null, 2)}
                                     </pre>
-                                </div>
+                                </ScrollArea>
 
-                                <Button size="sm" className="w-full mt-3" disabled={resolving !== null}>
+                                <div className="mt-3 w-full rounded-md bg-primary/85 px-3 py-1.5 text-center text-sm font-medium text-primary-foreground">
                                     Keep this
-                                </Button>
+                                </div>
                             </div>
-                        </button>
+                        </div>
 
                         {/* Cloud Version */}
-                        <button
-                            onClick={() => handleResolve("cloud")}
-                            disabled={resolving !== null}
-                            className="rounded-lg border-2 border-green-200 p-4 text-left hover:border-green-400 hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        <div
+                            role="button"
+                            tabIndex={resolving !== null ? -1 : 0}
+                            aria-disabled={resolving !== null}
+                            onClick={() => resolving === null && handleResolve("cloud")}
+                            onKeyDown={(e) => {
+                                if (resolving !== null) return;
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    handleResolve("cloud");
+                                }
+                            }}
+                            className="rounded-xl border border-emerald-300 bg-emerald-100 p-4 text-left transition-colors hover:bg-emerald-200/70 focus:outline-none focus:ring-2 focus:ring-emerald-400/35 aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                         >
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <p className="font-semibold text-green-900">Cloud</p>
+                                    <p className="font-semibold text-emerald-700">Cloud</p>
                                     {resolving === current.id && (
-                                        <span className="text-xs text-green-600">Resolving...</span>
+                                        <span className="text-xs text-emerald-700/90">Resolving...</span>
                                     )}
                                 </div>
 
                                 {/* Details */}
-                                <div className="space-y-1 text-xs text-gray-600">
+                                <div className="space-y-1 text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1">
                                         <Clock className="w-3 h-3" />
                                         <span>{current.cloudVersion.updatedAt.toLocaleString()}</span>
@@ -150,18 +168,17 @@ export function ConflictResolver({ isOpen, onClose, conflicts = [], onResolve }:
                                 </div>
 
                                 {/* Data Preview */}
-                                <div className="mt-3 p-2 bg-green-100 rounded text-xs text-green-900 font-mono max-h-24 overflow-y-auto">
-                                    <pre>
-                                        {JSON.stringify(current.cloudVersion.data, null, 2).substring(0, 200)}
-                                        ...
+                                <ScrollArea className="mt-3 h-28 rounded-lg border border-emerald-300 bg-card p-2 text-xs text-foreground">
+                                    <pre className="font-mono whitespace-pre-wrap break-all">
+                                        {JSON.stringify(current.cloudVersion.data, null, 2)}
                                     </pre>
-                                </div>
+                                </ScrollArea>
 
-                                <Button size="sm" className="w-full mt-3" disabled={resolving !== null}>
+                                <div className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-1.5 text-center text-sm font-medium text-white">
                                     Keep this
-                                </Button>
+                                </div>
                             </div>
-                        </button>
+                        </div>
                     </div>
 
                     {/* Progress */}
@@ -171,15 +188,20 @@ export function ConflictResolver({ isOpen, onClose, conflicts = [], onResolve }:
                                 key={idx}
                                 className={`h-1 flex-1 rounded transition-colors ${
                                     idx < currentIndex
-                                        ? "bg-green-500"
+                                        ? "bg-emerald-500"
                                         : idx === currentIndex
-                                          ? "bg-blue-500"
-                                          : "bg-gray-200"
+                                          ? "bg-primary"
+                                          : "bg-muted"
                                 }`}
                             />
                         ))}
                     </div>
                 </div>
+                <DialogFooter>
+                    <Button type="button" variant="secondary" onClick={onClose}>
+                        Close
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );

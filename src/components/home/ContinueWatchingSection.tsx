@@ -28,7 +28,7 @@ function ContinueWatchingCard({ media }: ContinueWatchingCardProps) {
 
     return (
         <Link to={linkPath} className="group shrink-0 w-full sm:w-[280px] h-[420px]">
-            <Card className="relative h-full overflow-hidden p-0 border-0 bg-card hover:shadow-xl transition-all duration-300 hover:scale-105">
+            <Card className="relative h-full overflow-hidden border-border p-0 bg-card shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md">
                 {/* Cover Image - Large */}
                 <div className="absolute inset-0">
                     {media.coverImage ? (
@@ -39,7 +39,7 @@ function ContinueWatchingCard({ media }: ContinueWatchingCardProps) {
                             loading="lazy"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-surface-2">
+                        <div className="flex h-full w-full items-center justify-center bg-muted">
                             {media.mediaType === "ANIME" ? (
                                 <Play className="w-12 h-12 text-muted-foreground/30" />
                             ) : (
@@ -49,11 +49,11 @@ function ContinueWatchingCard({ media }: ContinueWatchingCardProps) {
                     )}
 
                     {/* Premium gradient overlay - thicker at bottom */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/98 via-black/40 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/26 to-transparent" />
 
                     {/* Score badge - top right */}
                     {media.score > 0 && (
-                        <div className="absolute top-3 right-3 backdrop-blur-md bg-black/50 rounded-lg px-3 py-1.5 border border-white/10 shadow-lg">
+                        <div className="absolute right-3 top-3 rounded-lg border border-border bg-card/95 px-3 py-1.5 shadow-sm">
                             <ScoreDisplay score={media.score} format={scoreFormat} size="sm" />
                         </div>
                     )}
@@ -69,9 +69,9 @@ function ContinueWatchingCard({ media }: ContinueWatchingCardProps) {
                         <div className="space-y-2">
                             <p className="text-xs text-gray-300/80">{progressLabel}</p>
                             {progressPercent > 0 && (
-                                <div className="h-2 bg-white/10 rounded-full overflow-hidden backdrop-blur-sm">
+                                <div className="h-2 overflow-hidden rounded-full bg-white/25">
                                     <div
-                                        className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-300 shadow-lg"
+                                        className="h-full rounded-full bg-primary transition-all duration-300"
                                         style={{ width: `${progressPercent}%` }}
                                     />
                                 </div>
@@ -93,7 +93,7 @@ function ContinueWatchingCard({ media }: ContinueWatchingCardProps) {
                     </div>
 
                     {/* Hover glow border */}
-                    <div className="absolute inset-0 rounded-lg border-2 border-primary/0 group-hover:border-primary/50 transition-colors duration-300 pointer-events-none shadow-lg" />
+                    <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-primary/0 transition-colors duration-300 group-hover:border-primary/40" />
                 </div>
             </Card>
         </Link>

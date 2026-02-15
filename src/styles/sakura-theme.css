@@ -1,0 +1,23 @@
+:root {
+  --bg-primary: #0f0b14;
+  --bg-secondary: #1a1323;
+  --bg-glass: rgba(255, 255, 255, 0.04);
+
+  --sakura: 340 65% 58%;
+  --sakura-soft: 340 65% 68%;
+  --sakura-glow-rgb: 255 120 170;
+  --sakura-glow: rgba(255, 120, 170, 0.35);
+
+  --text-primary: #f3eaf4;
+  --text-muted: #bca9c5;
+
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --danger: #b33a3a;
+  --success: #3ab37a;
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --transition: 0.25s ease;
+}

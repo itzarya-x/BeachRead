@@ -64,7 +64,11 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-surface-2 to-surface-3 flex items-center justify-center p-4">
+        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
+            <div className="pointer-events-none absolute inset-0">
+                <div className="absolute left-[12%] top-0 h-64 w-64 rounded-full bg-primary/14 blur-3xl" />
+                <div className="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-[hsl(274_72%_72%_/_0.22)] blur-3xl" />
+            </div>
             <div className="w-full max-w-md">
                 {/* Header */}
                 <div className="text-center mb-8">
@@ -73,14 +77,14 @@ export default function Login() {
                 </div>
 
                 {/* Card */}
-                <div className="bg-surface-1 border border-border/30 rounded-lg p-6 space-y-6">
+                <div className="space-y-6 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
                     {/* Offline Message */}
                     {!isOnline && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 flex gap-3">
-                            <WifiOff className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex gap-3 rounded-xl border border-[hsl(42_92%_70%_/_0.35)] bg-[hsl(38_64%_20%_/_0.48)] p-4">
+                            <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(42_92%_70%)]" />
                             <div>
-                                <p className="text-yellow-900 font-medium text-sm">You are offline</p>
-                                <p className="text-yellow-800 text-xs mt-1">
+                                <p className="text-sm font-medium text-[hsl(42_92%_80%)]">You are offline</p>
+                                <p className="mt-1 text-xs text-[hsl(42_64%_75%)]">
                                     Internet is required to sign in. Your local vault remains available — all your data
                                     is safe.
                                 </p>
@@ -90,15 +94,15 @@ export default function Login() {
 
                     {/* Magic Link Sent Message */}
                     {magicLinkSent && (
-                        <div className="bg-accent/10 border border-accent/30 rounded p-3">
-                            <p className="text-accent text-sm font-medium">✓ Check your email for login link</p>
+                        <div className="rounded-xl border border-primary/30 bg-primary/15 p-3">
+                            <p className="text-sm font-medium text-[hsl(var(--sakura-soft))]">✓ Check your email for login link</p>
                             <p className="text-muted-foreground text-xs mt-1">We sent a magic link to {email}</p>
                         </div>
                     )}
 
                     {/* Error Message */}
                     {(error || localError) && (
-                        <div className="bg-destructive/10 border border-destructive/30 rounded p-3">
+                        <div className="rounded-xl border border-destructive/35 bg-destructive/20 p-3">
                             <p className="text-destructive text-sm">{error || localError}</p>
                         </div>
                     )}
@@ -115,7 +119,7 @@ export default function Login() {
                                         onChange={e => setEmail(e.target.value)}
                                         placeholder="you@example.com"
                                         disabled={loading}
-                                        className="w-full px-4 py-2 bg-surface-2 border border-border/30 rounded text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                                        className="sakura-input w-full rounded border border-border bg-input px-4 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
                                     />
                                 </div>
 
@@ -130,15 +134,15 @@ export default function Login() {
                                             onChange={e => setPassword(e.target.value)}
                                             placeholder="••••••••"
                                             disabled={loading}
-                                            className="w-full px-4 py-2 bg-surface-2 border border-border/30 rounded text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
-                                        />
+                                        className="sakura-input w-full rounded border border-border bg-input px-4 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                                    />
                                     </div>
                                 )}
 
                                 <button
                                     type="submit"
                                     disabled={loading || !isOnline}
-                                    className="w-full px-4 py-2 bg-primary text-primary-foreground rounded font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                    className="sakura-ripple-button is-default flex w-full items-center justify-center gap-2 px-4 py-2 font-medium disabled:opacity-50"
                                 >
                                     <Mail size={18} />
                                     {loading ? "Sending..." : useMagicLink ? "Send Magic Link" : "Login with Email"}
@@ -167,7 +171,7 @@ export default function Login() {
                                             <div className="w-full border-t border-border/30" />
                                         </div>
                                         <div className="relative flex justify-center text-sm">
-                                            <span className="px-2 bg-surface-1 text-muted-foreground">
+                                            <span className="bg-card px-2 text-muted-foreground">
                                                 Or continue with
                                             </span>
                                         </div>
@@ -176,8 +180,8 @@ export default function Login() {
                                     <button
                                         onClick={() => handleOAuthLogin("google")}
                                         disabled={loading || !isOnline}
-                                        className="w-full px-4 py-2 bg-surface-2 border border-border/30 rounded font-medium text-foreground hover:bg-surface-3 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                                    >
+                                    className="sakura-ripple-button is-outline flex w-full items-center justify-center gap-2 px-4 py-2 font-medium disabled:opacity-50"
+                                >
                                         <Chrome size={18} />
                                         Continue with Google
                                     </button>
@@ -185,7 +189,7 @@ export default function Login() {
                             )}
 
                             {/* Demo Info */}
-                            <div className="bg-accent/10 border border-accent/30 rounded p-3 text-center">
+                            <div className="rounded-xl border border-border bg-card/45 p-3 text-center">
                                 <p className="text-sm text-muted-foreground">
                                     {isSupabaseConfigured()
                                         ? "Create account or login with Supabase"
@@ -228,13 +232,13 @@ export default function Login() {
                 </div>
 
                 {/* Offline Mode Info */}
-                <div className="mt-6 p-4 bg-surface-2 rounded border border-border/30">
+                <div className="mt-6 rounded-[var(--radius-md)] border border-border bg-card/55 p-4 backdrop-blur-[16px]">
                     <p className="text-sm text-muted-foreground">
                         <strong>💡 Tip:</strong> Skip login to use local-only mode. Your data stays private on your
                         device.
                     </p>
                     {!isOnline && (
-                        <p className="text-sm text-yellow-700 mt-2 font-medium">
+                        <p className="mt-2 text-sm font-medium text-[hsl(42_92%_74%)]">
                             📡 You're currently offline — sign in will be available when you reconnect.
                         </p>
                     )}
