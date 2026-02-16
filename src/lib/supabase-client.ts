@@ -226,6 +226,22 @@ export async function moveMediaToTier(
         if (insertError) {
             throw insertError;
         }
+
+        // Log tier move activity
+        await logActivity({
+            seriesId,
+            actionType: "tier_change",
+            mediaType: mediaType as "ANIME" | "MANGA",
+            details: { to: tierId }
+        });
+    } else {
+        // Log removal from tier
+        await logActivity({
+            seriesId,
+            actionType: "tier_change",
+            mediaType: mediaType as "ANIME" | "MANGA",
+            details: { to: null }
+        });
     }
 }
 

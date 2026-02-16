@@ -6,14 +6,16 @@ export type ActivityType =
   | "score_change"
   | "tier_change"
   | "import"
-  | "sync";
+  | "sync"
+  | "delete";
 
 export interface UserActivity {
   id: string;
   user_id: string;
+  series_id: number | null;
   media_id: string | number | null;
-  anilist_media_id: number | null;
-  type: ActivityType;
-  metadata: Record<string, any>;
+  action_type: ActivityType;
+  media_type: "ANIME" | "MANGA" | null;
+  details: Record<string, any>;
   created_at: string;
 }

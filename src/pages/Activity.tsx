@@ -1,11 +1,10 @@
 import { PageContent, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
-import { editHistory } from "@/lib/editHistory";
 import { cn } from "@/lib/utils";
-import { ActivityEvent, ActivityEventType } from "@/types/activity";
+import type { ActivityLog } from "@/lib/storage/types";
 import type { DisplayMedia } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
-import { format, formatDistanceToNow, isToday, isThisWeek } from "date-fns";
+import { format, formatDistanceToNow, isToday, isThisWeek, parseISO } from "date-fns";
 import { motion } from "framer-motion";
 import { 
   CheckCircle2, 
@@ -16,113 +15,94 @@ import {
   Star, 
   TrendingUp, 
   Trophy,
-  Zap
+  Zap,
+  XCircle,
+  PlayCircle
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-const FILTER_OPTIONS: { label: string; type: ActivityEventType | "ALL" }[] = [
+const FILTER_OPTIONS: { label: string; type: string | "ALL" }[] = [
   { label: "All", type: "ALL" },
-  { label: "Media Updates", type: "UPDATE_PROGRESS" },
-  { label: "Ratings", type: "UPDATE_SCORE" },
-  { label: "Tier Changes", type: "TIER_MOVE" },
-  { label: "Status", type: "UPDATE_STATUS" },
-  { label: "Imports", type: "IMPORT" },
-  { label: "Sync", type: "SYNC" },
+  { label: "Additions", type: "add" },
+  { label: "Progress", type: "progress" },
+  { label: "Ratings", type: "score_change" },
+  { label: "Status", type: "status_change" },
+  { label: "Tiers", type: "tier_change" },
+  { label: "Sync", type: "sync" },
 ];
 
 const Activity = () => {
-  const { user, loading, animeList, mangaList, getTitle } = useData();
-  const [activeFilter, setActiveFilter] = useState<ActivityEventType | "ALL">("ALL");
+  const { user, loading, animeList, mangaList, getTitle, activities } = useData();
+  const [activeFilter, setActiveFilter] = useState<string | "ALL">("ALL");
 
-  const timelineEvents = useMemo(() => {
-    const events: ActivityEvent[] = [];
+  const enrichedActivities = useMemo(() => {
     const allMedia = [...safeArray<DisplayMedia>(animeList), ...safeArray<DisplayMedia>(mangaList)];
-    const mediaMap = new Map(allMedia.map(m => [String(m._seriesId), m]));
+    const mediaMapBySeriesId = new Map(allMedia.map(m => [m._seriesId, m]));
+    const mediaMapByEntryId = new Map(allMedia.map(m => [String(m._entryId), m]));
 
-    // 1. Process explicit edit history
-    const history = editHistory.getRecentHistory(200);
-    history.forEach(h => {
-      const media = mediaMap.get(String(h.entryId));
-      let type: ActivityEventType = "UPDATE_PROGRESS";
-      
-      if (h.action === "create") type = "ADD_ENTRY";
-      else if (h.action === "delete") type = "DELETE_ENTRY";
-      else if (h.field === "status") type = "UPDATE_STATUS";
-      else if (h.field === "score") type = "UPDATE_SCORE";
-      else if (h.field === "tierId") type = "TIER_MOVE";
-      else if (h.field === "progress" || h.field === "progressVolumes") type = "UPDATE_PROGRESS";
+    return activities.map(activity => {
+        let media = activity.mediaId ? mediaMapByEntryId.get(String(activity.mediaId)) : null;
+        if (!media && activity.seriesId) {
+            media = mediaMapBySeriesId.get(activity.seriesId);
+        }
 
-      events.push({
-        id: h.id,
-        userId: h.userId,
-        type,
-        timestamp: h.timestamp,
-        seriesId: h.entryId,
-        media,
-        title: media ? getTitle(media) : "Unknown Title",
-        coverImage: media?.coverImage || undefined,
-        previousValue: h.oldValue,
-        newValue: h.newValue,
-        field: h.field,
-      });
+        return {
+            ...activity,
+            media,
+            title: media ? getTitle(media) : activity.details?.title || "Unknown Title",
+            coverImage: media?.coverImage || undefined,
+        };
     });
-
-    // 2. Fallback: generate events from updatedAt for items not in history (if any)
-    // To avoid duplicates, we only add if timestamp is significant and not already present
-    // For now, we trust editHistory if it's working, but let's add the basic updates too
-    // if history is empty (e.g. fresh session)
-    if (events.length < 5) {
-        allMedia.forEach(m => {
-            const ts = new Date(m.updatedAt).getTime();
-            // Check if we already have an event for this media around this time
-            const exists = events.some(e => e.seriesId === m._seriesId && Math.abs(e.timestamp - ts) < 60000);
-            if (!exists) {
-                events.push({
-                    id: `media-${m._seriesId}-${ts}`,
-                    userId: user?.id || 0,
-                    type: "UPDATE_STATUS", // Generic fallback
-                    timestamp: ts,
-                    seriesId: m._seriesId,
-                    media: m,
-                    title: getTitle(m),
-                    coverImage: m.coverImage || undefined,
-                    newValue: m.status
-                });
-            }
-        });
-    }
-
-    return events.sort((a, b) => b.timestamp - a.timestamp);
-  }, [animeList, mangaList, getTitle, user]);
+  }, [activities, animeList, mangaList, getTitle]);
 
   const filteredEvents = useMemo(() => {
-    if (activeFilter === "ALL") return timelineEvents;
-    return timelineEvents.filter(e => e.type === activeFilter);
-  }, [timelineEvents, activeFilter]);
+    if (activeFilter === "ALL") return enrichedActivities;
+    // Handle both old and new rating change names
+    if (activeFilter === "score_change") {
+        return enrichedActivities.filter(e => e.actionType === "score_change" || e.actionType === "rating_change");
+    }
+    return enrichedActivities.filter(e => e.actionType === activeFilter);
+  }, [enrichedActivities, activeFilter]);
 
-  // Stats for right panel
+  // Group by date
+  const groupedEvents = useMemo(() => {
+    const groups: Record<string, typeof filteredEvents> = {};
+    filteredEvents.forEach(event => {
+        try {
+            const dateKey = format(parseISO(event.createdAt), "yyyy-MM-dd");
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(event);
+        } catch (e) {
+            console.error("Failed to parse date for activity", event);
+        }
+    });
+    return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+  }, [filteredEvents]);
+
+  // Insights for right panel
   const insights = useMemo(() => {
-    const today = timelineEvents.filter(e => isToday(e.timestamp));
-    const week = timelineEvents.filter(e => isThisWeek(e.timestamp));
+    const today = activities.filter(e => isToday(parseISO(e.createdAt)));
+    const week = activities.filter(e => isThisWeek(parseISO(e.createdAt)));
     
-    // Most edited title
     const counts: Record<string, { title: string; count: number }> = {};
-    timelineEvents.forEach(e => {
-        const id = String(e.seriesId);
-        if (!counts[id]) counts[id] = { title: e.title || "Unknown", count: 0 };
+    activities.forEach(e => {
+        const id = String(e.seriesId || e.mediaId);
+        if (id === "undefined") return;
+        const title = e.details?.title || "Unknown";
+        if (!counts[id]) counts[id] = { title, count: 0 };
         counts[id].count++;
     });
     const mostEdited = Object.values(counts).sort((a, b) => b.count - a.count)[0];
 
     return {
       todayCount: today.length,
-      todayRatings: today.filter(e => e.type === "UPDATE_SCORE").length,
-      todayUpdates: today.filter(e => e.type === "UPDATE_PROGRESS" || e.type === "UPDATE_STATUS").length,
-      todayTiers: today.filter(e => e.type === "TIER_MOVE").length,
+      todayRatings: today.filter(e => e.actionType === "score_change" || e.actionType === "rating_change").length,
+      todayUpdates: today.filter(e => e.actionType === "progress" || e.actionType === "status_change").length,
+      todayTiers: today.filter(e => e.actionType === "tier_change" || e.actionType === "tier_move").length,
       weekCount: week.length,
       mostEditedTitle: mostEdited?.title || "N/A"
     };
-  }, [timelineEvents]);
+  }, [activities]);
 
   if (loading || !user) {
     return (
@@ -135,7 +115,6 @@ const Activity = () => {
   return (
     <PageWrapper>
       <PageContent className="space-y-8 animate-fade-in">
-        {/* Header */}
         <div className="page-container">
           <section className="space-y-2">
             <div className="flex items-center gap-3">
@@ -152,9 +131,7 @@ const Activity = () => {
 
         <div className="page-container">
           <div className="grid grid-cols-12 gap-8">
-            {/* Main Feed */}
             <div className="col-span-12 xl:col-span-8 space-y-8">
-              {/* Filter Bar */}
               <div className="flex flex-wrap gap-3 bg-card/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 shadow-depth1">
                 {FILTER_OPTIONS.map(opt => (
                   <button
@@ -172,51 +149,45 @@ const Activity = () => {
                 ))}
               </div>
 
-              {/* Timeline Feed */}
               <div className="relative">
-                {/* Timeline vertical line */}
-                <div className="absolute left-4 md:left-4 top-0 bottom-0 w-px bg-gradient-to-b from-primary/40 via-primary/10 to-transparent" />
+                <div className="absolute left-4 top-0 bottom-0 w-px bg-gradient-to-b from-primary/40 via-primary/10 to-transparent" />
 
                 <div className="space-y-12 pl-10 md:pl-12">
-                  {filteredEvents.length === 0 ? (
+                  {activities.length === 0 ? (
                     <div className="sakura-glass p-10 text-center space-y-3">
                       <Zap className="h-10 w-10 text-white/10 mx-auto" />
-                      <p className="text-white/30 uppercase tracking-widest text-xs font-bold">No activity detected in current frequency.</p>
+                      <p className="text-white/30 uppercase tracking-widest text-xs font-bold">No activity history detected.</p>
+                    </div>
+                  ) : filteredEvents.length === 0 ? (
+                    <div className="p-10 text-center">
+                        <p className="text-white/20 uppercase tracking-widest text-xs font-bold">No events match filter.</p>
                     </div>
                   ) : (
-                    (() => {
-                      let lastDate = "";
-                      return filteredEvents.map((event, idx) => {
-                        const currentDate = format(event.timestamp, "MMMM do, yyyy");
-                        const showDate = currentDate !== lastDate;
-                        lastDate = currentDate;
-
-                        return (
-                          <div key={event.id} className="space-y-6">
-                            {showDate && (
-                              <div className="relative -ml-10 md:-ml-12 mb-8">
-                                <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md">
-                                  <History className="h-3 w-3 text-primary" />
-                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{currentDate}</span>
-                                </div>
-                              </div>
-                            )}
-                            <ActivityItem event={event} />
+                    groupedEvents.map(([date, events]) => (
+                      <div key={date} className="space-y-8">
+                        <div className="relative -ml-10 md:-ml-12">
+                          <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md">
+                            <History className="h-3 w-3 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                                {format(parseISO(date), "MMMM do, yyyy")}
+                            </span>
                           </div>
-                        );
-                      });
-                    })()
+                        </div>
+                        {events.map((event) => (
+                          <ActivityItem key={String(event.id)} event={event} />
+                        ))}
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Right Sidebar */}
             <div className="col-span-12 xl:col-span-4 space-y-6">
-              <div className="sakura-glass p-6 space-y-6 shadow-depth2">
+              <div className="sakura-glass p-6 space-y-6 shadow-depth2 sticky top-24">
                  <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Activity Insights</h3>
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Insights</h3>
                  </div>
 
                  <div className="space-y-4">
@@ -225,7 +196,7 @@ const Activity = () => {
                         items={[
                             { label: "updates", value: insights.todayUpdates, icon: RefreshCw },
                             { label: "ratings", value: insights.todayRatings, icon: Star },
-                            { label: "tier changes", value: insights.todayTiers, icon: Layers }
+                            { label: "tiers", value: insights.todayTiers, icon: Layers }
                         ]}
                     />
 
@@ -239,23 +210,22 @@ const Activity = () => {
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2">
                         <div className="flex items-center gap-2 text-white/40">
                             <Trophy className="h-3 w-3" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Most Edited</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest">Hot Topic</span>
                         </div>
                         <p className="text-sm font-bold text-white truncate">{insights.mostEditedTitle}</p>
                     </div>
                  </div>
-              </div>
 
-              {/* Realtime Pulse Indicator */}
-              <div className="sakura-glass p-6 flex items-center justify-between border-primary/20 bg-primary/5">
-                <div className="flex items-center gap-3">
-                   <div className="relative">
-                      <div className="h-2 w-2 rounded-full bg-primary animate-ping absolute inset-0" />
-                      <div className="h-2 w-2 rounded-full bg-primary relative" />
-                   </div>
-                   <span className="text-[10px] font-black uppercase tracking-widest text-white/80">Frequency Sync Active</span>
+                 <div className="sakura-glass p-6 flex items-center justify-between border-primary/20 bg-primary/5 rounded-2xl">
+                    <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <div className="h-2 w-2 rounded-full bg-primary animate-ping absolute inset-0" />
+                        <div className="h-2 w-2 rounded-full bg-primary relative" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/80">Real-time Pulse</span>
+                    </div>
+                    <CheckCircle2 className="h-4 w-4 text-primary/50" />
                 </div>
-                <CheckCircle2 className="h-4 w-4 text-primary/50" />
               </div>
             </div>
           </div>
@@ -265,26 +235,39 @@ const Activity = () => {
   );
 };
 
-const ActivityItem = ({ event }: { event: ActivityEvent }) => {
+const ActivityItem = ({ event }: { event: any }) => {
   const getEventDescription = () => {
-    switch (event.type) {
-      case "ADD_ENTRY": return "Added to vault";
-      case "UPDATE_STATUS": return `Changed status to ${event.newValue}`;
-      case "UPDATE_SCORE": return `Rated ${event.newValue}/100`;
-      case "UPDATE_PROGRESS": return `Updated progress to ${event.newValue}`;
-      case "TIER_MOVE": return `Moved to ${event.newValue} Tier`;
-      case "IMPORT": return "Imported from external source";
-      case "SYNC": return "Synchronized with cloud";
-      default: return "Updated entry";
+    const details = event.details || {};
+    switch (event.actionType) {
+      case "add": return "Identified and added";
+      case "status_change": return `Transitioned to ${details.to}`;
+      case "complete": return "Protocol completed";
+      case "score_change": 
+      case "rating_change":
+        return `Calibration set to ${details.to}%`;
+      case "progress": 
+        return `Frequency updated to ${details.to}`;
+      case "tier_change":
+      case "tier_move": 
+        return `Classification moved to ${details.to || 'Pool'}`;
+      case "drop": return "Subject decommissioned";
+      case "delete": return "Entry purged from vault";
+      default: return "Archive modification";
     }
   };
 
   const getEventIcon = () => {
-    switch (event.type) {
-        case "ADD_ENTRY": return PlusCircle;
-        case "UPDATE_SCORE": return Star;
-        case "TIER_MOVE": return Layers;
-        case "SYNC": return RefreshCw;
+    switch (event.actionType) {
+        case "add": return PlusCircle;
+        case "score_change":
+        case "rating_change":
+            return Star;
+        case "tier_change":
+        case "tier_move":
+            return Layers;
+        case "delete": return XCircle;
+        case "progress": return PlayCircle;
+        case "complete": return CheckCircle2;
         default: return CheckCircle2;
     }
   };
@@ -298,7 +281,6 @@ const ActivityItem = ({ event }: { event: ActivityEvent }) => {
       viewport={{ once: true }}
       className="relative group"
     >
-      {/* Timeline Dot */}
       <div className="absolute -left-[37px] top-6 h-3 w-3 rounded-full bg-primary shadow-glow group-hover:scale-125 transition-transform" />
 
       <div className="relative rounded-2xl border border-white/5 bg-gradient-to-br from-white/10 to-white/[0.02] backdrop-blur-md p-5 transition-all hover:border-primary/40 hover:shadow-[0_0_30px_hsl(var(--primary)/0.15)]">
@@ -310,7 +292,7 @@ const ActivityItem = ({ event }: { event: ActivityEvent }) => {
                 className="w-14 h-20 rounded-lg object-cover shadow-depth1 ring-1 ring-white/10" 
             />
           ) : (
-            <div className="w-14 h-20 rounded-lg bg-white/5 flex items-center justify-center">
+            <div className="w-14 h-20 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
                 <Icon className="h-6 w-6 text-white/10" />
             </div>
           )}
@@ -318,10 +300,10 @@ const ActivityItem = ({ event }: { event: ActivityEvent }) => {
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center justify-between gap-4">
                 <span className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-                    {formatDistanceToNow(event.timestamp, { addSuffix: true })}
+                    {formatDistanceToNow(parseISO(event.createdAt), { addSuffix: true })}
                 </span>
                 <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">
-                    {format(event.timestamp, "HH:mm")}
+                    {format(parseISO(event.createdAt), "HH:mm")}
                 </span>
             </div>
 
@@ -336,15 +318,17 @@ const ActivityItem = ({ event }: { event: ActivityEvent }) => {
                     <span className="text-[9px] font-bold text-white/50 uppercase tracking-tighter">{event.media.status}</span>
                 </div>
               )}
-              {event.media?.score > 0 && (
+              {(event.media?.score > 0 || (event.actionType === 'score_change' && event.details?.to)) && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
                     <Star className="h-2 w-2 text-primary" />
-                    <span className="text-[9px] font-black text-primary uppercase tracking-tighter">{event.media.score}%</span>
+                    <span className="text-[9px] font-black text-primary uppercase tracking-tighter">
+                        {event.details?.to || event.media?.score}%
+                    </span>
                 </div>
               )}
-              {event.media?.format && (
+              {event.mediaType && (
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
-                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">{event.media.format}</span>
+                    <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">{event.mediaType}</span>
                 </div>
               )}
             </div>

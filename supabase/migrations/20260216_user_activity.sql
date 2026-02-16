@@ -10,7 +10,7 @@ create table if not exists user_activity (
   media_id text, -- UUID or ID from vault
 
   action_type text not null, 
-  -- "add", "progress", "status_change", "tier_move", "rating_change", "import", "sync"
+  -- "add", "progress", "complete", "drop", "score_change", "tier_change"
 
   media_type text, -- "ANIME", "MANGA"
 

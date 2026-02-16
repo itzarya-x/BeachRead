@@ -737,8 +737,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             // TASK 6 & 7: Update Zustand store (triggers stats invalidation)
             const { addEntry: storeAddEntry } = getMediaStoreState();
             storeAddEntry(finalEntry);
+
+            // LOG ACTIVITY
+            logActivity({
+                seriesId: entry._seriesId,
+                mediaId: finalId,
+                actionType: "add",
+                mediaType: entry.mediaType,
+                details: { title: getTitle(finalEntry) }
+            });
         },
-        [user, userEdits, animeList, mangaList],
+        [user, userEdits, animeList, mangaList, getTitle],
     );
 
     // TASK 2: Resolve duplicate
@@ -1011,15 +1020,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 const mediaType = existingEntry.mediaType;
 
                 if (field === "progress" || field === "progressVolumes") {
-                    storage.logActivity({ seriesId, actionType: "progress", mediaType, details: { from: oldVal, to: newVal } });
+                    logActivity({ seriesId, actionType: "progress", mediaType, details: { from: oldVal, to: newVal }, mediaId: entryId });
                 } else if (field === "status" && newVal === "COMPLETED") {
-                    storage.logActivity({ seriesId, actionType: "complete", mediaType, details: { title: getTitle(existingEntry) } });
+                    logActivity({ seriesId, actionType: "complete", mediaType, details: { title: getTitle(existingEntry) }, mediaId: entryId });
+                } else if (field === "status" && newVal === "DROPPED") {
+                    logActivity({ seriesId, actionType: "drop", mediaType, details: { title: getTitle(existingEntry) }, mediaId: entryId });
                 } else if (field === "status") {
-                    storage.logActivity({ seriesId, actionType: "status_change", mediaType, details: { from: oldVal, to: newVal } });
+                    logActivity({ seriesId, actionType: "status_change", mediaType, details: { from: oldVal, to: newVal }, mediaId: entryId });
                 } else if (field === "tierId") {
-                    storage.logActivity({ seriesId, actionType: "tier_move", mediaType, details: { from: oldVal, to: newVal } });
+                    logActivity({ seriesId, actionType: "tier_change", mediaType, details: { from: oldVal, to: newVal }, mediaId: entryId });
                 } else if (field === "score") {
-                    storage.logActivity({ seriesId, actionType: "rating_change", mediaType, details: { from: oldVal, to: newVal } });
+                    logActivity({ seriesId, actionType: "score_change", mediaType, details: { from: oldVal, to: newVal }, mediaId: entryId });
                 }
             });
 
@@ -1112,6 +1123,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const { deleteEntry: storeDeleteEntry } = getMediaStoreState();
             storeDeleteEntry(entryId);
 
+            // LOG ACTIVITY
+            if (existingEntry) {
+                logActivity({
+                    seriesId: existingEntry._seriesId,
+                    mediaId: entryId,
+                    actionType: "delete",
+                    mediaType: existingEntry.mediaType,
+                    details: { title: getTitle(existingEntry) }
+                });
+            }
+
             // Update user edits map
             setUserEdits(prev => {
                 const newMap = new Map(prev);
@@ -1193,7 +1215,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             importAnilistGdpr,
             duplicateCheck,
             resolveDuplicate,
-            getActivities,
+            activities,
         }),
         [
             loading,
@@ -1218,7 +1240,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             importAnilistGdpr,
             duplicateCheck,
             resolveDuplicate,
-            getActivities,
+            activities,
         ],
     );
 
