@@ -8,6 +8,7 @@ import { DataLog, displayStorageStatus, updateStorageMode } from "@/lib/storage-
 import { CloudStorageProvider } from "@/lib/storage/cloud";
 import type { ActivityLog, UserEntry } from "@/lib/storage/types";
 import { dbClearAllLocalTierData, dbGetAllLocalAssignments, dbGetAllLocalTiers, getAllTierBoards as dbGetAllTierBoards } from "@/lib/tierDatabase";
+import { getActivities, logActivity, supabase } from "@/lib/supabase-client";
 import { getMediaStoreState, useMediaStore } from "@/store/mediaStore";
 import type { DisplayMedia, DisplayUser, MediaStatus, MediaType } from "@/types/display";
 import type { GdprData } from "@/types/gdpr";
@@ -56,7 +57,7 @@ interface DataContextValue {
     // DUPLICATE DETECTION
     duplicateCheck: DuplicateCheck | null;
     resolveDuplicate: (action: "view" | "update" | "cancel") => Promise<void>;
-    getActivities: () => Promise<ActivityLog[]>;
+    activities: ActivityLog[];
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -77,12 +78,53 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [error, setError] = useState<string | null>(null);
     const [storageMode, setStorageMode] = useState<"cloud" | "local">("local");
     const [duplicateCheck, setDuplicateCheck] = useState<DuplicateCheck | null>(null);
+    const [activities, setActivities] = useState<ActivityLog[]>([]);
 
     // Get authenticated user from AuthContext
     const { user: authUser } = useAuth();
 
     // TASK 6 & 7: Use Zustand store for reactive state
     const { animeList, mangaList, setAnimeList, setMangaList } = useMediaStore();
+
+    // Real-time activity subscription
+    useEffect(() => {
+        if (!supabase || !authUser?.id) return;
+
+        const channel = supabase
+            .channel("activity-realtime")
+            .on(
+                "postgres_changes",
+                {
+                    event: "INSERT",
+                    schema: "public",
+                    table: "user_activity",
+                    filter: `user_id=eq.${authUser.id}`
+                },
+                payload => {
+                    const newActivity = {
+                        id: payload.new.id,
+                        userId: payload.new.user_id,
+                        seriesId: payload.new.series_id,
+                        mediaId: payload.new.media_id,
+                        actionType: payload.new.action_type,
+                        mediaType: payload.new.media_type,
+                        details: payload.new.details,
+                        createdAt: payload.new.created_at
+                    } as ActivityLog;
+
+                    setActivities(prev => {
+                        // Avoid duplicates
+                        if (prev.some(a => a.id === newActivity.id)) return prev;
+                        return [newActivity, ...prev];
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [authUser?.id]);
 
     // TASK 2 & 3: Load and parse GDPR data with Storage Provider integration
     // Also switches storage provider based on authentication status
@@ -274,6 +316,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         scoreDistribution: { anime: [], manga: [] },
                         favourites: { anime: [], manga: [], characters: [], staff: [], studios: [] }
                     });
+
+                    // Fetch activities
+                    try {
+                        const history = await getActivities();
+                        setActivities(history);
+                    } catch (err) {
+                        console.error("[BOOT] Failed to fetch activities:", err);
+                    }
 
                     setLoading(false);
 
@@ -817,52 +867,88 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const importAnilistGdpr = useCallback(
         async (data: GdprData, onProgress?: (current: number, total: number) => void) => {
-            if (!user) throw new Error("User session required for import");
+            if (!user || !authUser) throw new Error("User session required for import");
 
-            const { animeEntries, mangaEntries } = parseGdprData(data);
+            const { animeEntries, mangaEntries, user: gdprUser } = parseGdprData(data);
             const allEntries = [...animeEntries, ...mangaEntries];
             const total = allEntries.length;
-            let current = 0;
-
             const storage = getStorageProvider();
 
-            console.log(`%c[IMPORT] Starting import of ${total} entries...`, "color: #1c7ed6; font-weight: bold;");
+            console.log(`%c[IMPORT] Starting lossless import of ${total} entries...`, "color: #1c7ed6; font-weight: bold;");
 
-            const userEntries: UserEntry[] = allEntries.map(entry => ({
-                entryId: entry._entryId,
-                seriesId: entry._seriesId,
-                userId: user.id || 0,
-                data: {
-                    mediaType: entry.mediaType,
-                    status: entry.status,
-                    score: entry.score,
-                    progress: entry.progress,
-                    progressVolumes: entry.progressVolumes,
-                    repeat: entry.repeat,
-                    priority: entry.priority,
-                    tierId: entry.tierId,
-                    isPrivate: entry.isPrivate,
-                    notes: entry.notes,
-                    customLists: entry.customLists,
-                    startedAt: entry.startedAt,
-                    completedAt: entry.completedAt,
-                    advancedScores: entry.advancedScores,
-                    hiddenDefault: entry.hiddenDefault,
-                },
-                editedAt: Date.now(),
-                deleted: false,
-            }));
+            if (storageMode === "cloud" && storage instanceof CloudStorageProvider) {
+                // CLOUD FIRST RULE: Write directly to Supabase
+                
+                // 1. Profile Snapshot
+                await storage.saveProfileSnapshot(data.user);
 
-            // Use batch save for much better performance
-            await storage.saveUserEntries(userEntries);
-            onProgress?.(total, total);
+                // 2. Favorites
+                if (data.favourites) {
+                    await storage.saveFavorites(data.favourites);
+                }
+
+                // 3. Media Entries (Upsert)
+                const mediaBatch = allEntries.map(entry => {
+                    const type = entry.mediaType;
+                    // originType mapping logic already in parseGdprData -> parseListEntry -> mapCountryToOriginType
+                    return {
+                        user_id: authUser.id,
+                        series_id: entry._seriesId,
+                        media_type: type,
+                        data: {
+                            ...entry,
+                            mediaType: type,
+                        },
+                        edited_at: new Date().toISOString(),
+                        deleted: false,
+                        updated_at: new Date().toISOString()
+                    };
+                });
+
+                await storage.upsertMediaBatch(mediaBatch);
+                
+                // 4. Activity History (if available in GDPR)
+                // Note: current activity Table is separate from media entries. 
+                // Activity in activity_log table.
+                
+                onProgress?.(total, total);
+            } else {
+                // LOCAL MODE: Use existing logic
+                const userEntries: UserEntry[] = allEntries.map(entry => ({
+                    entryId: entry._entryId,
+                    seriesId: entry._seriesId,
+                    userId: user.id || 0,
+                    data: {
+                        mediaType: entry.mediaType,
+                        status: entry.status,
+                        score: entry.score,
+                        progress: entry.progress,
+                        progressVolumes: entry.progress_volume,
+                        repeat: entry.repeat,
+                        priority: entry.priority,
+                        tierId: entry.tierId,
+                        isPrivate: entry.isPrivate,
+                        notes: entry.notes,
+                        customLists: entry.customLists,
+                        startedAt: entry.startedAt,
+                        completedAt: entry.completedAt,
+                        advancedScores: entry.advancedScores,
+                        hiddenDefault: entry.hiddenDefault,
+                    },
+                    edited_at: Date.now(),
+                    deleted: false,
+                }));
+
+                await storage.saveUserEntries(userEntries);
+                onProgress?.(total, total);
+            }
 
             console.log("%c[IMPORT] Import finished successfully", "color: #51cf66; font-weight: bold;");
             
             // Trigger a reload to refresh the UI with new data
             window.location.reload();
         },
-        [user],
+        [user, authUser, storageMode],
     );
 
     // TASK 4: Update entry

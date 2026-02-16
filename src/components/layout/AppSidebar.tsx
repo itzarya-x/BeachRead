@@ -14,7 +14,7 @@ import {
     Trophy,
     Tv
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 interface AppSidebarProps {
@@ -62,6 +62,19 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
     const location = useLocation();
     const [collapsed, setCollapsed] = useState(isCollapsed);
 
+    // Tablet Auto-Collapse Logic (md to lg)
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 768 && window.innerWidth < 1024) {
+                setCollapsed(true);
+                onCollapsedChange?.(true);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [onCollapsedChange]);
+
     const handleToggleCollapse = () => {
         const newState = !collapsed;
         setCollapsed(newState);
@@ -71,14 +84,14 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
     return (
         <aside
             className={cn(
-                "sakura-glass fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-sidebar-border/80 bg-sidebar/85 backdrop-blur-[20px] transition-all duration-300",
-                "hidden md:flex", // Hide on mobile
-                collapsed ? "w-20" : "w-72",
+                "sidebar flex min-h-screen flex-col shrink-0 transition-all duration-300",
+                "hidden md:flex", // HIDE ON MOBILE
+                collapsed ? "w-20" : "w-[260px]",
             )}
             style={{ transitionTimingFunction: "cubic-bezier(0.23,1,0.32,1)" }}
         >
             {/* Header */}
-            <div className={cn("flex h-20 items-center justify-between border-b border-sidebar-border", collapsed ? "px-4" : "px-6")}>
+            <div className={cn("flex h-20 items-center justify-between", collapsed ? "px-4" : "px-6")}>
                 {!collapsed && (
                     <Link to="/" className="flex items-center gap-3 group">
                         <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-primary/30 bg-primary text-primary-foreground shadow-[0_0_20px_-12px_hsl(var(--primary)/0.95)] transition-transform duration-200 group-hover:scale-105">
@@ -132,7 +145,7 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                                         {isActive && (
                                             <motion.div 
                                                 layoutId="sidebar-pill"
-                                                className="absolute left-0 h-8 w-1 rounded-r-full bg-primary"
+                                                className="absolute left-0 h-8 w-1 rounded-full bg-primary"
                                             />
                                         )}
 
@@ -158,7 +171,7 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
             </nav>
 
             {/* Footer */}
-            <div className="sakura-glass border-t border-sidebar-border/80 bg-card/45 p-4 backdrop-blur-[18px]">
+            <div className="bg-card/25 p-4 backdrop-blur-[18px]">
                 <div className="space-y-4">
                     {/* Account Block */}
                     <SidebarAccountBlock collapsed={collapsed} />

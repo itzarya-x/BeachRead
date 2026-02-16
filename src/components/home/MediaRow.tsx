@@ -45,44 +45,44 @@ export function MediaRow({ title, icon: Icon, count, children, className }: Medi
     };
 
     return (
-        <section className={cn("relative group/row space-y-5", className)}>
-            <div className="section-header flex items-end justify-between px-6 lg:px-14">
+        <section className={cn("relative group/row space-y-4 md:space-y-6", className)}>
+            <div className="section-header flex items-end justify-between px-2">
                 <div className="space-y-1">
-                    <h2 className="flex items-center gap-3 text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-                        {Icon && <Icon className="w-5 h-5 md:w-6 md:h-6 text-primary/90" />}
+                    <h2 className="flex items-center gap-3 md:gap-4 text-xl md:text-3xl font-black tracking-tighter text-foreground uppercase">
+                        {Icon && <Icon className="w-5 h-5 md:w-6 md:h-6 text-primary" />}
                         {title}
                         {count !== undefined && (
-                            <span className="ml-2 text-[11px] font-semibold text-muted-foreground">
-                                / {count}
+                            <span className="ml-2 text-[9px] md:text-[10px] font-bold text-white/20 tracking-widest">
+                                [{count}]
                             </span>
                         )}
                     </h2>
                 </div>
                 
-                <div className="flex gap-2 opacity-0 group-hover/row:opacity-100 transition-opacity duration-300 pb-1">
+                <div className="hidden md:flex gap-3 opacity-0 group-hover/row:opacity-100 transition-opacity duration-500 pb-1">
                     <button
                         onClick={() => scroll("left")}
                         disabled={!canScrollLeft}
                         className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card transition-all",
+                            "flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/5 transition-all",
                             canScrollLeft
-                                ? "text-foreground hover:scale-105 hover:border-primary/30 hover:bg-accent hover:text-primary"
-                                : "cursor-default text-muted-foreground/50",
+                                ? "text-white/70 hover:scale-105 hover:border-primary/30 hover:bg-white/10 hover:text-primary"
+                                : "cursor-default text-white/10",
                         )}
                     >
-                        <ChevronLeft className="w-5 h-5" />
+                        <ChevronLeft className="w-6 h-6" />
                     </button>
                     <button
                         onClick={() => scroll("right")}
                         disabled={!canScrollRight}
                         className={cn(
-                            "flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card transition-all",
+                            "flex h-12 w-12 items-center justify-center rounded-2xl border border-white/5 bg-white/5 transition-all",
                             canScrollRight
-                                ? "text-foreground hover:scale-105 hover:border-primary/30 hover:bg-accent hover:text-primary"
-                                : "cursor-default text-muted-foreground/50",
+                                ? "text-white/70 hover:scale-105 hover:border-primary/30 hover:bg-white/10 hover:text-primary"
+                                : "cursor-default text-white/10",
                         )}
                     >
-                        <ChevronRight className="w-5 h-5" />
+                        <ChevronRight className="w-6 h-6" />
                     </button>
                 </div>
             </div>
@@ -91,20 +91,20 @@ export function MediaRow({ title, icon: Icon, count, children, className }: Medi
                 {/* Horizontal Fade Edges (Task 6) */}
                 <div 
                     className={cn(
-                        "absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-500",
+                        "absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none transition-opacity duration-700",
                         canScrollLeft ? "opacity-100" : "opacity-0"
                     )} 
                 />
                 <div 
                     className={cn(
-                        "absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-500",
+                        "absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none transition-opacity duration-700",
                         canScrollRight ? "opacity-100" : "opacity-0"
                     )} 
                 />
 
                 <div 
                     ref={scrollRef} 
-                    className="flex gap-5 overflow-x-auto scroll-smooth pb-8 hide-scrollbar px-6 lg:px-14 snap-x snap-mandatory"
+                    className="flex gap-4 md:gap-6 overflow-x-auto scroll-smooth pb-6 md:pb-10 touch-scroll snap-x snap-mandatory px-2 md:px-0"
                 >
                     {children}
                 </div>

@@ -9,12 +9,20 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="sakura-app-shell flex min-h-screen items-center justify-center">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="sakura-glass p-12 text-center max-w-sm w-full space-y-6 shadow-depth3 border-destructive/20 bg-destructive/5">
+        <h1 className="text-7xl font-black tracking-tighter text-destructive uppercase leading-none">404</h1>
+        <div className="space-y-1">
+            <p className="text-sm font-black uppercase tracking-[0.2em] text-foreground">Sector Missing</p>
+            <p className="text-[10px] text-white/40 uppercase tracking-widest leading-relaxed">
+                The requested data fragment does not exist in the current vault.
+            </p>
+        </div>
+        <a 
+            href="/" 
+            className="sakura-ripple-button is-default inline-flex h-11 px-8 items-center justify-center font-black uppercase tracking-widest text-[10px]"
+        >
+          Reset to Hub
         </a>
       </div>
     </div>

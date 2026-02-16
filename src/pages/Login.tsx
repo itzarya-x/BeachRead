@@ -64,29 +64,24 @@ export default function Login() {
     };
 
     return (
-        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[12%] top-0 h-64 w-64 rounded-full bg-primary/14 blur-3xl" />
-                <div className="absolute bottom-0 right-[10%] h-72 w-72 rounded-full bg-[hsl(274_72%_72%_/_0.22)] blur-3xl" />
-            </div>
-            <div className="w-full max-w-md">
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-8">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-primary mb-2">Yura</h1>
-                    <p className="text-muted-foreground">Your anime & manga vault</p>
+                <div className="text-center space-y-2">
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase">Yura</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Neural Hub Access</p>
                 </div>
 
-                {/* Card */}
-                <div className="space-y-6 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
+                {/* Main Bento Card */}
+                <div className="sakura-glass p-8 space-y-8 shadow-depth3">
                     {/* Offline Message */}
                     {!isOnline && (
-                        <div className="flex gap-3 rounded-xl border border-[hsl(42_92%_70%_/_0.35)] bg-[hsl(38_64%_20%_/_0.48)] p-4">
-                            <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(42_92%_70%)]" />
+                        <div className="flex gap-4 rounded-2xl border border-warning/20 bg-warning/5 p-5 animate-pulse">
+                            <WifiOff className="h-5 w-5 shrink-0 text-warning" />
                             <div>
-                                <p className="text-sm font-medium text-[hsl(42_92%_80%)]">You are offline</p>
-                                <p className="mt-1 text-xs text-[hsl(42_64%_75%)]">
-                                    Internet is required to sign in. Your local vault remains available — all your data
-                                    is safe.
+                                <p className="text-xs font-bold uppercase tracking-widest text-warning">System Offline</p>
+                                <p className="mt-1 text-[10px] text-white/50 leading-relaxed">
+                                    Cloud synchronisation suspended. Local vault remains accessible.
                                 </p>
                             </div>
                         </div>
@@ -94,58 +89,56 @@ export default function Login() {
 
                     {/* Magic Link Sent Message */}
                     {magicLinkSent && (
-                        <div className="rounded-xl border border-primary/30 bg-primary/15 p-3">
-                            <p className="text-sm font-medium text-[hsl(var(--sakura-soft))]">✓ Check your email for login link</p>
-                            <p className="text-muted-foreground text-xs mt-1">We sent a magic link to {email}</p>
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 space-y-2">
+                            <p className="text-xs font-bold uppercase tracking-widest text-primary">Verification Transmitted</p>
+                            <p className="text-[10px] text-white/50">Access fragment sent to: <span className="text-white/80">{email}</span></p>
                         </div>
                     )}
 
                     {/* Error Message */}
                     {(error || localError) && (
-                        <div className="rounded-xl border border-destructive/35 bg-destructive/20 p-3">
-                            <p className="text-destructive text-sm">{error || localError}</p>
+                        <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4">
+                            <p className="text-destructive text-[10px] font-bold uppercase tracking-widest text-center">{error || localError}</p>
                         </div>
                     )}
 
                     {!magicLinkSent ? (
                         <>
                             {/* Email/Password or Magic Link Form */}
-                            <form onSubmit={handleEmailLogin} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+                            <form onSubmit={handleEmailLogin} className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Identity (Email)</label>
                                     <input
                                         type="email"
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}
-                                        placeholder="you@example.com"
+                                        placeholder="user@neural.link"
                                         disabled={loading}
-                                        className="sakura-input w-full rounded border border-border bg-input px-4 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                                        className="sakura-input h-12 w-full px-4 text-sm focus-visible:ring-primary/20"
                                     />
                                 </div>
 
                                 {!useMagicLink && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-foreground mb-2">
-                                            Password
-                                        </label>
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Key (Password)</label>
                                         <input
                                             type="password"
                                             value={password}
                                             onChange={e => setPassword(e.target.value)}
                                             placeholder="••••••••"
                                             disabled={loading}
-                                        className="sakura-input w-full rounded border border-border bg-input px-4 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
-                                    />
+                                            className="sakura-input h-12 w-full px-4 text-sm focus-visible:ring-primary/20"
+                                        />
                                     </div>
                                 )}
 
                                 <button
                                     type="submit"
                                     disabled={loading || !isOnline}
-                                    className="sakura-ripple-button is-default flex w-full items-center justify-center gap-2 px-4 py-2 font-medium disabled:opacity-50"
+                                    className="sakura-ripple-button is-default h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
                                 >
-                                    <Mail size={18} />
-                                    {loading ? "Sending..." : useMagicLink ? "Send Magic Link" : "Login with Email"}
+                                    <Mail size={16} />
+                                    {loading ? "Transmitting…" : useMagicLink ? "Request Link" : "Establish Link"}
                                 </button>
                             </form>
 
@@ -157,56 +150,39 @@ export default function Login() {
                                         setPassword("");
                                         setLocalError("");
                                     }}
-                                    className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+                                    className="w-full text-[9px] font-bold uppercase tracking-widest text-white/30 hover:text-primary transition-colors"
                                 >
-                                    {useMagicLink ? "Use password instead" : "Use magic link instead"}
+                                    {useMagicLink ? "Switch to primary key" : "Request ephemeral link"}
                                 </button>
                             )}
 
                             {/* Divider */}
                             {isSupabaseConfigured() && (
-                                <>
-                                    <div className="relative">
-                                        <div className="absolute inset-0 flex items-center">
-                                            <div className="w-full border-t border-border/30" />
-                                        </div>
-                                        <div className="relative flex justify-center text-sm">
-                                            <span className="bg-card px-2 text-muted-foreground">
-                                                Or continue with
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={() => handleOAuthLogin("google")}
-                                        disabled={loading || !isOnline}
-                                    className="sakura-ripple-button is-outline flex w-full items-center justify-center gap-2 px-4 py-2 font-medium disabled:opacity-50"
-                                >
-                                        <Chrome size={18} />
-                                        Continue with Google
-                                    </button>
-                                </>
+                                <div className="flex items-center gap-4 py-2">
+                                    <div className="h-px flex-1 bg-white/5" />
+                                    <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">Third Party</span>
+                                    <div className="h-px flex-1 bg-white/5" />
+                                </div>
                             )}
 
-                            {/* Demo Info */}
-                            <div className="rounded-xl border border-border bg-card/45 p-3 text-center">
-                                <p className="text-sm text-muted-foreground">
-                                    {isSupabaseConfigured()
-                                        ? "Create account or login with Supabase"
-                                        : "Demo: Any email works (offline mode)"}
-                                </p>
-                            </div>
+                            {isSupabaseConfigured() && (
+                                <button
+                                    onClick={() => handleOAuthLogin("google")}
+                                    disabled={loading || !isOnline}
+                                    className="sakura-ripple-button is-outline h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
+                                >
+                                    <Chrome size={16} />
+                                    Google OAuth
+                                </button>
+                            )}
                         </>
                     ) : (
-                        <div className="text-center space-y-4">
-                            <div className="text-3xl">📧</div>
-                            <div>
-                                <p className="text-foreground font-medium">Check your email</p>
-                                <p className="text-muted-foreground text-sm mt-1">
-                                    We sent a login link to <strong>{email}</strong>
-                                </p>
-                                <p className="text-muted-foreground text-xs mt-2">
-                                    Click the link to login and sync your data
+                        <div className="text-center space-y-6 py-4">
+                            <div className="text-5xl animate-pulse text-primary">📧</div>
+                            <div className="space-y-2">
+                                <p className="text-sm font-black uppercase tracking-[0.2em]">Transmission Successful</p>
+                                <p className="text-xs text-white/40 leading-relaxed">
+                                    Verify your identity via the secure link sent to your terminal.
                                 </p>
                             </div>
                             <button
@@ -215,33 +191,23 @@ export default function Login() {
                                     setEmail("");
                                     setLocalError("");
                                 }}
-                                className="text-sm text-primary hover:underline"
+                                className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline"
                             >
-                                Back to login
+                                Return to Access Point
                             </button>
                         </div>
                     )}
-
-                    {/* Terms */}
-                    <p className="text-xs text-muted-foreground text-center">
-                        By logging in, you agree to our{" "}
-                        <a href="#" className="text-primary hover:underline">
-                            Terms of Service
-                        </a>
-                    </p>
                 </div>
 
-                {/* Offline Mode Info */}
-                <div className="mt-6 rounded-[var(--radius-md)] border border-border bg-card/55 p-4 backdrop-blur-[16px]">
-                    <p className="text-sm text-muted-foreground">
-                        <strong>💡 Tip:</strong> Skip login to use local-only mode. Your data stays private on your
-                        device.
-                    </p>
-                    {!isOnline && (
-                        <p className="mt-2 text-sm font-medium text-[hsl(42_92%_74%)]">
-                            📡 You're currently offline — sign in will be available when you reconnect.
+                {/* Footer Info Bento */}
+                <div className="sakura-glass p-5 flex items-start gap-4 border-white/5 bg-white/5">
+                    <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Vault Intelligence</p>
+                        <p className="mt-1 text-[10px] text-white/40 leading-relaxed">
+                            Skip login to operate in isolated local mode. All data persists encrypted on-device.
                         </p>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>

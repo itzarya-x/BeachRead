@@ -1,5 +1,4 @@
 import { PageContent, PageWrapper } from "@/components/layout/PageWrapper";
-import { SettingsLayout } from "@/pages/settings/SettingsLayout";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -52,8 +51,6 @@ import {
     UserProfilePatchSchema,
     UserSession,
 } from "@/lib/api/user";
-
-import { useMediaQuery } from "@/hooks/use-mobile";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     AlertTriangle,
@@ -124,12 +121,9 @@ function passwordStrength(password: string): number {
     return score;
 }
 
-
-
 const Settings = () => {
     const { flags } = useFeatures();
     const { showToast } = useToast();
-    const isLarge = useMediaQuery("(min-width: 1400px)");
 
     const [activeSection, setActiveSection] = React.useState<SectionKey>("account");
     const [mobileOpen, setMobileOpen] = React.useState<SectionKey>("account");
@@ -367,13 +361,13 @@ const Settings = () => {
     if (isLoading) {
         return (
             <PageWrapper>
-                <SettingsLayout
-                    className="pt-8"
-                    header={<div className="sakura-glass h-32 animate-pulse opacity-20" />}
-                    nav={<div className="sakura-glass h-[400px] animate-pulse opacity-20" />}
-                >
-                    <div className="sakura-glass h-[600px] animate-pulse opacity-20" />
-                </SettingsLayout>
+                <PageContent className="space-y-4">
+                    <div className="sakura-glass h-28 animate-pulse" />
+                    <div className="grid gap-4 md:grid-cols-[250px_minmax(0,1fr)]">
+                        <div className="sakura-glass h-[560px] animate-pulse" />
+                        <div className="sakura-glass h-[560px] animate-pulse" />
+                    </div>
+                </PageContent>
             </PageWrapper>
         );
     }
@@ -472,61 +466,107 @@ const Settings = () => {
 
     return (
         <TooltipProvider>
-            <PageWrapper>
-                <SettingsLayout
-                    className="pt-10"
-                    header={
+            <PageWrapper className="min-h-full">
+                <div className="min-h-full">
+                    <PageContent className="space-y-6 md:space-y-8">
                         <motion.header
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={transition}
-                            className="sakura-glass shadow-depth2"
+                            className="sakura-glass p-5 md:p-6"
                         >
                             <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-0">
-                                    <h1 className="sakura-title">Settings</h1>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Protocols & Identification</p>
-                                    <div className="sakura-underline mt-4" />
+                                <div className="space-y-2">
+                                    <h1 className="sakura-title text-4xl md:text-5xl">Settings</h1>
+                                    <p className="text-sm text-white/65">Manage your profile, security and preferences</p>
+                                    <div className="sakura-underline" />
                                 </div>
 
-                                <Avatar className="h-14 w-14 ring-2 ring-primary/30 shadow-glow">
+                                <Avatar className="h-11 w-11 ring-2 ring-[hsl(340_65%_58%_/_0.7)] shadow-[0_0_24px_hsl(340_65%_58%_/_0.45)]">
                                     <AvatarImage src="" alt="Profile" />
-                                    <AvatarFallback className="bg-white/5 text-primary font-black">
+                                    <AvatarFallback className="bg-[hsl(270_26%_18%)] text-[hsl(340_78%_79%)]">
                                         {displayName.slice(0, 2).toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                             </div>
                         </motion.header>
-                    }
-                    nav={
-                        <SettingsSidebar 
-                            activeSection={activeSection} 
-                            onSectionChange={setActiveSection} 
-                        />
-                    }
-                >
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={activeSection}
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {sectionContent[activeSection]}
 
-                            <div className="settings-footer">
-                                <RippleButton 
-                                    onClick={() => void onSave()} 
-                                    disabled={isSaving}
-                                    className="save-button text-xs uppercase tracking-widest font-black"
-                                >
-                                    {isSaving ? "Transmitting…" : "Save Changes"}
-                                </RippleButton>
+                        <div className="hidden md:grid md:grid-cols-[250px_minmax(0,1fr)] md:gap-5 lg:gap-6">
+                            <aside className="sakura-glass sticky top-6 h-fit p-3">
+                                <div className="space-y-1.5">
+                                    {SECTION_META.map(section => (
+                                        <button
+                                            key={section.key}
+                                            type="button"
+                                            onClick={() => setActiveSection(section.key)}
+                                            className={cn(
+                                                "sakura-sidebar-button w-full text-left",
+                                                activeSection === section.key && "is-active",
+                                            )}
+                                        >
+                                            <span className="text-sm font-semibold text-white/90">{section.label}</span>
+                                            <span className="mt-0.5 block text-xs text-white/45">{section.subtitle}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </aside>
+
+                            <div className="space-y-4">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={activeSection}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -8 }}
+                                        transition={transition}
+                                    >
+                                        {sectionContent[activeSection]}
+                                    </motion.div>
+                                </AnimatePresence>
+
+                                <div className="flex justify-end">
+                                    <RippleButton onClick={() => void onSave()} disabled={isSaving}>
+                                        {isSaving ? "Saving..." : "Save Changes"}
+                                    </RippleButton>
+                                </div>
                             </div>
-                        </motion.div>
-                    </AnimatePresence>
-                </SettingsLayout>
+                        </div>
+
+                        <div className="md:hidden space-y-3 pb-20">
+                            <Accordion
+                                type="single"
+                                collapsible
+                                value={mobileOpen}
+                                onValueChange={value => {
+                                    if (value) setMobileOpen(value as SectionKey);
+                                }}
+                                className="space-y-3"
+                            >
+                                {SECTION_META.map(section => (
+                                    <AccordionItem
+                                        key={section.key}
+                                        value={section.key}
+                                        className="sakura-glass overflow-hidden border-white/10"
+                                    >
+                                        <AccordionTrigger className="px-4 py-3 text-left text-white/90 hover:no-underline">
+                                            <div>
+                                                <p className="text-sm font-semibold">{section.label}</p>
+                                                <p className="text-xs text-white/45">{section.subtitle}</p>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="px-3 pb-4">{sectionContent[section.key]}</AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
+                        </div>
+                    </PageContent>
+
+                    <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
+                        <RippleButton className="w-full" onClick={() => void onSave()} disabled={isSaving}>
+                            {isSaving ? "Saving..." : "Save Changes"}
+                        </RippleButton>
+                    </div>
+                </div>
 
                 <Dialog open={showDangerModal} onOpenChange={setShowDangerModal}>
                     <DialogContent className="sakura-glass border-[hsl(0_70%_52%_/_0.45)] bg-[hsl(335_24%_8%_/_0.97)] text-white">
@@ -565,50 +605,6 @@ const Settings = () => {
     );
 };
 
-function SettingsSidebar({
-    activeSection,
-    onSectionChange,
-}: {
-    activeSection: SectionKey;
-    onSectionChange: (section: SectionKey) => void;
-}) {
-    const icons: Record<SectionKey, any> = {
-        account: User,
-        security: Shield,
-        signin: KeyRound,
-        appearance: Palette,
-        notifications: Bell,
-        privacy: Lock,
-    };
-
-    return (
-        <nav className="flex flex-col gap-1">
-            {SECTION_META.map(section => {
-                const Icon = icons[section.key];
-                const isActive = activeSection === section.key;
-                return (
-                    <button
-                        key={section.key}
-                        onClick={() => onSectionChange(section.key)}
-                        className={cn(
-                            "group flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 text-left w-full",
-                            isActive 
-                                ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(255,46,126,0.1)]" 
-                                : "text-white/40 hover:bg-white/5 hover:text-white/70"
-                        )}
-                    >
-                        <Icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", isActive && "text-primary")} />
-                        <div>
-                            <p className="text-sm font-bold uppercase tracking-wider">{section.label}</p>
-                            <p className="text-[10px] opacity-60 uppercase tracking-tighter">{section.subtitle}</p>
-                        </div>
-                    </button>
-                );
-            })}
-        </nav>
-    );
-}
-
 function AccountSection({
     isEditMode,
     onEditToggle,
@@ -639,7 +635,7 @@ function AccountSection({
     showComingSoon: () => void;
 }) {
     return (
-        <section className="sakura-glass settings-card space-y-6">
+        <section className="sakura-glass space-y-5 p-4 md:p-5">
             <div className="flex items-center justify-between gap-3">
                 <SectionHeading icon={User} title="Account" subtitle="Profile details and credentials" />
                 <WithComingSoonTooltip enabled={accountEditable}>
@@ -649,38 +645,27 @@ function AccountSection({
                 </WithComingSoonTooltip>
             </div>
 
-            <div className="account-grid">
-                <div className="sakura-upload-panel avatar-block text-center">
-                    <Avatar className="h-28 w-28 ring-4 ring-primary/20 shadow-glow mb-6">
-                        <AvatarFallback className="bg-white/5 text-primary text-2xl font-black">SA</AvatarFallback>
+            <div className="grid gap-4 md:grid-cols-2">
+                <div className="sakura-upload-panel">
+                    <Avatar className="h-16 w-16 ring-2 ring-[hsl(340_65%_58%_/_0.55)]">
+                        <AvatarFallback className="bg-[hsl(280_25%_18%)] text-[hsl(340_72%_76%)]">SA</AvatarFallback>
                     </Avatar>
-                    <RippleButton variant="outline" className="w-full text-xs py-3" onClick={showComingSoon}>
-                        Change Avatar
+                    <RippleButton variant="outline" className="mt-3" onClick={showComingSoon}>
+                        Upload profile picture
                     </RippleButton>
-                    <p className="text-[10px] text-white/30 mt-4 uppercase tracking-tighter">JPG, PNG or GIF. Max 2MB.</p>
                 </div>
 
-                <div className="grid gap-2">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="form-group">
-                            <Field label="Display Name" value={displayName} onChange={setDisplayName} disabled={!isEditMode || !accountEditable} />
-                        </div>
-                        <div className="form-group">
-                            <Field label="Username" value={username} onChange={setUsername} disabled={!isEditMode || !accountEditable} />
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <Field label="Email Address" value={email} onChange={setEmail} disabled={!isEditMode || !accountEditable} />
-                    </div>
-                    <div className="form-group">
-                        <Field label="Phone Number" value={phone} onChange={setPhone} disabled={!isEditMode || !accountEditable} />
-                    </div>
+                <div className="grid gap-3">
+                    <Field label="Display Name" value={displayName} onChange={setDisplayName} disabled={!isEditMode || !accountEditable} />
+                    <Field label="Username" value={username} onChange={setUsername} disabled={!isEditMode || !accountEditable} />
+                    <Field label="Email" value={email} onChange={setEmail} disabled={!isEditMode || !accountEditable} />
+                    <Field label="Phone (optional)" value={phone} onChange={setPhone} disabled={!isEditMode || !accountEditable} />
                 </div>
             </div>
 
-            <div className="pt-4 border-t border-white/5 flex flex-wrap gap-3">
-                <RippleButton variant="outline" onClick={showComingSoon} className="text-xs">Update Password</RippleButton>
-                <RippleButton variant="danger" onClick={() => void onDelete()} className="text-xs">Deactivate Account</RippleButton>
+            <div className="flex flex-wrap gap-3">
+                <RippleButton variant="outline" onClick={showComingSoon}>Change password</RippleButton>
+                <RippleButton variant="danger" onClick={() => void onDelete()}>Delete account</RippleButton>
             </div>
         </section>
     );
@@ -718,7 +703,7 @@ function SecuritySection({
     showComingSoon: () => void;
 }) {
     return (
-        <section className="sakura-glass settings-card space-y-8">
+        <section className="sakura-glass space-y-5 p-4 md:p-5">
             <div className="flex items-center justify-between gap-3">
                 <SectionHeading icon={Shield} title="Security" subtitle="Protect sessions and account access" />
                 <div
@@ -733,7 +718,7 @@ function SecuritySection({
                 </div>
             </div>
 
-            <div className="security-grid">
+            <div className="grid gap-3 md:grid-cols-2">
                 <WithComingSoonTooltip enabled={twoFactorEnabled}>
                     <ToggleRow
                         label="Two-factor authentication"
@@ -746,20 +731,14 @@ function SecuritySection({
                 <ActionCard title="Login history" subtitle="Last logins from known devices and regions" onClick={showComingSoon} />
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-white/5">
-                <h3 className="text-sm font-bold text-white/85 uppercase tracking-wider">Change password</h3>
-                <div className="grid gap-4 md:grid-cols-3">
-                    <div className="form-group">
-                        <Field label="Current Password" value={currentPassword} onChange={setCurrentPassword} disabled={false} type="password" />
-                    </div>
-                    <div className="form-group">
-                        <Field label="New Password" value={newPassword} onChange={setNewPassword} disabled={false} type="password" />
-                    </div>
-                    <div className="form-group">
-                        <Field label="Confirm Password" value={confirmPassword} onChange={setConfirmPassword} disabled={false} type="password" />
-                    </div>
+            <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-white/85">Change password</h3>
+                <div className="grid gap-3 md:grid-cols-3">
+                    <Field label="Current Password" value={currentPassword} onChange={setCurrentPassword} disabled={false} type="password" />
+                    <Field label="New Password" value={newPassword} onChange={setNewPassword} disabled={false} type="password" />
+                    <Field label="Confirm Password" value={confirmPassword} onChange={setConfirmPassword} disabled={false} type="password" />
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/8">
                     <div
                         className="h-full rounded-full bg-gradient-to-r from-[hsl(0_70%_58%)] via-[hsl(38_88%_62%)] to-[hsl(140_60%_58%)] transition-all"
                         style={{ width: `${(passwordScore / 4) * 100}%` }}
@@ -767,8 +746,8 @@ function SecuritySection({
                 </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-white/5">
-                <h3 className="text-sm font-bold text-white/85 uppercase tracking-wider">Active Sessions</h3>
+            <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-white/85">Active Sessions</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                     {sessions.map(session => (
                         <DeviceCard key={`${session.device}-${session.location}`} name={session.device} location={session.location} subtitle={session.lastActive} />
@@ -776,9 +755,9 @@ function SecuritySection({
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-white/5">
+            <div className="grid gap-3 md:grid-cols-2">
                 <ActionCard title="Connected devices" subtitle="Review and remove untrusted devices" onClick={showComingSoon} />
-                <RippleButton variant="outline" onClick={() => void onLogoutAll()} className="text-xs">Sign out from all devices</RippleButton>
+                <RippleButton variant="outline" onClick={() => void onLogoutAll()}>Sign out from all devices</RippleButton>
             </div>
         </section>
     );
@@ -796,7 +775,7 @@ function SignInMethodsSection({
     showComingSoon: () => void;
 }) {
     return (
-        <section className="sakura-glass settings-card space-y-6 h-full">
+        <section className="sakura-glass space-y-5 p-4 md:p-5">
             <SectionHeading icon={KeyRound} title="Sign-In Methods" subtitle="Link and manage providers" />
 
             <div className="grid gap-3">
@@ -831,8 +810,8 @@ function SignInMethodsSection({
             </div>
 
             {!canConnect && (
-                <RippleButton variant="ghost" onClick={showComingSoon} className="w-fit text-xs">
-                    Actions in scaffold mode
+                <RippleButton variant="ghost" onClick={showComingSoon} className="w-fit">
+                    Provider link actions are in scaffold mode
                 </RippleButton>
             )}
         </section>
@@ -855,11 +834,11 @@ function AppearanceSection({
     setBackgroundStyle: (value: string) => void;
 }) {
     return (
-        <section className="sakura-glass settings-card space-y-6 h-full">
+        <section className="sakura-glass space-y-5 p-4 md:p-5">
             <SectionHeading icon={Palette} title="Appearance" subtitle="Theme modes and live preview" />
 
-            <div className="grid gap-6">
-                <div className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="space-y-4">
                     <SelectRow
                         label="Theme"
                         value={themeMode}
@@ -881,7 +860,7 @@ function AppearanceSection({
                     </div>
 
                     <SelectRow
-                        label="Background"
+                        label="Background style"
                         value={backgroundStyle}
                         onValueChange={setBackgroundStyle}
                         options={[
@@ -899,6 +878,7 @@ function AppearanceSection({
                     >
                         <div className="preview-chip" style={{ backgroundColor: accentColor === "sakura" ? "hsl(340 65% 58%)" : accentColor === "lavender" ? "hsl(274 72% 72%)" : "hsl(190 78% 56%)" }} />
                         <p className="text-xs text-white/75">Live Preview</p>
+                        <p className="text-[11px] text-white/45">{themeMode.toUpperCase()} MODE</p>
                     </div>
                 </div>
             </div>
@@ -946,22 +926,23 @@ function NotificationsSection({
     showComingSoon: () => void;
 }) {
     return (
-        <div className="space-y-8">
-            <div className="sakura-glass settings-card space-y-5 h-full">
+        <section className="space-y-4">
+            <div className="sakura-glass space-y-4 p-4 md:p-5">
                 <SectionHeading icon={Bell} title="Notifications" subtitle="Choose how updates reach you" />
 
-                <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
                     <ToggleRow label="Email notifications" description="Announcements, updates and billing" checked={emailNotif} onCheckedChange={setEmailNotif} />
                     <ToggleRow label="Push notifications" description="Instant device-level alerts" checked={pushNotif} onCheckedChange={setPushNotif} />
                     <ToggleRow label="System alerts" description="Service state and incident notices" checked={systemAlerts} onCheckedChange={setSystemAlerts} />
                     <ToggleRow label="Weekly summary" description="Digest with activity highlights" checked={weeklySummary} onCheckedChange={setWeeklySummary} />
+                    <ToggleRow label="Security alerts" description="Always enabled for account safety" checked onCheckedChange={() => undefined} locked />
                 </div>
             </div>
 
-            <div className="sakura-glass settings-card space-y-6 h-full">
+            <div className="sakura-glass space-y-4 p-4 md:p-5">
                 <SectionHeading icon={Bot} title="AI / Intelligence" subtitle="Memory and model behavior" />
 
-                <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
                     <WithComingSoonTooltip enabled={intelligenceEnabled}>
                         <ToggleRow label="Memory mode" description="Retain relevant interactions for continuity" checked={memoryMode} onCheckedChange={setMemoryMode} locked={!intelligenceEnabled} />
                     </WithComingSoonTooltip>
@@ -991,30 +972,6 @@ function NotificationsSection({
                             disabled={!intelligenceEnabled}
                         />
                     </WithComingSoonTooltip>
-                </div>
-
-                <div className="space-y-4">
-                    <WithComingSoonTooltip enabled={intelligenceEnabled}>
-                        <div className={cn("sakura-control-row", !intelligenceEnabled && "opacity-70")}>
-                            <div className="mb-2 flex items-center gap-2">
-                                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Context depth</p>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <button type="button" className="text-white/45 transition hover:text-white/75">
-                                            <CircleHelp className="h-3.5 w-3.5" />
-                                        </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="sakura-tooltip">
-                                        Higher depth includes broader memory at higher token cost.
-                                    </TooltipContent>
-                                </Tooltip>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <Slider value={contextDepth} onValueChange={setContextDepth} max={100} step={1} className="sakura-slider" disabled={!intelligenceEnabled} />
-                                <span className="text-sm font-semibold text-[hsl(340_78%_76%)]">{contextDepth[0]}%</span>
-                            </div>
-                        </div>
-                    </WithComingSoonTooltip>
 
                     <div className="sakura-control-row">
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Actions</p>
@@ -1028,8 +985,30 @@ function NotificationsSection({
                         </div>
                     </div>
                 </div>
+
+                <WithComingSoonTooltip enabled={intelligenceEnabled}>
+                    <div className={cn("sakura-control-row", !intelligenceEnabled && "opacity-70")}>
+                        <div className="mb-2 flex items-center gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">Context depth</p>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/45 transition hover:text-white/75">
+                                        <CircleHelp className="h-3.5 w-3.5" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent className="sakura-tooltip">
+                                    Higher depth includes broader memory at higher token cost.
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Slider value={contextDepth} onValueChange={setContextDepth} max={100} step={1} className="sakura-slider" disabled={!intelligenceEnabled} />
+                            <span className="text-sm font-semibold text-[hsl(340_78%_76%)]">{contextDepth[0]}%</span>
+                        </div>
+                    </div>
+                </WithComingSoonTooltip>
             </div>
-        </div>
+        </section>
     );
 }
 
@@ -1057,11 +1036,11 @@ function PrivacySection({
     showComingSoon: () => void;
 }) {
     return (
-        <div className="space-y-8">
-            <div className="sakura-glass settings-card space-y-5 h-full">
+        <section className="space-y-4">
+            <div className="sakura-glass space-y-4 p-4 md:p-5">
                 <SectionHeading icon={Lock} title="Privacy" subtitle="Control visibility and personal data" />
 
-                <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
                     <SelectRow
                         label="Profile visibility"
                         value={profileVisibility}
@@ -1088,6 +1067,9 @@ function PrivacySection({
                         checked={analyticsOptOut}
                         onCheckedChange={setAnalyticsOptOut}
                     />
+                    <WithComingSoonTooltip enabled={canExport}>
+                        <ActionCard title="Download personal data" subtitle="Generate a full export package" icon={CloudDownload} onClick={() => void onExport()} disabled={!canExport} />
+                    </WithComingSoonTooltip>
                 </div>
 
                 <div className="sakura-control-row">
@@ -1102,32 +1084,22 @@ function PrivacySection({
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="sakura-glass settings-card">
-                    <WithComingSoonTooltip enabled={canExport}>
-                        <ActionCard title="Download data" subtitle="Generate full export package" icon={CloudDownload} onClick={() => void onExport()} disabled={!canExport} />
-                    </WithComingSoonTooltip>
-                </div>
-
-                <div className="danger-zone-panel settings-card">
-                    <div className="flex items-start gap-4">
-                        <AlertTriangle className="mt-1 h-5 w-5 text-[hsl(0_88%_70%)]" />
-                        <div className="space-y-3">
-                            <div>
-                                <p className="text-sm font-bold text-white uppercase tracking-wider">Danger Zone</p>
-                                <p className="text-xs text-white/65 mt-1">Clear all account data or delete this account permanently.</p>
-                            </div>
-                            <div className="flex flex-wrap gap-3 pt-1">
-                                <WithComingSoonTooltip enabled={canExport}>
-                                    <RippleButton variant="danger" className="text-xs" onClick={onOpenDanger} disabled={!canExport}>Clear all data</RippleButton>
-                                </WithComingSoonTooltip>
-                                <RippleButton variant="danger" className="text-xs" onClick={showComingSoon}>Delete account</RippleButton>
-                            </div>
+            <div className="danger-zone-panel p-4 md:p-5">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 text-[hsl(0_88%_70%)]" />
+                    <div className="space-y-2">
+                        <p className="text-sm font-semibold text-white">Danger Zone</p>
+                        <p className="text-xs text-white/65">Clear all account data or permanently delete this account.</p>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            <WithComingSoonTooltip enabled={canExport}>
+                                <RippleButton variant="danger" onClick={onOpenDanger} disabled={!canExport}>Clear all data</RippleButton>
+                            </WithComingSoonTooltip>
+                            <RippleButton variant="danger" onClick={showComingSoon}>Delete account</RippleButton>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     );
 }
 
@@ -1167,8 +1139,8 @@ function Field({
     type?: "text" | "password";
 }) {
     return (
-        <label className="space-y-2 block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-white/40 ml-1">{label}</span>
+        <label className="space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">{label}</span>
             <Input
                 type={type}
                 value={value}

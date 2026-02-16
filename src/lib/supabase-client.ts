@@ -8,6 +8,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { ActivityLog } from "@/lib/storage/types";
 
 // Configuration from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
@@ -42,17 +43,20 @@ export interface SupabaseTier {
     user_id: string;
     name: string;
     color: string;
-    order_index: number;
+    order: number;
     created_at: string;
 }
 
-export interface SupabaseUserMediaTierRow {
+export interface SupabaseTierItem {
     id: string;
-    tier_id: string | null;
-    tier_position: number | null;
+    user_id: string;
+    tier_id: string;
+    series_id: number;
+    position: number;
+    media_type: string;
+    created_at: string;
+    updated_at: string;
 }
-
-const MEDIA_ID_BATCH_SIZE = 200;
 
 async function requireSupabaseAuth() {
     if (!supabase) {
@@ -74,78 +78,64 @@ async function requireSupabaseAuth() {
 
 export async function getTiers(): Promise<SupabaseTier[]> {
     const { client, user } = await requireSupabaseAuth();
+    
+    // We try to select "order" column. If migration ran, it exists.
     const { data, error } = await client
         .from("tiers")
         .select("*")
         .eq("user_id", user.id)
-        .order("order_index", { ascending: true });
+        .order("order", { ascending: true });
 
     if (error) {
-        if ((error as { code?: string }).code === "42703") {
-            throw new Error(
-                "Supabase schema is outdated: tiers.user_id is missing. Run the latest migration before using Tier Maker.",
-            );
-        }
+        console.error("Error fetching tiers:", error);
         throw error;
     }
 
     return (data ?? []) as SupabaseTier[];
 }
 
-export async function getTierAssignmentsForMedia(
-    mediaIds: Array<string | number>,
-): Promise<SupabaseUserMediaTierRow[]> {
+export async function getTierItems(): Promise<SupabaseTierItem[]> {
     const { client, user } = await requireSupabaseAuth();
-    if (mediaIds.length === 0) {
-        return [];
+    
+    const { data, error } = await client
+        .from("tier_items")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching tier items:", error);
+        throw error;
     }
 
-    const normalizedIds = mediaIds.map((id) => String(id));
-    const allRows: SupabaseUserMediaTierRow[] = [];
-
-    for (let i = 0; i < normalizedIds.length; i += MEDIA_ID_BATCH_SIZE) {
-        const batchIds = normalizedIds.slice(i, i + MEDIA_ID_BATCH_SIZE);
-        const { data, error } = await client
-            .from("user_media")
-            .select("id,tier_id,tier_position")
-            .eq("user_id", user.id)
-            .in("id", batchIds);
-
-        if (error) {
-            throw error;
-        }
-
-        if (data?.length) {
-            allRows.push(...(data as SupabaseUserMediaTierRow[]));
-        }
-    }
-
-    return allRows;
+    return (data ?? []) as SupabaseTierItem[];
 }
 
 export async function createTier(name: string, color: string): Promise<SupabaseTier> {
     const { client, user } = await requireSupabaseAuth();
 
+    // Get max order
     const { data: maxData, error: maxError } = await client
         .from("tiers")
-        .select("order_index")
+        .select("order")
         .eq("user_id", user.id)
-        .order("order_index", { ascending: false })
+        .order("order", { ascending: false })
         .limit(1)
         .maybeSingle();
 
     if (maxError) {
-        throw maxError;
+        console.error("Error fetching max tier order:", maxError);
     }
 
-    const nextOrderIndex = (maxData?.order_index ?? -1) + 1;
+    const nextOrder = (maxData?.order ?? -1) + 1;
+    
     const { data, error } = await client
         .from("tiers")
         .insert({
             user_id: user.id,
             name,
             color,
-            order_index: nextOrderIndex,
+            "order": nextOrder,
         })
         .select("*")
         .single();
@@ -159,12 +149,18 @@ export async function createTier(name: string, color: string): Promise<SupabaseT
 
 export async function updateTier(
     id: string,
-    updates: { name?: string; color?: string; order_index?: number },
+    updates: { name?: string; color?: string; order?: number },
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
+    
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.color !== undefined) payload.color = updates.color;
+    if (updates.order !== undefined) payload.order = updates.order;
+
     const { error } = await client
         .from("tiers")
-        .update(updates)
+        .update(payload)
         .eq("id", id)
         .eq("user_id", user.id);
 
@@ -176,16 +172,7 @@ export async function updateTier(
 export async function deleteTier(id: string): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    const { error: clearError } = await client
-        .from("user_media")
-        .update({ tier_id: null, tier_position: null })
-        .eq("user_id", user.id)
-        .eq("tier_id", id);
-
-    if (clearError) {
-        throw clearError;
-    }
-
+    // tier_items will be deleted automatically via ON DELETE CASCADE foreign key
     const { error } = await client
         .from("tiers")
         .delete()
@@ -197,49 +184,145 @@ export async function deleteTier(id: string): Promise<void> {
     }
 }
 
+/**
+ * Moves media to a tier (or removes it if tierId is null)
+ * Ensures "exist in only ONE tier at a time" rule.
+ */
 export async function moveMediaToTier(
-    mediaId: string | number,
+    seriesId: number,
     tierId: string | null,
-    position: number | null,
+    position: number,
+    mediaType: string = "ANIME"
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    const { error } = await client
-        .from("user_media")
-        .update({
-            tier_id: tierId,
-            tier_position: position,
-            updated_at: new Date().toISOString(),
-        })
-        .eq("id", String(mediaId))
-        .eq("user_id", user.id);
+    // 1. Remove from any existing tier (DB constraint unique(user_id, tier_id, series_id) handles per-tier uniqueness,
+    // but application logic must ensure it's not in *another* tier).
+    // Actually, to be safe and simple: delete *all* occurrences of this series for this user first.
+    
+    // We use series_id to identify the media across tiers.
+    const { error: deleteError } = await client
+        .from("tier_items")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("series_id", seriesId);
 
-    if (error) {
-        throw error;
+    if (deleteError) {
+        throw deleteError;
+    }
+
+    // 2. Insert into new tier if tierId is provided (not null)
+    if (tierId) {
+        const { error: insertError } = await client
+            .from("tier_items")
+            .insert({
+                user_id: user.id,
+                tier_id: tierId,
+                series_id: seriesId,
+                position: position,
+                media_type: mediaType
+            });
+
+        if (insertError) {
+            throw insertError;
+        }
     }
 }
 
 export async function reorderItemsInTier(
-    tierId: string | null,
-    orderedMediaIds: Array<string | number>,
+    tierId: string,
+    orderedSeriesIds: number[]
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    for (let index = 0; index < orderedMediaIds.length; index += 1) {
-        const mediaId = orderedMediaIds[index];
+    // Update positions in a batch (or loop if batch update is complex)
+    // For simplicity and reliability in Supabase, we loop.
+    // Optimisation: use an RPC or a single upsert if possible, but upsert needs ID.
+    // We can fetch the items first to get their IDs, then upsert.
+    
+    const { data: existingItems, error: fetchError } = await client
+        .from("tier_items")
+        .select("id, series_id")
+        .eq("user_id", user.id)
+        .eq("tier_id", tierId)
+        .in("series_id", orderedSeriesIds);
+
+    if (fetchError || !existingItems) {
+        throw fetchError || new Error("Failed to fetch items for reorder");
+    }
+
+    const updates = existingItems.map(item => {
+        const newPos = orderedSeriesIds.indexOf(item.series_id);
+        if (newPos === -1) return null; // Should not happen
+        return {
+            id: item.id,
+            user_id: user.id,
+            tier_id: tierId,
+            series_id: item.series_id,
+            position: newPos,
+            updated_at: new Date().toISOString()
+        };
+    }).filter(Boolean);
+
+    if (updates.length > 0) {
+        const { error: updateError } = await client
+            .from("tier_items")
+            .upsert(updates);
+            
+        if (updateError) throw updateError;
+    }
+}
+
+export async function getActivities(limit = 500): Promise<ActivityLog[]> {
+    const { client, user } = await requireSupabaseAuth();
+    
+    const { data, error } = await client
+        .from("user_activity")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        console.error("Error fetching activities:", error);
+        throw error;
+    }
+
+    return (data ?? []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        seriesId: row.series_id,
+        mediaId: row.media_id,
+        actionType: row.action_type,
+        mediaType: row.media_type,
+        details: row.details,
+        createdAt: row.created_at
+    })) as ActivityLog[];
+}
+
+export async function logActivity(
+    activity: Omit<ActivityLog, "id" | "userId" | "createdAt">
+): Promise<void> {
+    try {
+        const { client, user } = await requireSupabaseAuth();
+
         const { error } = await client
-            .from("user_media")
-            .update({
-                tier_id: tierId,
-                tier_position: index,
-                updated_at: new Date().toISOString(),
-            })
-            .eq("id", String(mediaId))
-            .eq("user_id", user.id);
+            .from("user_activity")
+            .insert({
+                user_id: user.id,
+                series_id: activity.seriesId,
+                media_id: activity.mediaId ? String(activity.mediaId) : null,
+                action_type: activity.actionType,
+                media_type: activity.mediaType,
+                details: activity.details
+            });
 
         if (error) {
-            throw error;
+            console.error("Error logging activity:", error);
         }
+    } catch (e) {
+        // Silently fail activity logging if not configured/logged in
+        console.warn("Activity logging skipped:", e);
     }
 }
 

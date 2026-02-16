@@ -1,4 +1,5 @@
 import { MediaRowCard } from "@/components/home/MediaRowCard";
+import { AutoBento } from "@/components/layout/AutoBento";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
 import type { DisplayMedia } from "@/types/display";
@@ -34,26 +35,30 @@ const Continue = () => {
 
     return (
         <PageWrapper>
-            <PageHeader 
-                title="Continue Exploration" 
-                subtitle={`You have ${currentItems.length} active journeys in progress`}
-                icon={Play}
-            />
-            <PageContent>
+            <div className="page-container">
+                <PageHeader 
+                    title="Neural Continuity" 
+                    subtitle={`Establishing ${currentItems.length} active sessions`}
+                    icon={Play}
+                />
+            </div>
+            <PageContent className="max-w-none px-0">
                 {currentItems.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                    <AutoBento maxWidth={1500} minTileWidth={240}>
                         {currentItems.map((item, i) => (
                             <MediaRowCard key={`${item.mediaType}-${item._seriesId}`} media={item} index={i} className="w-full" />
                         ))}
-                    </div>
+                    </AutoBento>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-border bg-card shadow-sm">
-                            <Play className="w-10 h-10 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-2">
-                            <h3 className="text-xl font-bold">Nothing in progress</h3>
-                            <p className="text-muted-foreground">Start a new series to see it here.</p>
+                    <div className="page-container">
+                        <div className="sakura-glass p-20 flex flex-col items-center justify-center text-center space-y-6 shadow-depth2">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/5 border border-white/5">
+                                <Play className="w-10 h-10 text-white/20" />
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-xl font-black uppercase tracking-widest">No Active Links</h3>
+                                <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest">Start a new series to initialise continuity.</p>
+                            </div>
                         </div>
                     </div>
                 )}

@@ -67,32 +67,27 @@ export function ForgotPassword() {
 
     if (submitted) {
         return (
-            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-                </div>
-                <div className="w-full max-w-md">
-                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(152_52%_16%_/_0.48)]">
-                            <Check className="h-6 w-6 text-[hsl(152_72%_64%)]" />
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="w-full max-w-md space-y-8">
+                    <div className="sakura-glass p-10 text-center space-y-8 shadow-depth3">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10">
+                            <Check className="h-10 w-10 text-primary" />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-bold">Check your email</h1>
-                            <p className="text-muted-foreground text-sm mt-2">
-                                We've sent a password reset link to{" "}
-                                <span className="font-medium text-foreground">{email}</span>
+                        <div className="space-y-2">
+                            <h1 className="text-xl font-black uppercase tracking-widest text-foreground">Transmission Sent</h1>
+                            <p className="text-xs text-white/40 leading-relaxed">
+                                Recovery fragment transmitted to: <br/>
+                                <span className="font-bold text-white/80">{email}</span>
                             </p>
                         </div>
-                        <div className="rounded-lg border border-primary/25 bg-primary/12 p-3 text-sm text-foreground">
-                            <p className="font-medium mb-1">💡 Tip:</p>
-                            <p>Check your spam folder if you don't see the email in a few minutes.</p>
+                        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-5 text-[10px] text-white/50 leading-relaxed italic">
+                            💡 Check your terminal's spam partition if the transmission is not received.
                         </div>
                         <button
                             onClick={() => navigate("/login")}
-                            className="sakura-ripple-button is-default w-full px-4 py-2.5 font-medium"
+                            className="sakura-ripple-button is-default w-full h-12 flex items-center justify-center font-black uppercase tracking-[0.15em] text-xs"
                         >
-                            Back to Sign In
+                            Return to Access Point
                         </button>
                     </div>
                 </div>
@@ -101,74 +96,64 @@ export function ForgotPassword() {
     }
 
     return (
-        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-            </div>
-            <div className="w-full max-w-md">
-                <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                    {/* Header */}
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold">Reset Password</h1>
-                        <p className="text-muted-foreground text-sm mt-1">
-                            Enter your email and we'll send you a link to reset your password
-                        </p>
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase">Yura</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Intelligence Recovery</p>
+                </div>
+
+                <div className="sakura-glass p-8 space-y-8 shadow-depth3">
+                    <div className="text-center space-y-1">
+                        <h2 className="text-lg font-black uppercase tracking-widest">Reset Key</h2>
+                        <p className="text-[10px] text-white/40 uppercase tracking-widest">Restore access to your personal vault</p>
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Email Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Email</label>
-                            <div className="relative">
-                                <Mail
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Identity (Email)</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type="email"
-                                    placeholder="you@example.com"
+                                    placeholder="user@neural.link"
                                     value={email}
                                     onChange={e => {
                                         setEmail(e.target.value);
                                         setError("");
                                     }}
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    className="sakura-input h-12 w-full pl-12 pr-4 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                     autoFocus
                                 />
                             </div>
-                            {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+                            {error && <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">{error}</p>}
                         </div>
 
                         {/* Submit Button */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="sakura-ripple-button is-default mt-6 flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                            className="sakura-ripple-button is-default h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
                         >
                             {loading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Sending...
-                                </>
+                                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                             ) : (
-                                <>
-                                    <Mail size={18} />
-                                    Send Reset Link
-                                </>
+                                <Mail size={16} />
                             )}
+                            {loading ? "Transmitting…" : "Send Reset Link"}
                         </button>
                     </form>
 
                     {/* Back Link */}
                     <button
                         onClick={() => navigate("/login")}
-                        className="sakura-ripple-button is-ghost mt-4 flex w-full items-center justify-center gap-1 py-2 text-center text-sm text-muted-foreground hover:text-foreground"
+                        className="w-full text-center flex items-center justify-center gap-2 group"
                     >
-                        <ArrowLeft size={16} />
-                        Back to Sign In
+                        <ArrowLeft size={14} className="text-white/20 group-hover:text-primary transition-colors" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/20 group-hover:text-white/50 transition-colors">Return to Login</span>
                     </button>
                 </div>
             </div>

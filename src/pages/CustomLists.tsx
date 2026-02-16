@@ -1,4 +1,5 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { AutoBento } from "@/components/layout/AutoBento";
 import { MediaGrid } from "@/components/media/MediaGrid";
 import * as EmptyStates from "@/components/ui/EmptyState";
 import { GridSkeleton } from "@/components/ui/Skeleton";
@@ -28,34 +29,49 @@ const CustomLists = () => {
 
     return (
         <PageWrapper>
-            <PageHeader title="Custom Lists" subtitle={`${allLists.length} lists created`} />
-            <PageContent>
+            <div className="page-container">
+                <PageHeader title="Custom Lists" subtitle={`${allLists.length} lists created`} />
+            </div>
+            <PageContent className="max-w-none px-0 space-y-10">
                 {allLists.length === 0 ? (
-                    <EmptyStates.EmptyCustomList />
+                    <div className="page-container">
+                        <EmptyStates.EmptyCustomList />
+                    </div>
                 ) : (
                     <>
-                        <div className="flex items-center gap-1 overflow-x-auto pb-2 mb-4">
-                            {allLists.map(list => (
-                                <button
-                                    key={list.name}
-                                    onClick={() => setActiveList(list.name)}
-                                    className={cn(
-                                        "px-3 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap",
-                                        activeList === list.name
-                                            ? "text-primary bg-primary/10"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                                    )}
-                                >
-                                    {list.name}
-                                    <span className="ml-1.5 text-xs opacity-60">
-                                        ({list.type === "ANIME" ? "A" : "M"})
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
+                        <AutoBento maxWidth={1500} minTileWidth={400}>
+                            <div className="bento-span-2 sakura-glass p-6 flex flex-col justify-center shadow-depth1">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-4">Collection Index</h3>
+                                <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                    {allLists.map(list => (
+                                        <button
+                                            key={list.name}
+                                            onClick={() => setActiveList(list.name)}
+                                            className={cn(
+                                                "px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap border",
+                                                activeList === list.name
+                                                    ? "text-primary bg-primary/10 border-primary/30 shadow-glow"
+                                                    : "text-white/20 border-white/5 hover:text-white/50 hover:bg-white/5",
+                                            )}
+                                        >
+                                            {list.name}
+                                            <span className="ml-2 opacity-30">
+                                                {list.type}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
 
-                        <p className="text-sm text-muted-foreground mb-4">{entries.length} entries</p>
-                        <MediaGrid items={entries} emptyMessage="No entries in this custom list" />
+                            <div className="sakura-glass p-6 flex flex-col justify-center text-center shadow-depth1">
+                                <p className="text-3xl font-black text-foreground tabular-nums">{entries.length}</p>
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mt-1">Mapped Fragments</p>
+                            </div>
+                        </AutoBento>
+
+                        <div className="w-full">
+                            <MediaGrid items={entries} emptyMessage="No entries in this custom list" />
+                        </div>
                     </>
                 )}
             </PageContent>

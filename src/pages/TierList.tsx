@@ -4,6 +4,7 @@
  */
 
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { AutoBento } from "@/components/layout/AutoBento";
 import { EmptyTierList } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/YuraButton";
 import { TierBoard, createTierBoard, getAllTierBoards } from "@/lib/tierDatabase";
@@ -53,48 +54,53 @@ export default function TierList() {
 
     return (
         <PageWrapper>
-            <PageHeader 
-                title="Tier Boards" 
-                subtitle="Manage your ranking boards"
-                action={
-                    <Button 
-                        onClick={handleCreateBoard}
-                        icon={Plus}
-                        variant="primary"
-                    >
-                        New Board
-                    </Button>
-                }
-            />
+            <div className="page-container">
+                <PageHeader 
+                    title="Tier Boards" 
+                    subtitle="Manage your ranking boards"
+                    action={
+                        <Button 
+                            onClick={handleCreateBoard}
+                            icon={Plus}
+                            variant="primary"
+                            className="h-12 rounded-2xl px-8 shadow-glow"
+                        >
+                            New Board
+                        </Button>
+                    }
+                />
+            </div>
 
-            <PageContent className="animate-fade-in">
+            <PageContent className="animate-fade-in max-w-none px-0">
                 {boards.length === 0 ? (
-                    <EmptyTierList onCreate={handleCreateBoard} />
+                    <div className="page-container">
+                        <EmptyTierList onCreate={handleCreateBoard} />
+                    </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                    <AutoBento maxWidth={1500} minTileWidth={320}>
                         {boards.map(board => (
                             <Link 
                                 key={board.id} 
                                 to={`/tier-maker?board=${board.id}`}
-                                className="group relative overflow-hidden rounded-2xl border border-border bg-card transition-all duration-300 hover:border-primary/45 hover:-translate-y-0.5 hover:shadow-md"
+                                className="group relative overflow-hidden rounded-3xl border border-white/5 bg-white/5 transition-all duration-500 hover:border-primary/30 hover:-translate-y-1 hover:shadow-depth2"
                             >
-                                <div className="aspect-video bg-gradient-to-br from-primary/10 via-card to-secondary/50 flex items-center justify-center">
-                                    <LayoutGrid className="w-12 h-12 text-primary/25 transition-colors group-hover:text-primary/50" />
+                                <div className="aspect-video bg-gradient-to-br from-primary/10 via-transparent to-black/40 flex items-center justify-center">
+                                    <LayoutGrid className="w-12 h-12 text-primary/20 transition-colors group-hover:text-primary/40" />
                                 </div>
                                 
-                                <div className="p-5">
-                                    <h3 className="mb-1 text-lg font-extrabold tracking-tight transition-colors group-hover:text-primary">{board.name}</h3>
-                                    <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
-                                        {board.description || "No description"}
+                                <div className="p-6">
+                                    <h3 className="mb-1 text-lg font-black tracking-tight text-white group-hover:text-primary transition-colors uppercase">{board.name}</h3>
+                                    <p className="mb-5 line-clamp-2 text-[10px] uppercase font-bold tracking-widest text-white/30 leading-relaxed">
+                                        {board.description || "No tactical briefing provided"}
                                     </p>
-                                    <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                                        <span>Created {new Date(board.createdAt).toLocaleDateString()}</span>
-                                        <span className="transition-transform group-hover:translate-x-1">Open →</span>
+                                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
+                                        <span>Initialised {new Date(board.createdAt).toLocaleDateString()}</span>
+                                        <span className="text-primary group-hover:translate-x-1 transition-transform">Access →</span>
                                     </div>
                                 </div>
                             </Link>
                         ))}
-                    </div>
+                    </AutoBento>
                 )}
             </PageContent>
         </PageWrapper>

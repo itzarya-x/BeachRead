@@ -1,3 +1,4 @@
+import { AutoBento } from "@/components/layout/AutoBento";
 import { EmptySearchResults, EmptyState } from "@/components/ui/EmptyState";
 import type { DisplayMedia } from "@/types/display";
 import { Search } from "lucide-react";
@@ -25,7 +26,7 @@ export function MediaGrid({ items, emptyMessage = "No entries found" }: MediaGri
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+    <AutoBento maxWidth={1500} minTileWidth={220} className="w-full">
       {items.map((item, idx) => (
         <div
           key={`${item._seriesId}-${idx}`}
@@ -35,6 +36,6 @@ export function MediaGrid({ items, emptyMessage = "No entries found" }: MediaGri
           <MediaCard media={item} />
         </div>
       ))}
-    </div>
+    </AutoBento>
   );
 }

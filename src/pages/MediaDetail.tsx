@@ -105,7 +105,7 @@ const MediaDetail = () => {
 
     return (
         <PageWrapper>
-            <div className="relative min-h-screen bg-background pb-32">
+            <div className="relative min-h-screen pb-32">
                 {/* 1. Cinematic Backdrop (Task 16) */}
                 <div className="relative w-full h-[650px] md:h-[850px] overflow-hidden">
                     <div className="absolute inset-0">

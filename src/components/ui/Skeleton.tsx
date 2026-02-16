@@ -62,7 +62,7 @@ export function MediaCardSkeleton() {
 // Media Detail Page Skeleton (Task 23)
 export function DetailPageSkeleton() {
     return (
-        <div className="min-h-screen bg-background pb-32">
+        <div className="min-h-screen pb-32">
             <Skeleton className="w-full h-[650px] md:h-[850px] rounded-none opacity-20" />
             
             <div className="container mx-auto px-6 md:px-14 relative -mt-[400px] md:-mt-[550px] z-10">

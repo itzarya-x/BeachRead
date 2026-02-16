@@ -144,15 +144,12 @@ export function ResetPassword() {
 
     if (verifying) {
         return (
-            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-                </div>
-                <div className="w-full max-w-md">
-                        <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        <p className="text-muted-foreground mt-3">Verifying reset link...</p>
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="sakura-glass p-10 text-center max-w-sm w-full space-y-6">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto shadow-glow" />
+                    <div className="space-y-2">
+                        <p className="text-foreground font-black uppercase tracking-[0.2em] text-xs">Verifying Link</p>
+                        <p className="text-white/40 text-[10px] uppercase tracking-widest">Validating Reset Fragment…</p>
                     </div>
                 </div>
             </div>
@@ -161,27 +158,23 @@ export function ResetPassword() {
 
     if (!tokenValid) {
         return (
-            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-                </div>
-                <div className="w-full max-w-md">
-                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
-                            <X className="h-6 w-6 text-destructive" />
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="w-full max-w-md space-y-8">
+                    <div className="sakura-glass p-10 text-center space-y-8 shadow-depth3 border-destructive/20 bg-destructive/5">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/20">
+                            <X className="h-10 w-10 text-destructive" />
                         </div>
-                        <div>
-                            <h1 className="text-2xl font-bold">Invalid or Expired Link</h1>
-                            <p className="text-muted-foreground text-sm mt-2">
-                                This password reset link has expired or is invalid.
+                        <div className="space-y-2">
+                            <h1 className="text-xl font-black uppercase tracking-widest text-destructive">Invalid Sequence</h1>
+                            <p className="text-xs text-white/40 leading-relaxed">
+                                This recovery fragment has expired or is cryptographically invalid.
                             </p>
                         </div>
                         <button
                             onClick={() => navigate("/forgot-password")}
-                            className="sakura-ripple-button is-default w-full px-4 py-2.5 font-medium"
+                            className="sakura-ripple-button is-default w-full h-12 flex items-center justify-center font-black uppercase tracking-[0.15em] text-xs"
                         >
-                            Request New Link
+                            Request New Fragment
                         </button>
                     </div>
                 </div>
@@ -192,114 +185,98 @@ export function ResetPassword() {
     const passwordStrength = checkPasswordStrength(formData.password);
 
     return (
-        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-            </div>
-            <div className="w-full max-w-md">
-                <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                    {/* Header */}
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold">Set New Password</h1>
-                        <p className="text-muted-foreground text-sm mt-1">
-                            Enter a strong password to secure your account
-                        </p>
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase">Yura</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Intelligence Hub Recovery</p>
+                </div>
+
+                <div className="sakura-glass p-8 space-y-8 shadow-depth3">
+                    <div className="text-center space-y-1">
+                        <h2 className="text-lg font-black uppercase tracking-widest">Update Key</h2>
+                        <p className="text-[10px] text-white/40 uppercase tracking-widest">Secure your account with a new primary key</p>
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Password Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">New Password</label>
-                            <div className="relative">
-                                <Lock
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">New Key</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     value={formData.password}
                                     onChange={e => {
-                                        setFormData({
-                                            ...formData,
-                                            password: e.target.value,
-                                        });
+                                        setFormData({ ...formData, password: e.target.value });
                                         setErrors({});
                                     }}
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    className="sakura-input h-12 w-full pl-12 pr-12 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
                                 >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
 
                             {/* Password Strength Indicator */}
                             {formData.password && (
-                                <div className="mt-2 space-y-1">
-                                    <div className="flex gap-1">
+                                <div className="mt-3 space-y-2 px-1">
+                                    <div className="flex gap-1.5">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <div
                                                 key={i}
-                                                className={`h-1 flex-1 rounded-full transition-colors ${
-                                                    i < passwordStrength.score ? passwordStrength.color : "bg-muted"
-                                                }`}
+                                                className={cn(
+                                                    "h-1 flex-1 rounded-full transition-all duration-500",
+                                                    i < passwordStrength.score ? "bg-primary shadow-glow" : "bg-white/5"
+                                                )}
                                             />
                                         ))}
                                     </div>
-                                    <p className={`text-xs ${passwordStrength.color}`}>
-                                        Password strength: {passwordStrength.label}
+                                    <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/30">
+                                        Strength Status: <span className="text-primary">{passwordStrength.label}</span>
                                     </p>
                                 </div>
                             )}
 
                             {errors.password && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.password}
                                 </p>
                             )}
                         </div>
 
-                        {/* Confirm Password Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Confirm Password</label>
-                            <div className="relative">
-                                <Lock
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Confirm Key</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     value={formData.confirmPassword}
                                     onChange={e => {
-                                        setFormData({
-                                            ...formData,
-                                            confirmPassword: e.target.value,
-                                        });
+                                        setFormData({ ...formData, confirmPassword: e.target.value });
                                         setErrors({});
                                     }}
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    className="sakura-input h-12 w-full pl-12 pr-12 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
                                 >
-                                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.confirmPassword}
                                 </p>
                             )}
@@ -309,19 +286,14 @@ export function ResetPassword() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="sakura-ripple-button is-default mt-6 flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                            className="sakura-ripple-button is-default h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
                         >
                             {loading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Resetting...
-                                </>
+                                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                             ) : (
-                                <>
-                                    <Check size={18} />
-                                    Reset Password
-                                </>
+                                <Check size={16} />
                             )}
+                            {loading ? "Updating…" : "Update Sequence"}
                         </button>
                     </form>
                 </div>

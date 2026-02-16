@@ -46,7 +46,11 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                 ease: [0.23, 1, 0.32, 1]
             }}
             whileHover={isHydrated ? { y: -6 } : {}}
-            className={cn("shrink-0 group/card", className || "w-[200px] md:w-[320px]")}
+            className={cn(
+                "shrink-0 group/card snap-start", 
+                variant === "continue" ? "w-[240px] md:w-[420px]" : "w-[160px] md:w-[320px]",
+                className
+            )}
         >
             <div className="relative flex flex-col gap-3">
                 <Link 

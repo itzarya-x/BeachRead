@@ -145,191 +145,157 @@ export function Register() {
     const passwordStrength = checkPasswordStrength(formData.password);
 
     return (
-        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-            </div>
-            <div className="w-full max-w-md">
-                <div className="sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                    {/* Header */}
-                    <div className="text-center mb-6">
-                        <h1 className="text-2xl font-bold">Create Account</h1>
-                        <p className="text-muted-foreground text-sm mt-1">
-                            Join and start archiving your anime & manga
-                        </p>
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase">Yura</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Join the Intelligence Hub</p>
+                </div>
+
+                {/* Main Bento Card */}
+                <div className="sakura-glass p-8 space-y-8 shadow-depth3">
+                    {/* Form Header */}
+                    <div className="text-center space-y-1">
+                        <h2 className="text-lg font-black uppercase tracking-widest">Create Identity</h2>
+                        <p className="text-[10px] text-white/40 uppercase tracking-widest">Initialise your personal archive</p>
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-5">
                         {/* Email Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Email</label>
-                            <div className="relative">
-                                <Mail
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Identity (Email)</label>
+                            <div className="relative group">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type="email"
-                                    placeholder="you@example.com"
+                                    placeholder="user@neural.link"
                                     value={formData.email}
-                                    onChange={e =>
-                                        setFormData({
-                                            ...formData,
-                                            email: e.target.value,
-                                        })
-                                    }
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    className="sakura-input h-12 w-full pl-12 pr-4 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                             </div>
                             {errors.email && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.email}
                                 </p>
                             )}
                         </div>
 
                         {/* Name Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Name</label>
-                            <div className="relative">
-                                <User
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Callsign (Name)</label>
+                            <div className="relative group">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type="text"
-                                    placeholder="Your name"
+                                    placeholder="Explorer"
                                     value={formData.name}
-                                    onChange={e =>
-                                        setFormData({
-                                            ...formData,
-                                            name: e.target.value,
-                                        })
-                                    }
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                    className="sakura-input h-12 w-full pl-12 pr-4 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                             </div>
                             {errors.name && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.name}
                                 </p>
                             )}
                         </div>
 
                         {/* Password Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Password</label>
-                            <div className="relative">
-                                <Lock
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Primary Key (Password)</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     value={formData.password}
-                                    onChange={e =>
-                                        setFormData({
-                                            ...formData,
-                                            password: e.target.value,
-                                        })
-                                    }
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                    className="sakura-input h-12 w-full pl-12 pr-12 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
                                 >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
 
                             {/* Password Strength Indicator */}
                             {formData.password && (
-                                <div className="mt-2 space-y-1">
-                                    <div className="flex gap-1">
+                                <div className="mt-3 space-y-2 px-1">
+                                    <div className="flex gap-1.5">
                                         {Array.from({ length: 5 }).map((_, i) => (
                                             <div
                                                 key={i}
-                                                className={`h-1 flex-1 rounded-full transition-colors ${
-                                                    i < passwordStrength.score ? passwordStrength.color : "bg-muted"
-                                                }`}
+                                                className={cn(
+                                                    "h-1 flex-1 rounded-full transition-all duration-500",
+                                                    i < passwordStrength.score ? "bg-primary shadow-glow" : "bg-white/5"
+                                                )}
                                             />
                                         ))}
                                     </div>
-                                    <p className={`text-xs ${passwordStrength.color}`}>
-                                        Password strength: {passwordStrength.label}
+                                    <p className="text-[8px] font-black uppercase tracking-[0.25em] text-white/30">
+                                        Strength Status: <span className="text-primary">{passwordStrength.label}</span>
                                     </p>
                                 </div>
                             )}
 
                             {errors.password && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.password}
                                 </p>
                             )}
                         </div>
 
                         {/* Confirm Password Field */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">Confirm Password</label>
-                            <div className="relative">
-                                <Lock
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                                    size={18}
-                                />
+                        <div className="space-y-2">
+                            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Verify Key</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-primary/40 group-focus-within:text-primary transition-colors" size={16} />
                                 <input
                                     type={showConfirmPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     value={formData.confirmPassword}
-                                    onChange={e =>
-                                        setFormData({
-                                            ...formData,
-                                            confirmPassword: e.target.value,
-                                        })
-                                    }
-                                    className="sakura-input w-full rounded-lg border border-border bg-input py-2.5 pl-10 pr-10 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-50"
+                                    onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                    className="sakura-input h-12 w-full pl-12 pr-12 text-sm focus-visible:ring-primary/20"
                                     disabled={loading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 transition-colors"
                                 >
-                                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                             {errors.confirmPassword && (
-                                <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                                    <X size={12} />
+                                <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-destructive">
                                     {errors.confirmPassword}
                                 </p>
                             )}
                         </div>
 
                         {/* Terms Checkbox */}
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={acceptTerms}
-                                onChange={e => setAcceptTerms(e.target.checked)}
-                                className="h-4 w-4 rounded border-border bg-input accent-primary"
-                                disabled={loading}
-                            />
-                            <span className="text-muted-foreground">
-                                I agree to the{" "}
-                                <a href="#" className="text-primary hover:underline">
-                                    Terms of Service
-                                </a>
+                        <label className="flex items-center gap-3 px-1 cursor-pointer group">
+                            <div className="relative flex items-center justify-center">
+                                <input
+                                    type="checkbox"
+                                    checked={acceptTerms}
+                                    onChange={e => setAcceptTerms(e.target.checked)}
+                                    className="peer h-5 w-5 appearance-none rounded-lg border border-white/10 bg-white/5 checked:border-primary/50 checked:bg-primary/10 transition-all"
+                                    disabled={loading}
+                                />
+                                <Check className="absolute h-3 w-3 text-primary opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
+                            </div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-white/30 group-hover:text-white/50 transition-colors">
+                                I agree to the <span className="text-primary/60">Protocols</span>
                             </span>
                         </label>
 
@@ -337,27 +303,22 @@ export function Register() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="sakura-ripple-button is-default mt-6 flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                            className="sakura-ripple-button is-default mt-4 h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
                         >
                             {loading ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Creating account...
-                                </>
+                                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                             ) : (
-                                <>
-                                    <Check size={18} />
-                                    Create Account
-                                </>
+                                <Check size={16} />
                             )}
+                            {loading ? "Initialising…" : "Initialise Account"}
                         </button>
                     </form>
 
                     {/* Footer */}
-                    <p className="text-center text-sm text-muted-foreground mt-4">
-                        Already have an account?{" "}
-                        <a href="/login" className="font-medium text-primary hover:underline">
-                            Sign in
+                    <p className="text-center text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
+                        Identity already exists?{" "}
+                        <a href="/login" className="text-primary hover:text-primary/80 transition-colors">
+                            Access Vault
                         </a>
                     </p>
                 </div>

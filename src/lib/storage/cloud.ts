@@ -632,6 +632,67 @@ export class CloudStorageProvider implements IStorageProvider {
         }));
     }
 
+    // ============= Lossless Mapping Extensions =============
+    async saveFavorites(favorites: any[]): Promise<void> {
+        assertCloud("CloudStorage.saveFavorites");
+        if (!this.supabase || !this.userId) return;
+
+        // Flush and fill
+        await this.supabase.from("user_favorites").delete().eq("user_id", this.userId);
+        
+        if (favorites.length > 0) {
+            const { error } = await this.supabase
+                .from("user_favorites")
+                .insert(favorites.map((f, i) => ({
+                    user_id: this.userId,
+                    type: this.mapFavType(f.favourite_type),
+                    anilist_id: f.favourite_id,
+                    position: i,
+                    raw: f
+                })));
+            if (error) throw error;
+        }
+    }
+
+    async saveProfileSnapshot(profile: any): Promise<void> {
+        assertCloud("CloudStorage.saveProfileSnapshot");
+        if (!this.supabase || !this.userId) return;
+
+        const { error } = await this.supabase
+            .from("user_profile_snapshot")
+            .insert([{
+                user_id: this.userId,
+                profile: profile,
+                imported_at: new Date().toISOString()
+            }]);
+        if (error) throw error;
+    }
+
+    async upsertMediaBatch(mediaItems: any[]): Promise<void> {
+        assertCloud("CloudStorage.upsertMediaBatch");
+        if (!this.supabase || !this.userId) return;
+
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < mediaItems.length; i += CHUNK_SIZE) {
+            const chunk = mediaItems.slice(i, i + CHUNK_SIZE);
+            const { error } = await this.supabase
+                .from("user_media")
+                .upsert(chunk, { onConflict: "user_id, series_id" });
+            if (error) throw error;
+        }
+    }
+
+    private mapFavType(type: number): string {
+        switch (type) {
+            case 1: return "ANIME";
+            case 2: return "MANGA";
+            case 3: return "CHARACTER";
+            case 4: return "STAFF";
+            case 5: return "STUDIO";
+            default: return "OTHER";
+        }
+    }
+
     // ============= Helpers =============
     private mapToUserEntry(row: any): UserEntry {
         return {

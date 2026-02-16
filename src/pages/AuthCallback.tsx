@@ -70,10 +70,13 @@ export function AuthCallback() {
 
     if (status === "loading") {
         return (
-            <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
-                <div className="text-center">
-                    <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-muted-foreground text-sm">Completing sign in…</p>
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="sakura-glass p-10 text-center max-w-sm w-full space-y-6">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto shadow-glow" />
+                    <div className="space-y-2">
+                        <p className="text-foreground font-black uppercase tracking-[0.2em] text-xs">Synchronising</p>
+                        <p className="text-white/40 text-[10px] uppercase tracking-widest">Finalising Neural Link…</p>
+                    </div>
                 </div>
             </div>
         );
@@ -81,24 +84,26 @@ export function AuthCallback() {
 
     if (status === "error") {
         return (
-            <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
-                <div className="text-center max-w-md">
-                    <p className="text-destructive mb-2 font-semibold text-lg">Sign In Failed</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        {error || "An error occurred during authentication."}
-                    </p>
-                    <div className="flex gap-2 justify-center flex-wrap">
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="sakura-glass p-10 text-center max-w-md w-full space-y-6 border-destructive/20 bg-destructive/5">
+                    <div className="space-y-2">
+                        <p className="text-destructive font-black uppercase tracking-[0.2em] text-sm">Authentication Failed</p>
+                        <p className="text-white/50 text-xs">
+                            {error || "An error occurred during synchronisation."}
+                        </p>
+                    </div>
+                    <div className="flex gap-3 justify-center">
                         <button
                             onClick={() => navigate("/", { replace: true })}
-                            className="sakura-ripple-button is-default px-4 py-2 text-sm"
+                            className="sakura-ripple-button is-outline px-6 py-2.5 text-[10px] font-black uppercase tracking-widest"
                         >
-                            Go Home
+                            Return Home
                         </button>
                         <button
                             onClick={() => window.location.reload()}
-                            className="sakura-ripple-button is-outline px-4 py-2 text-sm"
+                            className="sakura-ripple-button is-default px-6 py-2.5 text-[10px] font-black uppercase tracking-widest"
                         >
-                            Try Again
+                            Retry Link
                         </button>
                     </div>
                 </div>
@@ -108,11 +113,13 @@ export function AuthCallback() {
 
     // Success state (brief moment before redirect)
     return (
-        <div className="sakura-app-shell flex min-h-screen items-center justify-center bg-background">
-            <div className="text-center">
-                <div className="text-3xl mb-4">✓</div>
-                <p className="text-foreground font-medium">Welcome back!</p>
-                <p className="text-muted-foreground text-sm">Redirecting…</p>
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="sakura-glass p-10 text-center max-w-sm w-full space-y-4">
+                <div className="text-4xl text-primary animate-bounce">✓</div>
+                <div className="space-y-1">
+                    <p className="text-foreground font-black uppercase tracking-[0.2em] text-sm">Welcome Back</p>
+                    <p className="text-white/40 text-[10px] uppercase tracking-widest">Redirecting to Intelligence Hub…</p>
+                </div>
             </div>
         </div>
     );

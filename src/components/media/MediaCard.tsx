@@ -41,23 +41,26 @@ export function MediaCard({ media, isSelected, onToggleSelect, index = 0 }: Medi
                 ease: cardEase,
                 delay: index * 0.03
             }}
-            whileHover={isHydrated ? { y: -6, scale: 1.02, transition: { duration: 0.16, ease: hoverEase } } : {}}
+            whileHover={isHydrated ? { 
+                y: -6, 
+                scale: 1.02, 
+                transition: { duration: 0.16, ease: hoverEase } 
+            } : {}}
             className={cn(
                 "group relative overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-all duration-300",
-                isHydrated && "hover:border-primary/35 hover:shadow-md",
+                isHydrated && "md:hover:border-primary/35 md:hover:shadow-md", // Hover only on MD+
                 isSelected ? "ring-2 ring-primary/35" : ""
             )}
         >
-            <Link to={isHydrated ? linkPath : "#"} className="block">
+            <Link to={isHydrated ? linkPath : "#"} className="block min-h-[44px]">
                 {/* Cover Image Container */}
                 <div className="relative aspect-[2/3] overflow-hidden bg-muted">
                     {media?.coverImage ? (
                         <motion.img
                             src={media.coverImage}
                             alt={title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-[1.08]"
                             loading="lazy"
-                            whileHover={isHydrated ? { scale: 1.05 } : {}}
                             transition={{ duration: 0.8, ease: cardEase }}
                         />
                     ) : (

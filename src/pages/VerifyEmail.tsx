@@ -86,22 +86,12 @@ export function VerifyEmail() {
 
     if (verifying) {
         return (
-            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-                </div>
-                <div className="w-full max-w-md">
-                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent">
-                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold">Verifying Email</h1>
-                            <p className="text-muted-foreground text-sm mt-2">
-                                Please wait while we verify your email address...
-                            </p>
-                        </div>
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="sakura-glass p-10 text-center max-w-sm w-full space-y-6">
+                    <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto shadow-glow" />
+                    <div className="space-y-2">
+                        <p className="text-foreground font-black uppercase tracking-[0.2em] text-xs">Verifying Identity</p>
+                        <p className="text-white/40 text-[10px] uppercase tracking-widest">Validating Email Fragment…</p>
                     </div>
                 </div>
             </div>
@@ -110,22 +100,12 @@ export function VerifyEmail() {
 
     if (verified) {
         return (
-            <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-                <div className="pointer-events-none absolute inset-0">
-                    <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                    <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-                </div>
-                <div className="w-full max-w-md">
-                    <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 text-center backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
-                        <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(152_52%_16%_/_0.48)]">
-                            <Check className="h-6 w-6 text-[hsl(152_72%_64%)]" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold">Email Verified!</h1>
-                            <p className="text-muted-foreground text-sm mt-2">
-                                Your email has been successfully verified. Redirecting to sign in...
-                            </p>
-                        </div>
+            <div className="flex min-h-screen items-center justify-center p-6">
+                <div className="sakura-glass p-10 text-center max-w-sm w-full space-y-4">
+                    <div className="text-4xl text-primary animate-bounce">✓</div>
+                    <div className="space-y-1">
+                        <p className="text-foreground font-black uppercase tracking-[0.2em] text-sm">Identity Verified</p>
+                        <p className="text-white/40 text-[10px] uppercase tracking-widest">Redirecting to Access Point…</p>
                     </div>
                 </div>
             </div>
@@ -133,50 +113,47 @@ export function VerifyEmail() {
     }
 
     return (
-        <div className="sakura-app-shell relative flex min-h-screen items-center justify-center bg-background p-4">
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute left-[10%] top-0 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-                <div className="absolute bottom-0 right-[8%] h-72 w-72 rounded-full bg-accent/80 blur-3xl" />
-            </div>
-            <div className="w-full max-w-md">
-                <div className="space-y-4 sakura-glass rounded-[var(--radius-lg)] border border-border p-6 backdrop-blur-[20px] shadow-[0_18px_30px_-24px_rgba(0,0,0,0.95)]">
+        <div className="flex min-h-screen items-center justify-center p-6">
+            <div className="w-full max-w-md space-y-8">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                    <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase">Yura</h1>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-white/30">Email Verification</p>
+                </div>
+
+                <div className="sakura-glass p-8 space-y-8 shadow-depth3 border-destructive/20 bg-destructive/5">
                     {/* Icon */}
-                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
-                        <X className="h-6 w-6 text-destructive" />
+                    <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/20">
+                        <X className="h-10 w-10 text-destructive" />
                     </div>
 
                     {/* Content */}
-                    <div>
-                        <h1 className="text-2xl font-bold">Verification Failed</h1>
-                        <p className="text-muted-foreground text-sm mt-2">
-                            {error || "The verification link may be invalid or expired."}
+                    <div className="text-center space-y-2">
+                        <h2 className="text-lg font-black uppercase tracking-widest text-destructive">Verification Failed</h2>
+                        <p className="text-xs text-white/40 leading-relaxed">
+                            {error || "The email verification fragment may be invalid or expired."}
                         </p>
                     </div>
 
                     {/* Actions */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <button
                             onClick={handleResendEmail}
                             disabled={resending}
-                            className="sakura-ripple-button is-default flex w-full items-center justify-center gap-2 px-4 py-2.5 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                            className="sakura-ripple-button is-default h-12 w-full flex items-center justify-center gap-3 font-black uppercase tracking-[0.15em] text-xs disabled:opacity-30"
                         >
                             {resending ? (
-                                <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Sending...
-                                </>
+                                <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                             ) : (
-                                <>
-                                    <RotateCw size={18} />
-                                    Resend Verification Email
-                                </>
+                                <RotateCw size={16} />
                             )}
+                            {resending ? "Transmitting…" : "Resend Fragment"}
                         </button>
                         <button
                             onClick={() => navigate("/login")}
-                            className="sakura-ripple-button is-outline w-full px-4 py-2.5 font-medium text-foreground"
+                            className="sakura-ripple-button is-outline h-12 w-full flex items-center justify-center font-black uppercase tracking-[0.15em] text-xs"
                         >
-                            Back to Sign In
+                            Return to Login
                         </button>
                     </div>
                 </div>

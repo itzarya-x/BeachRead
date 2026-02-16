@@ -1,6 +1,7 @@
 import { FirstLoginPrompt } from "@/components/account/FirstLoginPrompt";
 import { SessionRestoreToast } from "@/components/account/SessionRestoreToast";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { MobileNav } from "@/components/layout/MobileNav";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { DuplicateDetectorDialog } from "@/components/media/DuplicateDetectorDialog";
 import { ConflictResolver } from "@/components/sync/ConflictResolver";
@@ -117,42 +118,38 @@ const AppContent = () => {
 
     return (
         <>
-            <div className="sakura-app-shell flex min-h-screen flex-col">
+            <div className="flex min-h-screen bg-background pb-20 md:pb-0">
                 <div className="sakura-particle-layer" aria-hidden="true" />
                 <OfflineBanner />
-                <div className="flex flex-1">
-                    <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
-                    
-                    {/* Main Content Area */}
-                    <div className={cn(
-                        "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
-                        sidebarCollapsed ? "md:ml-20" : "md:ml-72",
-                        "ml-0" // No margin on mobile
-                    )}>
-                        <TopHeader />
-                        <main className="flex-1 overflow-y-auto">
-                            <AnimatePresence mode="wait">
-                                <Routes location={location} key={location.pathname}>
-                                    <Route path="/" element={<Index />} />
-                                    <Route path="/auth/callback" element={<AuthCallback />} />
-                                    <Route path="/continue" element={<Continue />} />
-                                    <Route path="/anime" element={<AnimeList />} />
-                                    <Route path="/anime/:id" element={<MediaDetail />} />
-                                    <Route path="/manga" element={<MangaList />} />
-                                    <Route path="/manga/:id" element={<MediaDetail />} />
-                                    <Route path="/tiers" element={<TierList />} />
-                                    <Route path="/tier-maker" element={<TierMaker />} />
-                                    <Route path="/custom-lists" element={<CustomLists />} />
-                                    <Route path="/stats" element={<Stats />} />
-                                    <Route path="/activity" element={<Activity />} />
-                                    <Route path="/settings" element={<Settings />} />
-                                    <Route path="/raw-data" element={<RawData />} />
-                                    <Route path="*" element={<NotFound />} />
-                                </Routes>
-                            </AnimatePresence>
-                        </main>
-                    </div>
+                
+                <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
+                
+                <div className="flex flex-1 flex-col">
+                    <TopHeader />
+                    <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+                        <AnimatePresence mode="wait">
+                            <Routes location={location} key={location.pathname}>
+                                <Route path="/" element={<Index />} />
+                                <Route path="/auth/callback" element={<AuthCallback />} />
+                                <Route path="/continue" element={<Continue />} />
+                                <Route path="/anime" element={<AnimeList />} />
+                                <Route path="/anime/:id" element={<MediaDetail />} />
+                                <Route path="/manga" element={<MangaList />} />
+                                <Route path="/manga/:id" element={<MediaDetail />} />
+                                <Route path="/tiers" element={<TierList />} />
+                                <Route path="/tier-maker" element={<TierMaker />} />
+                                <Route path="/custom-lists" element={<CustomLists />} />
+                                <Route path="/stats" element={<Stats />} />
+                                <Route path="/activity" element={<Activity />} />
+                                <Route path="/settings" element={<Settings />} />
+                                <Route path="/raw-data" element={<RawData />} />
+                                <Route path="*" element={<NotFound />} />
+                            </Routes>
+                        </AnimatePresence>
+                    </main>
                 </div>
+
+                <MobileNav />
             </div>
 
             {/* Auth UI Components (PHASE 6-9) */}

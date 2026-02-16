@@ -22,7 +22,7 @@ export function HeroSection({ user, onAddClick, onImportClick, onTierClick }: He
             )}
 
             {/* Content */}
-            <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-10">
+            <div className="relative w-full py-8 md:py-10">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     {/* Left: Avatar + Welcome + Subtitle */}
                     <div className="flex items-center gap-4">

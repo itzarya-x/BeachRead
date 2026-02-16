@@ -24,7 +24,8 @@ export function DrillDownModal({ items, title, subtitle, onClose }: DrillDownMod
 
     const handleItemClick = (item: DisplayMedia) => {
         // PHASE 4.3: Navigate to item detail page
-        navigate(`/media/${item._seriesId}`);
+        const type = item.mediaType?.toLowerCase() || "anime";
+        navigate(`/${type}/${item._seriesId}`);
     };
 
     return (

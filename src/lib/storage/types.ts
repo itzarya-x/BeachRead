@@ -165,4 +165,11 @@ export interface IStorageProvider {
      */
     logActivity(activity: Omit<ActivityLog, "id" | "userId" | "createdAt">): Promise<void>;
     getActivities(userId: string | number): Promise<ActivityLog[]>;
+
+    /**
+     * GDPR Import & Favorites & Profile Snapshots (Cloud Only)
+     */
+    saveFavorites(favorites: any[]): Promise<void>;
+    saveProfileSnapshot(profile: any): Promise<void>;
+    upsertMediaBatch(mediaItems: any[]): Promise<void>;
 }

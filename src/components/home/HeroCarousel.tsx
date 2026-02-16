@@ -76,7 +76,7 @@ function HeroSlide({ media }: { media: DisplayMedia }) {
             </div>
 
             {/* Content Container */}
-            <div className="relative h-full container mx-auto px-8 md:px-20 flex flex-col justify-center items-start">
+            <div className="relative h-full w-full px-8 md:px-12 flex flex-col justify-center items-start">
                 
                 {/* Meta Tag */}
                 <motion.div 

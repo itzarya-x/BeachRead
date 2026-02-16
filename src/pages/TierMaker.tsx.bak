@@ -1,0 +1,772 @@
+/**
+ * PHASE 5: Premium Tier Maker Experience
+ * Cloud persistence via Supabase tiers + tier_items.
+ */
+
+import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { AutoBento } from "@/components/layout/AutoBento";
+import { FilterPanel } from "@/components/tier/FilterPanel";
+import { TierAnalytics } from "@/components/tier/TierAnalytics";
+import { TierMediaItem } from "@/components/tier/TierMediaItem";
+import { GridSkeleton } from "@/components/ui/Skeleton";
+import { Button, IconButton } from "@/components/ui/YuraButton";
+import { useData } from "@/context/DataContext";
+import {
+    createTier,
+    deleteTier,
+    getTierItems,
+    getTiers,
+    moveMediaToTier,
+    reorderItemsInTier,
+    supabase,
+    updateTier,
+} from "@/lib/supabase-client";
+import type { Tier, TierAssignment } from "@/lib/tierDatabase";
+import { useMediaStore } from "@/store/mediaStore";
+import type { DisplayMedia } from "@/types/display";
+import { safeArray } from "@/utils/safeArray";
+import {
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DropAnimation,
+    KeyboardSensor,
+    MouseSensor,
+    TouchSensor,
+    closestCenter,
+    defaultDropAnimationSideEffects,
+    useDroppable,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    arrayMove,
+    rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
+    ArrowDown,
+    ArrowUp,
+    BarChart3,
+    Check,
+    Filter,
+    Plus,
+    RotateCcw,
+    Settings,
+    Trash2,
+    X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+const CLOUD_BOARD_ID = "cloud";
+
+const dropAnimation: DropAnimation = {
+    sideEffects: defaultDropAnimationSideEffects({
+        styles: {
+            active: {
+                opacity: "0.5",
+            },
+        },
+    }),
+};
+
+const idEquals = (a: string | number | null | undefined, b: string | number | null | undefined) => String(a) === String(b);
+const tierEquals = (a: string | number | null | undefined, b: string | number | null | undefined) => {
+    if (a == null || b == null) return a == null && b == null;
+    return String(a) === String(b);
+};
+
+export default function TierMaker() {
+    const { user, loading: dataLoading } = useData();
+    const { animeList, mangaList } = useMediaStore();
+
+    // State
+    const [tiers, setTiers] = useState<Tier[]>([]);
+    const [assignments, setAssignments] = useState<TierAssignment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeId, setActiveId] = useState<string | number | null>(null);
+    const [showFilters, setShowFilters] = useState(false);
+    const [showAnalytics, setShowAnalytics] = useState(false);
+
+    // Filters
+    const [filters, setFilters] = useState<{
+        mediaType: "all" | "anime" | "manga" | "manhua" | "manhwa";
+        genres: string[];
+        minScore: number;
+        maxScore: number;
+        status: string[];
+    }>({
+        mediaType: "all",
+        genres: [],
+        minScore: 0,
+        maxScore: 100,
+        status: [],
+    });
+
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+        useSensor(KeyboardSensor),
+    );
+
+    const allLibraryMedia = useMemo(() => {
+        return [...safeArray<DisplayMedia>(animeList), ...safeArray<DisplayMedia>(mangaList)];
+    }, [animeList, mangaList]);
+
+    const refreshBoardData = useCallback(async () => {
+        if (!user) {
+            setTiers([]);
+            setAssignments([]);
+            setLoading(false);
+            return;
+        }
+
+        try {
+            // Map series_id (number) to display media
+            // We need to match Supabase's series_id with our library's _entryId
+            const [tierRows, itemRows] = await Promise.all([
+                getTiers(),
+                getTierItems(),
+            ]);
+
+            const nextTiers: Tier[] = tierRows.map((row) => ({
+                id: row.id,
+                boardId: CLOUD_BOARD_ID,
+                name: row.name,
+                color: row.color,
+                order: row.order,
+            }));
+
+            const nextAssignments: TierAssignment[] = itemRows.map((row) => ({
+                boardId: CLOUD_BOARD_ID,
+                mediaId: row.series_id, // Map series_id directly to mediaId (which is _entryId)
+                tierId: row.tier_id,
+                position: row.position,
+            }))
+            .sort((a, b) => a.position - b.position);
+
+            setTiers(nextTiers);
+            setAssignments(nextAssignments);
+            console.log("[TierMaker] refresh success", {
+                tiers: nextTiers.length,
+                assignments: nextAssignments.length,
+            });
+        } catch (err) {
+            console.error("[TierMaker] refresh failed", err);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        refreshBoardData();
+    }, [refreshBoardData]);
+
+    // Realtime Sync
+    useEffect(() => {
+        if (!supabase || !user?.id) return;
+
+        const channel = supabase
+            .channel(`tier-maker:${user.id}`)
+            .on("postgres_changes", { event: "*", schema: "public", table: "tiers", filter: `user_id=eq.${user.id}` }, refreshBoardData)
+            .on("postgres_changes", { event: "*", schema: "public", table: "tier_items", filter: `user_id=eq.${user.id}` }, refreshBoardData)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id, refreshBoardData]);
+
+    // Derived Data
+    const allMedia = useMemo(() => {
+        let media = [...allLibraryMedia];
+        if (filters.mediaType !== "all") {
+            if (filters.mediaType === "anime") media = media.filter((m) => m.mediaType === "ANIME");
+            else media = media.filter((m) => m.mediaType === "MANGA" && m.originType?.toLowerCase() === filters.mediaType);
+        }
+        if (filters.genres.length > 0) media = media.filter((m) => safeArray<string>(filters.genres).some((g) => safeArray<string>(m.genres).includes(g)));
+        if (filters.minScore > 0 || filters.maxScore < 100) media = media.filter((m) => m.score >= filters.minScore && m.score <= filters.maxScore);
+        if (filters.status.length > 0) media = media.filter((m) => safeArray<string>(filters.status).includes(m.status));
+        return media;
+    }, [allLibraryMedia, filters]);
+
+    const sortedTiers = useMemo(() => [...tiers].sort((a, b) => a.order - b.order), [tiers]);
+
+    const assignedMediaIds = useMemo(
+        () => new Set(safeArray<TierAssignment>(assignments).map((a) => String(a.mediaId))),
+        [assignments],
+    );
+
+    const unassignedMedia = useMemo(
+        () => safeArray<DisplayMedia>(allMedia).filter((m) => !assignedMediaIds.has(String(m._entryId))),
+        [allMedia, assignedMediaIds],
+    );
+
+    const getTierAssignments = useCallback(
+        (list: TierAssignment[], tierId: string | number | null) =>
+            list
+                .filter((a) => tierEquals(a.tierId, tierId))
+                .sort((a, b) => a.position - b.position),
+        [],
+    );
+
+    // Logic: Auto Assign
+    const handleAutoAssign = async () => {
+        if (!confirm("Auto-assign based on scores? This will reset current assignments.")) return;
+
+        if (sortedTiers.length < 5) {
+            alert("Need at least 5 tiers for auto-assign (S, A, B, C, D/F)");
+            return;
+        }
+
+        const previousAssignments = assignments;
+        try {
+            // We iterate sequentially to avoid overwhelming the server (or batching if implemented)
+            // But for now, let's do parallel with limit or sequential
+            // To be safe: sequential loop
+            
+            for (const media of allMedia) {
+                if (media.score === 0 || media.status !== "COMPLETED") continue;
+
+                let tierIndex = 5;
+                if (media.score >= 90) tierIndex = 0;
+                else if (media.score >= 80) tierIndex = 1;
+                else if (media.score >= 70) tierIndex = 2;
+                else if (media.score >= 60) tierIndex = 3;
+                else if (media.score >= 50) tierIndex = 4;
+
+                if (tierIndex >= sortedTiers.length) tierIndex = sortedTiers.length - 1;
+
+                const targetTier = sortedTiers[tierIndex];
+                if (!targetTier?.id) continue;
+
+                const currentInTier = getTierAssignments(assignments, targetTier.id).map((a) => a.mediaId);
+                const nextPosition = currentInTier.length; // Approximate, assuming we append
+                
+                await moveMediaToTier(
+                    Number(media._entryId), 
+                    String(targetTier.id), 
+                    nextPosition, 
+                    media.mediaType
+                );
+            }
+
+            console.log("[TierMaker] auto assign success");
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] auto assign failed", err);
+            setAssignments(previousAssignments);
+            await refreshBoardData();
+        }
+    };
+
+    const handleCreateTier = async () => {
+        const previousTiers = tiers;
+        const tempId = `temp-${Date.now()}`;
+        const optimisticTier: Tier = {
+            id: tempId,
+            boardId: CLOUD_BOARD_ID,
+            name: "New Tier",
+            color: "#808080",
+            order: sortedTiers.length,
+        };
+
+        setTiers([...tiers, optimisticTier]);
+
+        try {
+            await createTier("New Tier", "#808080");
+            console.log("[TierMaker] create tier success");
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] create tier failed", err);
+            setTiers(previousTiers);
+            await refreshBoardData();
+        }
+    };
+
+    const handleEditTier = async (
+        tierId: string | number,
+        updates: { name?: string; color?: string; order?: number },
+    ) => {
+        const previousTiers = tiers;
+        setTiers((prev) =>
+            prev.map((tier) =>
+                idEquals(tier.id, tierId)
+                    ? {
+                        ...tier,
+                        name: updates.name ?? tier.name,
+                        color: updates.color ?? tier.color,
+                        order: updates.order ?? tier.order,
+                    }
+                    : tier,
+            ),
+        );
+
+        try {
+            await updateTier(String(tierId), {
+                name: updates.name,
+                color: updates.color,
+                order: updates.order,
+            });
+            console.log("[TierMaker] edit tier success", { tierId, updates });
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] edit tier failed", err);
+            setTiers(previousTiers);
+            await refreshBoardData();
+        }
+    };
+
+    const handleMoveTier = async (tierId: string | number, direction: "up" | "down") => {
+        const ordered = [...sortedTiers];
+        const index = ordered.findIndex((t) => idEquals(t.id, tierId));
+        if (index === -1) return;
+
+        const swapIndex = direction === "up" ? index - 1 : index + 1;
+        if (swapIndex < 0 || swapIndex >= ordered.length) return;
+
+        const previousTiers = tiers;
+        const moved = [...ordered];
+        const tmp = moved[index].order;
+        moved[index].order = moved[swapIndex].order;
+        moved[swapIndex].order = tmp;
+
+        setTiers((prev) =>
+            prev.map((tier) => {
+                const updated = moved.find((m) => idEquals(m.id, tier.id));
+                return updated ? { ...tier, order: updated.order } : tier;
+            }),
+        );
+
+        try {
+            await Promise.all([
+                updateTier(String(moved[index].id), { order: moved[index].order }),
+                updateTier(String(moved[swapIndex].id), { order: moved[swapIndex].order }),
+            ]);
+            console.log("[TierMaker] move tier success", { tierId, direction });
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] move tier failed", err);
+            setTiers(previousTiers);
+            await refreshBoardData();
+        }
+    };
+
+    const handleDeleteTier = async (tierId: string | number) => {
+        const previousTiers = tiers;
+        const previousAssignments = assignments;
+
+        setTiers((prev) => prev.filter((tier) => !idEquals(tier.id, tierId)));
+        setAssignments((prev) => prev.filter((a) => !tierEquals(a.tierId, tierId)));
+
+        try {
+            await deleteTier(String(tierId));
+            console.log("[TierMaker] delete tier success", { tierId });
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] delete tier failed", err);
+            setTiers(previousTiers);
+            setAssignments(previousAssignments);
+            await refreshBoardData();
+        }
+    };
+
+    // Logic: Drag End
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveId(null);
+        if (!over) return;
+
+        const draggedMediaId = active.id as string | number;
+        const overId = over.id as string | number;
+
+        if (idEquals(draggedMediaId, overId)) return;
+
+        const previousAssignments = assignments;
+
+        const activeAssignment = assignments.find((a) => idEquals(a.mediaId, draggedMediaId));
+        const sourceTierId = activeAssignment?.tierId ?? null;
+
+        let targetTierId: string | number | null = null;
+        if (String(overId).startsWith("tier-")) {
+            targetTierId = String(overId).replace("tier-", "");
+        } else if (String(overId) === "pool") {
+            targetTierId = null;
+        } else {
+            const overAssignment = assignments.find((a) => idEquals(a.mediaId, overId));
+            targetTierId = overAssignment?.tierId ?? null;
+        }
+
+        // --- SCENARIO 1: REORDER IN SAME TIER ---
+        if (tierEquals(sourceTierId, targetTierId)) {
+            if (targetTierId == null) return; // Reordering in pool not persisted yet (unless we add order to pool)
+
+            const sameTierAssignments = getTierAssignments(assignments, targetTierId);
+            const oldIndex = sameTierAssignments.findIndex((a) => idEquals(a.mediaId, draggedMediaId));
+            let newIndex = sameTierAssignments.findIndex((a) => idEquals(a.mediaId, overId));
+
+            if (oldIndex === -1) return;
+            if (newIndex === -1) newIndex = sameTierAssignments.length - 1;
+            if (oldIndex === newIndex) return;
+
+            const newOrder = arrayMove(sameTierAssignments, oldIndex, newIndex);
+            const newOrderSeriesIds = newOrder.map((a) => Number(a.mediaId)); // Ensure numbers
+
+            // Optimistic update
+            const nextAssignments = assignments.map((assignment) => {
+                const index = newOrderSeriesIds.indexOf(Number(assignment.mediaId));
+                if (index === -1 || !tierEquals(assignment.tierId, targetTierId)) return assignment;
+                return { ...assignment, position: index };
+            });
+
+            setAssignments(nextAssignments);
+
+            try {
+                await reorderItemsInTier(String(targetTierId), newOrderSeriesIds);
+                console.log("[TierMaker] reorder items success", { tierId: targetTierId });
+                await refreshBoardData();
+            } catch (err) {
+                console.error("[TierMaker] reorder items failed", err);
+                setAssignments(previousAssignments);
+                await refreshBoardData();
+            }
+            return;
+        }
+
+        // --- SCENARIO 2: MOVE TO DIFFERENT TIER ---
+        const draggedMedia = allLibraryMedia.find(m => idEquals(m._entryId, draggedMediaId));
+        if (!draggedMedia) return;
+
+        const sourceOrder = getTierAssignments(assignments, sourceTierId)
+            .map((a) => a.mediaId)
+            .filter((mediaId) => !idEquals(mediaId, draggedMediaId));
+
+        const targetOrder = getTierAssignments(assignments, targetTierId)
+            .map((a) => a.mediaId)
+            .filter((mediaId) => !idEquals(mediaId, draggedMediaId));
+
+        let insertIndex = targetOrder.length;
+        const isDroppingOnTierContainer = String(overId).startsWith("tier-") || String(overId) === "pool";
+        if (!isDroppingOnTierContainer) {
+            const overIndex = targetOrder.findIndex((mediaId) => idEquals(mediaId, overId));
+            if (overIndex !== -1) insertIndex = overIndex;
+        }
+
+        if (targetTierId != null) {
+            targetOrder.splice(insertIndex, 0, draggedMediaId);
+        }
+
+        // Optimistic State Update
+        const unaffected = assignments.filter(
+            (a) =>
+                !idEquals(a.mediaId, draggedMediaId)
+                && !tierEquals(a.tierId, sourceTierId)
+                && !tierEquals(a.tierId, targetTierId),
+        );
+
+        const rebuiltSource: TierAssignment[] = sourceTierId == null
+            ? [] // Pool has no order persistence in this logic, but if we wanted to visualize removal:
+            : sourceOrder.map((mediaId, idx) => ({
+                boardId: CLOUD_BOARD_ID,
+                mediaId,
+                tierId: sourceTierId,
+                position: idx,
+            }));
+
+        const rebuiltTarget: TierAssignment[] = targetTierId == null
+            ? [] // Moving to pool
+            : targetOrder.map((mediaId, idx) => ({
+                boardId: CLOUD_BOARD_ID,
+                mediaId,
+                tierId: targetTierId,
+                position: idx,
+            }));
+        
+        // If moving to pool, we just remove the assignment from the state so it appears in unassigned
+        // But wait, unassigned logic is: !assignedMediaIds.has(m._entryId)
+        // So we just need to NOT include it in 'assignments' if target is pool.
+        
+        // If target is NOT pool, it's in rebuiltTarget.
+        
+        const optimisticAssignments = [...unaffected, ...rebuiltSource, ...rebuiltTarget];
+        setAssignments(optimisticAssignments);
+
+        try {
+            if (targetTierId == null) {
+                // Remove from tier (back to pool)
+                // moveMediaToTier with tierId=null does this (via delete)
+                await moveMediaToTier(Number(draggedMediaId), null, 0); 
+            } else {
+                // Insert into new tier
+                await moveMediaToTier(
+                    Number(draggedMediaId), 
+                    String(targetTierId), 
+                    insertIndex,
+                    draggedMedia.mediaType
+                );
+                
+                // We might need to reorder the *rest* of the items in the target tier to ensure gaps are closed/opened correctly?
+                // `moveMediaToTier` inserts at specific position. 
+                // But if we just inserted, the *other* items in DB might have clashing positions or gaps.
+                // To be safe, we should probably reorder the whole target tier.
+                
+                const targetOrderSeriesIds = targetOrder.map(id => Number(id));
+                await reorderItemsInTier(String(targetTierId), targetOrderSeriesIds);
+            }
+
+            if (sourceTierId != null) {
+                // Reorder source tier to close gap
+                const sourceOrderSeriesIds = sourceOrder.map(id => Number(id));
+                await reorderItemsInTier(String(sourceTierId), sourceOrderSeriesIds);
+            }
+
+            console.log("[TierMaker] move media success", {
+                mediaId: draggedMediaId,
+                from: sourceTierId,
+                to: targetTierId,
+            });
+            await refreshBoardData();
+        } catch (err) {
+            console.error("[TierMaker] move media failed", err);
+            setAssignments(previousAssignments);
+            await refreshBoardData();
+        }
+    };
+
+    const activeMedia = useMemo(() => allMedia.find((m) => idEquals(m._entryId, activeId)), [allMedia, activeId]);
+
+    if (loading || dataLoading) {
+        return (
+            <PageWrapper className="p-6">
+                <div className="space-y-8">
+                    <div className="h-10 w-64 rounded-lg bg-muted animate-pulse" />
+                    <GridSkeleton count={12} />
+                </div>
+            </PageWrapper>
+        );
+    }
+
+    return (
+        <PageWrapper>
+            <div className="page-container">
+                <PageHeader
+                    title="Tier Maker"
+                    subtitle="Rank your collection"
+                    action={<IconButton onClick={handleCreateTier} icon={Plus} label="Add Tier" size="sm" className="h-12 w-12 rounded-2xl border-white/5 bg-white/5 hover:text-primary transition-all" />}
+                />
+            </div>
+
+            <PageContent className="space-y-10 max-w-none px-0">
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={(e) => setActiveId(e.active.id as string | number)}
+                    onDragEnd={handleDragEnd}
+                >
+                    <AutoBento maxWidth={1500} minTileWidth={400}>
+                        {/* Toolbar - Integrated into Bento */}
+                        <div className="bento-span-2 sakura-glass flex flex-wrap items-center gap-4 p-6 shadow-depth1">
+                            <Button
+                                onClick={handleAutoAssign}
+                                variant="outline"
+                                icon={RotateCcw}
+                                className="h-12 rounded-2xl border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 px-8 font-black uppercase tracking-widest text-[10px]"
+                            >
+                                Auto Sync
+                            </Button>
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    onClick={() => setShowAnalytics(!showAnalytics)}
+                                    variant={showAnalytics ? "primary" : "secondary"}
+                                    icon={BarChart3}
+                                    className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                                >
+                                    Intelligence
+                                </Button>
+                                <Button
+                                    onClick={() => setShowFilters(!showFilters)}
+                                    variant={showFilters ? "primary" : "secondary"}
+                                    icon={Filter}
+                                    className="h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                                >
+                                    Filtering
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Quick Stats Bento Card */}
+                        <div className="sakura-glass p-6 flex flex-col justify-center text-center shadow-depth1">
+                            <p className="text-3xl font-black text-foreground tabular-nums">{unassignedMedia.length}</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mt-1">Pending Assets</p>
+                        </div>
+                    </AutoBento>
+
+                    {showFilters && (
+                        <div className="animate-in slide-in-from-top-2 page-container">
+                            <FilterPanel filters={filters} onFiltersChange={setFilters} allMedia={allMedia} />
+                        </div>
+                    )}
+
+                    {showAnalytics && sortedTiers.length > 0 && (
+                        <div className="animate-in slide-in-from-top-2 page-container">
+                            <TierAnalytics tiers={sortedTiers} assignments={assignments} allMedia={allMedia} />
+                        </div>
+                    )}
+
+                    {/* Tier Rows */}
+                    <div className="space-y-8 page-container">
+                        {sortedTiers.map((tier, index) => {
+                            const tierAssignments = getTierAssignments(assignments, tier.id!);
+                            const tierMedia = tierAssignments
+                                .map((a) => allMedia.find((m) => idEquals(m._entryId, a.mediaId)))
+                                .filter(Boolean) as DisplayMedia[];
+
+                            return (
+                                <TierRow
+                                    key={String(tier.id)}
+                                    tier={tier}
+                                    media={tierMedia}
+                                    canMoveUp={index > 0}
+                                    canMoveDown={index < sortedTiers.length - 1}
+                                    onUpdateTier={handleEditTier}
+                                    onMoveTier={handleMoveTier}
+                                    onDeleteTier={handleDeleteTier}
+                                />
+                            );
+                        })}
+
+                        <button
+                            onClick={handleCreateTier}
+                            className="flex w-full items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-white/5 py-6 text-[10px] font-black uppercase tracking-[0.3em] text-white/20 transition-all hover:border-primary/40 hover:text-primary hover:bg-white/5"
+                        >
+                            <Plus className="w-4 h-4" /> Add Rank Tier
+                        </button>
+                    </div>
+
+                    {/* Unassigned Pool */}
+                    <div className="mt-16 page-container">
+                        <div className="flex items-center justify-between mb-6 px-2">
+                            <h3 className="flex items-center gap-4 text-xl font-black uppercase tracking-tighter">
+                                Unassigned <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold text-white/30">{unassignedMedia.length}</span>
+                            </h3>
+                        </div>
+                        <UnassignedPool media={unassignedMedia} id="pool" />
+                    </div>
+
+                    {/* Drag Overlay */}
+                    <DragOverlay dropAnimation={dropAnimation}>
+                        {activeMedia ? <TierMediaItem media={activeMedia} id={activeMedia._entryId} overlay /> : null}
+                    </DragOverlay>
+                </DndContext>
+            </PageContent>
+        </PageWrapper>
+    );
+}
+
+// Sub-components
+
+function TierRow({
+    tier,
+    media,
+    canMoveUp,
+    canMoveDown,
+    onUpdateTier,
+    onMoveTier,
+    onDeleteTier,
+}: {
+    tier: Tier;
+    media: DisplayMedia[];
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    onUpdateTier: (tierId: string | number, updates: { name?: string; color?: string; order?: number }) => Promise<void>;
+    onMoveTier: (tierId: string | number, direction: "up" | "down") => Promise<void>;
+    onDeleteTier: (tierId: string | number) => Promise<void>;
+}) {
+    const { setNodeRef } = useDroppable({ id: `tier-${tier.id}` });
+    const [isEditing, setIsEditing] = useState(false);
+    const [name, setName] = useState(tier.name);
+    const [color, setColor] = useState(tier.color);
+
+    useEffect(() => {
+        setName(tier.name);
+        setColor(tier.color);
+    }, [tier.name, tier.color]);
+
+    const handleSave = async () => {
+        await onUpdateTier(tier.id!, { name, color });
+        setIsEditing(false);
+    };
+
+    const handleDelete = async () => {
+        if (confirm("Delete tier? Items will be unassigned.")) {
+            await onDeleteTier(tier.id!);
+        }
+    };
+
+    return (
+        <div ref={setNodeRef} className="flex min-h-[120px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm md:flex-row">
+            {/* Header/Label */}
+            <div
+                className="group relative flex w-full flex-col items-center justify-center gap-2 p-4 md:w-44"
+                style={{ backgroundColor: `${color}15`, borderRight: `4px solid ${color}` }}
+            >
+                {isEditing ? (
+                    <div className="flex flex-col gap-2 w-full">
+                        <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded border border-border bg-input px-1 py-1 text-center text-sm" autoFocus />
+                        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-full h-6 cursor-pointer" />
+                        <div className="flex gap-1 justify-center">
+                            <IconButton onClick={handleSave} icon={Check} label="Save" size="sm" variant="primary" />
+                            <IconButton onClick={() => setIsEditing(false)} icon={X} label="Cancel" size="sm" variant="secondary" />
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <h3 className="break-words text-center text-xl font-black leading-tight tracking-tight" style={{ color }}>{tier.name}</h3>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-1 right-1 md:static md:opacity-100">
+                            <IconButton onClick={() => onMoveTier(tier.id!, "up")} icon={ArrowUp} label="Move Up" size="sm" disabled={!canMoveUp} />
+                            <IconButton onClick={() => onMoveTier(tier.id!, "down")} icon={ArrowDown} label="Move Down" size="sm" disabled={!canMoveDown} />
+                            <IconButton onClick={() => setIsEditing(true)} icon={Settings} label="Edit Tier" size="sm" />
+                            <IconButton onClick={handleDelete} icon={Trash2} label="Delete Tier" size="sm" />
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Content */}
+            <div className="flex flex-1 flex-wrap content-start gap-2 bg-muted/45 p-3">
+                <SortableContext items={media.map((m) => m._entryId)} strategy={rectSortingStrategy}>
+                    {media.map((m) => (
+                        <TierMediaItem key={String(m._entryId)} id={m._entryId} media={m} compact />
+                    ))}
+                </SortableContext>
+                {media.length === 0 && (
+                    <div className="flex h-full min-h-[80px] w-full items-center justify-center rounded-lg border-2 border-dashed border-border text-sm font-medium italic text-muted-foreground">
+                        Drop items here
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function UnassignedPool({ media, id }: { media: DisplayMedia[]; id: string }) {
+    const { setNodeRef } = useDroppable({ id });
+
+    return (
+        <div ref={setNodeRef} className="min-h-[200px] rounded-xl border border-border bg-card p-4 shadow-sm">
+            <SortableContext items={media.map((m) => m._entryId)} strategy={rectSortingStrategy}>
+                <div className="flex flex-wrap gap-3">
+                    {media.map((m) => (
+                        <TierMediaItem key={String(m._entryId)} id={m._entryId} media={m} />
+                    ))}
+                    {media.length === 0 && (
+                        <div className="w-full py-10 text-center text-sm font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            All items ranked!
+                        </div>
+                    )}
+                </div>
+            </SortableContext>
+        </div>
+    );
+}
+

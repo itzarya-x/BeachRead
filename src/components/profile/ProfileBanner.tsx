@@ -25,7 +25,7 @@ export function ProfileBanner() {
       </div>
 
       {/* Profile info overlay */}
-      <div className="max-w-7xl mx-auto px-4 relative -mt-20">
+      <div className="w-full relative -mt-20">
         <div className="flex items-end gap-5">
           {/* Avatar */}
           <div className="shrink-0">
