@@ -89,8 +89,11 @@ const Continue = () => {
         }).sort((a, b) => {
             // Priority 1: Has new update
             if (a._hasUpdate !== b._hasUpdate) return a._hasUpdate ? -1 : 1;
+            
             // Priority 2: Recently updated
-            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            const dateA = new Date(a.updatedAt).getTime();
+            const dateB = new Date(b.updatedAt).getTime();
+            return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
         });
     }, [ongoingItems, updatedMedia]);
 

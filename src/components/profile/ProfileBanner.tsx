@@ -1,14 +1,12 @@
 import { useData } from "@/context/DataContext";
 import { formatMinutes, getAvatarUrl } from "@/lib/constants";
+import { safeFormat } from "@/lib/utils";
 
 export function ProfileBanner() {
   const { user } = useData();
   if (!user) return null;
 
-  const joinDate = new Date(user.createdAt).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const joinDate = safeFormat(user.createdAt, "MMMM yyyy");
 
   return (
     <div className="relative">

@@ -1,8 +1,8 @@
 import React, { useMemo } from "react";
 import { motion } from "framer-motion";
-import { format, subDays, eachDayOfInterval, isSameDay, startOfMonth, isFirstDayOfMonth } from "date-fns";
+import { subDays, eachDayOfInterval, isSameDay, startOfMonth, isFirstDayOfMonth } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, safeFormat } from "@/lib/utils";
 
 interface HeatmapProps {
     data: { date: string; count: number }[];
@@ -45,7 +45,7 @@ export function Heatmap({ data, days = 365 }: HeatmapProps) {
                         <div key={weekIdx} className="flex flex-col gap-[3px]">
                             {/* Month label */}
                             <div className="h-3 text-[8px] font-black uppercase text-white/20">
-                                {week.some(d => isFirstDayOfMonth(d)) ? format(week.find(d => isFirstDayOfMonth(d))!, "MMM") : ""}
+                                {week.some(d => isFirstDayOfMonth(d)) ? safeFormat(week.find(d => isFirstDayOfMonth(d))!, "MMM") : ""}
                             </div>
                             
                             {/* Ensure all weeks have 7 slots (padding for first/last) */}
@@ -53,7 +53,10 @@ export function Heatmap({ data, days = 365 }: HeatmapProps) {
                                 const day = week.find(d => d.getDay() === dayIdx);
                                 if (!day) return <div key={dayIdx} className="w-3 h-3" />;
 
-                                const dayData = data.find(d => isSameDay(new Date(d.date), day));
+                                const dayData = data.find(d => {
+                                    const dDate = safeDate(d.date);
+                                    return dDate ? isSameDay(dDate, day) : false;
+                                });
                                 const count = dayData?.count || 0;
 
                                 return (
@@ -70,7 +73,7 @@ export function Heatmap({ data, days = 365 }: HeatmapProps) {
                                             />
                                         </TooltipTrigger>
                                         <TooltipContent className="sakura-glass border-white/10 text-[10px] uppercase font-bold tracking-wider">
-                                            {count} actions on {format(day, "MMM do, yyyy")}
+                                            {count} actions on {safeFormat(day, "MMM do, yyyy")}
                                         </TooltipContent>
                                     </Tooltip>
                                 );

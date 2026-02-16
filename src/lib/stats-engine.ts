@@ -367,7 +367,15 @@ export interface FormatDistributionItem {
 
 export function calculateBehavioralStats(activities: ActivityLog[], mediaItems: DisplayMedia[]): BehavioralStatsData {
     const heatmapMap = new Map<string, ActivityHeatmapData>();
-    activities.forEach(act => {
+    
+    // Filter activities with valid dates first
+    const validActivities = (activities || []).filter(act => {
+        if (!act.createdAt) return false;
+        const d = new Date(act.createdAt);
+        return !isNaN(d.getTime());
+    });
+
+    validActivities.forEach(act => {
         const date = act.createdAt.split("T")[0];
         if (!heatmapMap.has(date)) heatmapMap.set(date, { date, count: 0, actions: [] });
         const data = heatmapMap.get(date)!;
@@ -379,7 +387,7 @@ export function calculateBehavioralStats(activities: ActivityLog[], mediaItems: 
     const hourly: Record<number, number> = {};
     const weekday: Record<number, number> = {};
     const monthly: Record<number, number> = {};
-    activities.forEach(act => {
+    validActivities.forEach(act => {
         const d = new Date(act.createdAt);
         const h = d.getHours(); const w = d.getDay(); const m = d.getMonth();
         hourly[h] = (hourly[h] || 0) + 1;
@@ -389,9 +397,17 @@ export function calculateBehavioralStats(activities: ActivityLog[], mediaItems: 
 
     const bingeSessions: BingeSession[] = [];
     const mediaTitleMap = new Map(mediaItems.map(m => [m._seriesId, m.title?.romaji || "Unknown"]));
-    const progressActivities = activities.filter(a => a.actionType === "progress").sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const progressActivities = validActivities
+        .filter(a => a.actionType === "progress")
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
     const seriesGroups = new Map<number, ActivityLog[]>();
-    progressActivities.forEach(a => { if (a.seriesId) { if (!seriesGroups.has(a.seriesId)) seriesGroups.set(a.seriesId, []); seriesGroups.get(a.seriesId)!.push(a); } });
+    progressActivities.forEach(a => { 
+        if (a.seriesId) { 
+            if (!seriesGroups.has(a.seriesId)) seriesGroups.set(a.seriesId, []); 
+            seriesGroups.get(a.seriesId)!.push(a); 
+        } 
+    });
 
     seriesGroups.forEach((group, seriesId) => {
         let current: ActivityLog[] = [];
@@ -423,7 +439,19 @@ function createBingeSession(acts: ActivityLog[], seriesId: number, titleMap: Map
     const end = new Date(acts[acts.length - 1].createdAt);
     let episodes = 0;
     acts.forEach(a => { episodes += a.details?.from !== undefined && a.details?.to !== undefined ? Math.max(0, a.details.to - a.details.from) : 1; });
-    return { seriesId, title: titleMap.get(seriesId) || "Unknown", startTime: start.toISOString(), endTime: end.toISOString(), episodes, durationMinutes: Math.max(1, (end.getTime() - start.getTime()) / 60000) };
+    
+    // Extra safety for ISO string conversion
+    const startTime = !isNaN(start.getTime()) ? start.toISOString() : new Date().toISOString();
+    const endTime = !isNaN(end.getTime()) ? end.toISOString() : new Date().toISOString();
+    
+    return { 
+        seriesId, 
+        title: titleMap.get(seriesId) || "Unknown", 
+        startTime, 
+        endTime, 
+        episodes, 
+        durationMinutes: Math.max(1, (end.getTime() - start.getTime()) / 60000) 
+    };
 }
 
 export function calculateIntelligence(items: DisplayMedia[], activities: ActivityLog[]): IntelligenceData {
@@ -458,20 +486,32 @@ export function calculateIntelligence(items: DisplayMedia[], activities: Activit
     });
 
     const finished = items.filter(i => i.completedAt && i.startedAt);
-    const finishDurations = finished.map(i => ({ 
-        days: (new Date(i.completedAt!).getTime() - new Date(i.startedAt!).getTime()) / 86400000,
-        item: i 
-    })).filter(d => d.days >= 0);
+    const finishDurations = finished.map(i => {
+        const start = new Date(i.startedAt!);
+        const end = new Date(i.completedAt!);
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) return { days: -1, item: i };
+        return { 
+            days: (end.getTime() - start.getTime()) / 86400000,
+            item: i 
+        };
+    }).filter(d => d.days >= 0);
 
-    const nightWatcherFactor = (activities.filter(a => { const h = new Date(a.createdAt).getHours(); return h >= 22 || h <= 4; }).length / (activities.length || 1)) * 100;
+    const validActivities = (activities || []).filter(a => a.createdAt && !isNaN(new Date(a.createdAt).getTime()));
+    const nightWatcherFactor = (validActivities.filter(a => { 
+        const h = new Date(a.createdAt).getHours(); 
+        return h >= 22 || h <= 4; 
+    }).length / (validActivities.length || 1)) * 100;
+    
     const genreDist = calculateGenreDistribution(items);
     const avgScore = scored.length > 0 ? scored.reduce((s, i) => s + i.score, 0) / scored.length : 70;
 
     const evolutionMap = new Map<string, { scores: number[], count: number }>();
     items.forEach(item => {
-        const d = item.completedAt || item.updatedAt;
-        if (!d) return;
-        const p = d.slice(0, 7);
+        const dStr = item.completedAt || item.updatedAt;
+        if (!dStr) return;
+        const d = new Date(dStr);
+        if (isNaN(d.getTime())) return;
+        const p = dStr.slice(0, 7);
         if (!evolutionMap.has(p)) evolutionMap.set(p, { scores: [], count: 0 });
         const data = evolutionMap.get(p)!;
         data.count++; if (item.score > 0) data.scores.push(item.score);

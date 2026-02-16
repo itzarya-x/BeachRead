@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import ds from "@/styles/design-system";
 import type { DisplayUser } from "@/types/display";
+import { safeFormat } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Info } from "lucide-react";
 import { useState } from "react";
@@ -28,10 +29,7 @@ export function AboutCard({ user }: AboutCardProps) {
                                 <h3 className="text-base font-bold text-foreground">Collector Notes</h3>
                                 <p className="text-xs text-muted-foreground">
                                     Member since{" "}
-                                    {new Date(user.createdAt).toLocaleDateString("en-US", {
-                                        month: "long",
-                                        year: "numeric",
-                                    })}
+                                    {safeFormat(user.createdAt, "MMMM yyyy")}
                                 </p>
                             </div>
                         </div>

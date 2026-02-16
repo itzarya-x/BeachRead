@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useData } from "@/context/DataContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { format, parseISO, startOfDay } from "date-fns";
+import { startOfDay } from "date-fns";
+import { safeDate, safeFormat } from "@/lib/utils";
 
 export function ActivityHeatmap() {
   const { activities } = useData();
@@ -12,7 +13,8 @@ export function ActivityHeatmap() {
     // Group activities by day
     const dayMap = new Map<string, number>();
     activities.forEach(activity => {
-        const dateStr = format(parseISO(activity.createdAt), "yyyy-MM-dd");
+        const dateStr = safeFormat(activity.createdAt, "yyyy-MM-dd");
+        if (dateStr === "unknown") return;
         dayMap.set(dateStr, (dayMap.get(dateStr) || 0) + 1);
     });
 
@@ -26,7 +28,7 @@ export function ActivityHeatmap() {
     const current = new Date(oneYearAgo);
 
     while (current <= today) {
-      const dateStr = format(current, "yyyy-MM-dd");
+      const dateStr = safeFormat(current, "yyyy-MM-dd");
       const count = dayMap.get(dateStr) || 0;
       if (count > maxC) maxC = count;
       allDays.push({
@@ -101,7 +103,7 @@ export function ActivityHeatmap() {
                 </TooltipTrigger>
                 <TooltipContent side="top" className="sakura-tooltip">
                   <p className="text-[10px] font-black uppercase tracking-widest">
-                    {day.count} events • {format(parseISO(day.date), "MMM d, yyyy")}
+                    {day.count} events • {safeFormat(day.date, "MMM d, yyyy")}
                   </p>
                 </TooltipContent>
               </Tooltip>

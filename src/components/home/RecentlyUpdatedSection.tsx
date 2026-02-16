@@ -3,6 +3,7 @@ import { useData } from "@/context/DataContext";
 import type { DisplayMedia } from "@/types/display";
 import { BookOpen, Clock, Play } from "lucide-react";
 import { Link } from "react-router-dom";
+import { safeFormatDistance } from "@/lib/utils";
 
 interface RecentlyUpdatedCardProps {
     media: DisplayMedia;
@@ -24,8 +25,7 @@ function RecentlyUpdatedCard({ media }: RecentlyUpdatedCardProps) {
             ? Math.min(100, (media.progress / (media.episodes || media.chapters || 1)) * 100)
             : 0;
 
-    const daysAgo = Math.floor((Date.now() - new Date(media.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-    const timeAgoText = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : `${daysAgo}d ago`;
+    const timeAgoText = safeFormatDistance(media.updatedAt, { addSuffix: true });
 
     return (
         <Link to={linkPath} className="group">
