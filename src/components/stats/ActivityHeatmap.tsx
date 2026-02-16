@@ -1,8 +1,9 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ActivityHeatmapData } from "@/lib/stats-engine";
 import { safeArray } from "@/utils/safeArray";
-import { eachDayOfInterval, format, startOfDay, subMonths } from "date-fns";
+import { eachDayOfInterval, startOfDay, subMonths } from "date-fns";
 import { useMemo } from "react";
+import { safeFormat } from "@/lib/utils";
 
 interface ActivityHeatmapProps {
     data: ActivityHeatmapData[];
@@ -70,7 +71,7 @@ export function ActivityHeatmap({ data, onDayClick }: ActivityHeatmapProps) {
                 {weeks.map((week, wi) => (
                     <div key={wi} className="flex flex-col gap-1.5">
                         {week.map((day, di) => {
-                            const dateStr = format(day, "yyyy-MM-dd");
+                            const dateStr = safeFormat(day, "yyyy-MM-dd");
                             const dayData = dataMap.get(dateStr);
                             const count = dayData?.count || 0;
 
@@ -85,7 +86,7 @@ export function ActivityHeatmap({ data, onDayClick }: ActivityHeatmapProps) {
                                         </TooltipTrigger>
                                         <TooltipContent side="top" className="bg-popover/95 border-primary/20 backdrop-blur-md">
                                             <div className="text-xs">
-                                                <p className="font-bold">{format(day, "PPPP")}</p>
+                                                <p className="font-bold">{safeFormat(day, "PPPP")}</p>
                                                 <p className="text-primary">{count} actions recorded</p>
                                             </div>
                                         </TooltipContent>

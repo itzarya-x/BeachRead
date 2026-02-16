@@ -3,7 +3,7 @@ import { useData } from "@/context/DataContext";
 import type { DisplayMedia } from "@/types/display";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
+import { safeFormatDistance } from "@/lib/utils";
 import { Star, Trophy } from "lucide-react";
 
 interface MediaListRowProps {
@@ -80,7 +80,7 @@ export const MediaListRow = React.memo(({ media }: MediaListRowProps) => {
         <div className="hidden lg:block lg:col-span-2 text-right pr-4">
           <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-0.5">Modified</div>
           <span className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">
-            {formatDistanceToNow(new Date(media.updatedAt), { addSuffix: true })}
+            {safeFormatDistance(media.updatedAt, { addSuffix: true })}
           </span>
         </div>
       </div>

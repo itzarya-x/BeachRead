@@ -1,6 +1,6 @@
 import { ScoreDisplay } from "@/components/media/ScoreDisplay";
 import { useData } from "@/context/DataContext";
-import { cn } from "@/lib/utils";
+import { cn, safeFormatDistance } from "@/lib/utils";
 import type { DisplayMedia } from "@/types/display";
 import { motion } from "framer-motion";
 import { Play } from "lucide-react";
@@ -26,12 +26,7 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
             : 0;
 
     const timeSince = useMemo(() => {
-        const diff = Date.now() - new Date(media.updatedAt).getTime();
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const days = Math.floor(hours / 24);
-        if (days > 0) return `${days}d ago`;
-        if (hours > 0) return `${hours}h ago`;
-        return "Just now";
+        return safeFormatDistance(media.updatedAt, { addSuffix: true });
     }, [media.updatedAt]);
 
     const isHydrated = media._enriched;

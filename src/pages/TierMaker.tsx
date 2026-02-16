@@ -151,7 +151,7 @@ export default function TierMaker() {
         const channel = supabase
             .channel(`tier-maker-v2:${user.id}`)
             .on("postgres_changes", { event: "*", schema: "public", table: "tiers", filter: `user_id=eq.${user.id}` }, refreshBoardData)
-            .on("postgres_changes", { event: "*", schema: "public", table: "tier_assignments", filter: `user_id=eq.${user.id}` }, refreshBoardData)
+            .on("postgres_changes", { event: "*", schema: "public", table: "tier_items", filter: `user_id=eq.${user.id}` }, refreshBoardData)
             .subscribe();
 
         return () => {
@@ -461,7 +461,7 @@ export default function TierMaker() {
                         onDragEnd={handleDragEnd}
                     >
                         {/* THE BOARD */}
-                        <div ref={boardRef} className="space-y-6">
+                        <div ref={boardRef} className="space-y-6 max-w-full overflow-hidden">
                             {sortedTiers.map((tier) => (
                                 <TierRow
                                     key={String(tier.id)}
@@ -477,7 +477,7 @@ export default function TierMaker() {
                         </div>
 
                         {/* POOL */}
-                        <div className="mt-12">
+                        <div className="mt-12 max-w-full overflow-hidden">
                             <UntieredPool 
                                 media={unassignedMedia}
                                 isBulkMode={isBulkMode}

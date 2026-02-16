@@ -16,7 +16,7 @@ export function PageWrapper({ children, className }: PageWrapperProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6, ease: pageEase }}
-            className={cn("relative w-full p-4 md:p-8", className)}
+            className={cn("relative w-full min-w-0 p-4 md:p-8", className)}
         >
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute -top-24 left-[8%] h-64 w-64 rounded-full bg-primary/12 blur-3xl" />
@@ -87,7 +87,7 @@ export function PageContent({ children, className }: PageContentProps) {
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, ease: pageEase, delay: 0.2 }}
-            className={cn("w-full py-8 md:py-12", className)}
+            className={cn("w-full min-w-0 py-8 md:py-12", className)}
         >
             {children}
         </motion.div>

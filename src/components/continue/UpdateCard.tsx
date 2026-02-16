@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { BookOpen, Check, Play, Plus, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/YuraButton";
-import { formatDistanceToNow } from "date-fns";
+import { safeFormatDistance } from "@/lib/utils";
 
 interface UpdateCardProps {
     media: DisplayMedia;
@@ -79,7 +79,7 @@ export function UpdateCard({ media, onIncrement, onComplete }: UpdateCardProps) 
                             {total > 0 && <span className="opacity-50"> / {total}</span>}
                         </span>
                         <span className="w-1 h-1 rounded-full bg-white/10" />
-                        <span>{formatDistanceToNow(new Date(media.updatedAt), { addSuffix: true })}</span>
+                        <span>{safeFormatDistance(media.updatedAt, { addSuffix: true })}</span>
                     </div>
                 </div>
 

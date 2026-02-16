@@ -108,7 +108,7 @@ export async function getTierItems(): Promise<SupabaseTierItem[]> {
     const { client, user } = await requireSupabaseAuth();
     
     const { data, error } = await client
-        .from("tier_assignments")
+        .from("tier_items")
         .select("*")
         .eq("user_id", user.id)
         .order("position", { ascending: true });
@@ -182,7 +182,7 @@ export async function updateTier(
 export async function deleteTier(id: string): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    // tier_assignments will be deleted automatically via ON DELETE CASCADE foreign key
+    // tier_items will be deleted automatically via ON DELETE CASCADE foreign key
     const { error } = await client
         .from("tiers")
         .delete()
@@ -206,16 +206,12 @@ export async function moveMediaToTier(
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    // 1. Remove from any existing tier (DB constraint unique(user_id, board_id, media_id) handles per-tier uniqueness,
-    // but application logic must ensure it's not in *another* tier).
-    // Actually, to be safe and simple: delete *all* occurrences of this series for this user first.
-    
-    // We use series_id to identify the media across tiers.
+    // 1. Remove from any existing tier
     const { error: deleteError } = await client
-        .from("tier_assignments")
+        .from("tier_items")
         .delete()
         .eq("user_id", user.id)
-        .eq("media_id", String(seriesId));
+        .eq("series_id", seriesId);
 
     if (deleteError) {
         throw deleteError;
@@ -224,13 +220,13 @@ export async function moveMediaToTier(
     // 2. Insert into new tier if tierId is provided (not null)
     if (tierId) {
         const { error: insertError } = await client
-            .from("tier_assignments")
+            .from("tier_items")
             .insert({
                 user_id: user.id,
-                board_id: 'cloud', // Using constant board ID for simple mode
                 tier_id: tierId,
-                media_id: String(seriesId),
-                position: position
+                series_id: seriesId,
+                position: position,
+                media_type: mediaType
             });
 
         if (insertError) {
@@ -246,12 +242,7 @@ export async function moveMediaToTier(
         });
     } else {
         // Log removal from tier
-        await logActivity({
-            seriesId,
-            actionType: "tier_change",
-            mediaType: mediaType as "ANIME" | "MANGA",
-            details: { to: null }
-        });
+        await logActivity({ seriesId, actionType: "tier_change", mediaType: mediaType as "ANIME" | "MANGA", details: { to: null } });
     }
 }
 
@@ -261,38 +252,33 @@ export async function reorderItemsInTier(
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    // Update positions in a batch (or loop if batch update is complex)
-    // For simplicity and reliability in Supabase, we loop.
-    // Optimisation: use an RPC or a single upsert if possible, but upsert needs ID.
-    // We can fetch the items first to get their IDs, then upsert.
-    
     const { data: existingItems, error: fetchError } = await client
-        .from("tier_assignments")
-        .select("id, media_id")
+        .from("tier_items")
+        .select("id, series_id")
         .eq("user_id", user.id)
         .eq("tier_id", tierId)
-        .in("media_id", orderedSeriesIds.map(String));
+        .in("series_id", orderedSeriesIds);
 
     if (fetchError || !existingItems) {
         throw fetchError || new Error("Failed to fetch items for reorder");
     }
 
     const updates = existingItems.map(item => {
-        const newPos = orderedSeriesIds.indexOf(Number(item.media_id));
+        const newPos = orderedSeriesIds.indexOf(item.series_id);
         if (newPos === -1) return null; // Should not happen
         return {
             id: item.id,
             user_id: user.id,
-            board_id: 'cloud',
             tier_id: tierId,
-            media_id: item.media_id,
-            position: newPos
+            series_id: item.series_id,
+            position: newPos,
+            updated_at: new Date().toISOString()
         };
     }).filter(Boolean);
 
     if (updates.length > 0) {
         const { error: updateError } = await client
-            .from("tier_assignments")
+            .from("tier_items")
             .upsert(updates);
             
         if (updateError) throw updateError;

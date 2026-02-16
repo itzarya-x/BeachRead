@@ -124,9 +124,9 @@ const AppContent = () => {
                 
                 <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
                 
-                <div className="flex flex-1 flex-col">
+                <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
                     <TopHeader />
-                    <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
+                    <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-y-auto">
                         <AnimatePresence mode="wait">
                             <Routes location={location} key={location.pathname}>
                                 <Route path="/" element={<Index />} />

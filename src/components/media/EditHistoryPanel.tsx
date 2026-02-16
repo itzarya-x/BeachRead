@@ -5,10 +5,10 @@
 
 import { editHistory } from "@/lib/editHistory";
 import { useData } from "@/context/DataContext";
-import { format } from "date-fns";
 import { RotateCcw, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { EditHistoryEntry } from "@/lib/editHistory";
+import { safeFormat } from "@/lib/utils";
 
 interface EditHistoryPanelProps {
     entryId: number;
@@ -50,7 +50,7 @@ export function EditHistoryPanel({ entryId, onUndo }: EditHistoryPanelProps) {
                             <div className="flex items-center gap-2 mb-1">
                                 <Clock className="w-3 h-3 text-muted-foreground" />
                                 <span className="text-xs font-medium">
-                                    {format(new Date(entry.timestamp), "MMM d, yyyy HH:mm")}
+                                    {safeFormat(entry.timestamp, "MMM d, yyyy HH:mm")}
                                 </span>
                             </div>
                             <div className="text-sm">

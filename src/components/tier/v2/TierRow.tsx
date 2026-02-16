@@ -30,7 +30,7 @@ export function TierRow({
     });
 
     return (
-        <div className="flex flex-col md:flex-row gap-3 md:gap-6 items-stretch w-full min-h-[140px]">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-6 items-stretch w-full max-w-full min-h-[140px] overflow-hidden">
             {/* Left: Tier Label */}
             <div 
                 onClick={() => onEditTier(tier)}
@@ -48,7 +48,7 @@ export function TierRow({
             {/* Right: Items Row */}
             <div 
                 ref={setNodeRef}
-                className="flex-1 bg-gradient-to-br from-card/80 to-card/40 border border-border/40 rounded-2xl p-3 md:p-4 overflow-hidden relative"
+                className="flex-1 min-w-0 bg-gradient-to-br from-card/80 to-card/40 border border-border/40 rounded-2xl p-3 md:p-4 overflow-hidden relative"
             >
                 <div className="flex gap-3 md:gap-4 overflow-x-auto pb-2 touch-scroll snap-x snap-mandatory">
                     <SortableContext 

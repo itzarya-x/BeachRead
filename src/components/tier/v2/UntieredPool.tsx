@@ -21,7 +21,7 @@ export function UntieredPool({
     });
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-full overflow-hidden">
             <div className="flex items-center gap-4 px-2">
                 <h3 className="text-xl font-black uppercase tracking-tighter text-white/80">
                     Untiered Pool
@@ -33,7 +33,7 @@ export function UntieredPool({
 
             <div 
                 ref={setNodeRef}
-                className="bg-card/40 border border-white/5 rounded-2xl p-6 min-h-[180px]"
+                className="bg-card/40 border border-white/5 rounded-2xl p-6 min-h-[180px] min-w-0 overflow-hidden"
             >
                 <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     <SortableContext 

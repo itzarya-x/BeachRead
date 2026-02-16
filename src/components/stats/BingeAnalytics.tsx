@@ -1,6 +1,6 @@
 import { BingeAnalytics as BingeAnalyticsType, BingeSession } from "@/lib/stats-engine";
-import { format } from "date-fns";
 import { Clock, Flame, TrendingUp, Zap } from "lucide-react";
+import { safeFormat } from "@/lib/utils";
 
 interface BingeAnalyticsProps {
     data: BingeAnalyticsType;
@@ -80,7 +80,7 @@ export function BingeAnalytics({ data, onSessionClick }: BingeAnalyticsProps) {
                             </div>
                             <div className="flex flex-col">
                                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Date</span>
-                                <span className="text-lg font-semibold">{format(new Date(data.longestSession.startTime), "MMM d, yyyy")}</span>
+                                <span className="text-lg font-semibold">{safeFormat(data.longestSession.startTime, "MMM d, yyyy")}</span>
                             </div>
                         </div>
                     </div>
@@ -104,7 +104,7 @@ export function BingeAnalytics({ data, onSessionClick }: BingeAnalyticsProps) {
                                 <div>
                                     <div className="font-semibold text-foreground">{session.title}</div>
                                     <div className="text-xs text-muted-foreground">
-                                        {format(new Date(session.startTime), "PPp")}
+                                        {safeFormat(session.startTime, "PPp")}
                                     </div>
                                 </div>
                             </div>

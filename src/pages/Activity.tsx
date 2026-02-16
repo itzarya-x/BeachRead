@@ -1,10 +1,10 @@
 import { PageContent, PageWrapper } from "@/components/layout/PageWrapper";
 import { useData } from "@/context/DataContext";
-import { cn } from "@/lib/utils";
+import { cn, safeDate, safeFormatDistance, safeFormat } from "@/lib/utils";
 import type { ActivityLog } from "@/lib/storage/types";
 import type { DisplayMedia } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
-import { format, formatDistanceToNow, isToday, isThisWeek, parseISO } from "date-fns";
+import { format, isToday, isThisWeek } from "date-fns";
 import { motion } from "framer-motion";
 import { 
   CheckCircle2, 
@@ -68,21 +68,25 @@ const Activity = () => {
   const groupedEvents = useMemo(() => {
     const groups: Record<string, typeof filteredEvents> = {};
     filteredEvents.forEach(event => {
-        try {
-            const dateKey = format(parseISO(event.createdAt), "yyyy-MM-dd");
-            if (!groups[dateKey]) groups[dateKey] = [];
-            groups[dateKey].push(event);
-        } catch (e) {
-            console.error("Failed to parse date for activity", event);
-        }
+        const d = safeDate(event.createdAt);
+        if (!d) return;
+        const dateKey = safeFormat(d, "yyyy-MM-dd");
+        if (!groups[dateKey]) groups[dateKey] = [];
+        groups[dateKey].push(event);
     });
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filteredEvents]);
 
   // Insights for right panel
   const insights = useMemo(() => {
-    const today = activities.filter(e => isToday(parseISO(e.createdAt)));
-    const week = activities.filter(e => isThisWeek(parseISO(e.createdAt)));
+    const today = activities.filter(e => {
+        const d = safeDate(e.createdAt);
+        return d ? isToday(d) : false;
+    });
+    const week = activities.filter(e => {
+        const d = safeDate(e.createdAt);
+        return d ? isThisWeek(d) : false;
+    });
     
     const counts: Record<string, { title: string; count: number }> = {};
     activities.forEach(e => {
@@ -169,7 +173,7 @@ const Activity = () => {
                           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-md">
                             <History className="h-3 w-3 text-primary" />
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                                {format(parseISO(date), "MMMM do, yyyy")}
+                                {safeFormat(date, "MMMM do, yyyy")}
                             </span>
                           </div>
                         </div>
@@ -300,10 +304,10 @@ const ActivityItem = ({ event }: { event: any }) => {
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex items-center justify-between gap-4">
                 <span className="text-[10px] text-white/30 font-bold uppercase tracking-tighter">
-                    {formatDistanceToNow(parseISO(event.createdAt), { addSuffix: true })}
+                    {safeFormatDistance(event.createdAt, { addSuffix: true })}
                 </span>
                 <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">
-                    {format(parseISO(event.createdAt), "HH:mm")}
+                    {safeFormat(event.createdAt, "HH:mm")}
                 </span>
             </div>
 

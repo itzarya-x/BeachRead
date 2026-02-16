@@ -11,6 +11,7 @@ import { TierBoard, createTierBoard, getAllTierBoards } from "@/lib/tierDatabase
 import { LayoutGrid, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { safeFormat } from "@/lib/utils";
 
 export default function TierList() {
     const [boards, setBoards] = useState<TierBoard[]>([]);
@@ -94,7 +95,7 @@ export default function TierList() {
                                         {board.description || "No tactical briefing provided"}
                                     </p>
                                     <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.2em] text-white/20">
-                                        <span>Initialised {new Date(board.createdAt).toLocaleDateString()}</span>
+                                        <span>Initialised {safeFormat(board.createdAt, "PPP")}</span>
                                         <span className="text-primary group-hover:translate-x-1 transition-transform">Access →</span>
                                     </div>
                                 </div>
