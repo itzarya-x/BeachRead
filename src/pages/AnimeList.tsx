@@ -1,13 +1,14 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { AddMediaModal } from "@/components/media/AddMediaModal";
 import { AdvancedFilterPanel } from "@/components/media/AdvancedFilterPanel";
-import { MediaGrid } from "@/components/media/MediaGrid";
+import { MediaListView } from "@/components/library/MediaListView";
+import { ViewSwitcher } from "@/components/library/ViewSwitcher";
 import { GridSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { useMediaFilters } from "@/hooks/useMediaFilters";
+import { useLibraryView } from "@/hooks/useLibraryView";
 import { applyFilters } from "@/lib/media-filters";
-import { cn } from "@/lib/utils";
 import { Plus, Tv } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -17,7 +18,10 @@ const AnimeList = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const navigate = useNavigate();
     
-    // NEW FILTER SYSTEM
+    // VIEW SYSTEM
+    const { viewMode, updateViewMode } = useLibraryView();
+    
+    // FILTER SYSTEM
     const { filters, updateFilters, resetFilters } = useMediaFilters();
 
     const filtered = useMemo(() => {
@@ -76,7 +80,10 @@ const AnimeList = () => {
                               resetFilters={resetFilters} 
                             />
                             
-                            {/* Active count badge/info could go here */}
+                            <ViewSwitcher 
+                              currentMode={viewMode} 
+                              onModeChange={updateViewMode} 
+                            />
                         </div>
 
                         <Button
@@ -89,9 +96,9 @@ const AnimeList = () => {
                     </div>
                 </div>
 
-                {/* 3. Media Grid (Content Zone) */}
+                {/* 3. Media List View (Content Zone) */}
                 <div className="w-full">
-                    <MediaGrid items={filtered} emptyMessage="No anime match your filters" />
+                    <MediaListView items={filtered} viewMode={viewMode} />
                 </div>
             </PageContent>
             {showAddModal && (

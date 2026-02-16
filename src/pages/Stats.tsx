@@ -68,6 +68,7 @@ import {
 import { useMemo, useState, useEffect } from "react";
 import { useStats } from "@/hooks/useStats";
 import { useStatsFilters } from "@/context/StatsFilterContext";
+import { calculateIntelligence, calculateBehavioralStats } from "@/lib/stats-engine";
 
 type DrillState = {
   title: string;
@@ -164,15 +165,14 @@ function KpiTile({
 }
 
 export default function Stats() {
-  const { user, getActivities } = useData();
+  const { user, activities } = useData();
   const { filters, updateFilter, resetFilters } = useStatsFilters();
   const { stats, filtered, hasEntries, filtersActive } = useStats();
   const [drill, setDrill] = useState<DrillState>(null);
-  const [activities, setActivities] = useState<any[]>([]);
 
-  useEffect(() => {
-    getActivities().then(setActivities);
-  }, [getActivities]);
+  // INTELLIGENCE & BEHAVIORAL CALCULATIONS
+  const intelligence = useMemo(() => calculateIntelligence(filtered, activities), [filtered, activities]);
+  const behavioral = useMemo(() => calculateBehavioralStats(activities, filtered), [activities, filtered]);
 
   const openDrill = (title: string, items: DisplayMedia[], subtitle?: string) => {
     setDrill({ title, subtitle, items });

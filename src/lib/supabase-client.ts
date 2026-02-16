@@ -58,22 +58,32 @@ export interface SupabaseTierItem {
     updated_at: string;
 }
 
+/**
+ * Get active session safely
+ * Prioritizes local state to avoid AuthSessionMissingError
+ */
+export async function getSupabaseSession() {
+    if (!supabase) return null;
+    
+    // 1. Try to get session from memory (fastest)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) return session;
+
+    return null;
+}
+
 async function requireSupabaseAuth() {
     if (!supabase) {
         throw new Error("Supabase is not configured");
     }
 
-    const { data, error } = await supabase.auth.getUser();
-    if (error) {
-        throw error;
+    // Prioritize getSession() over getUser() for better performance and reliability in refresh cycles
+    const session = await getSupabaseSession();
+    if (!session) {
+        throw new Error("No active session. Please sign in.");
     }
 
-    const user = data.user;
-    if (!user) {
-        throw new Error("No authenticated user");
-    }
-
-    return { client: supabase, user };
+    return { client: supabase, user: session.user };
 }
 
 export async function getTiers(): Promise<SupabaseTier[]> {
@@ -98,7 +108,7 @@ export async function getTierItems(): Promise<SupabaseTierItem[]> {
     const { client, user } = await requireSupabaseAuth();
     
     const { data, error } = await client
-        .from("tier_items")
+        .from("tier_assignments")
         .select("*")
         .eq("user_id", user.id)
         .order("position", { ascending: true });
@@ -172,7 +182,7 @@ export async function updateTier(
 export async function deleteTier(id: string): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    // tier_items will be deleted automatically via ON DELETE CASCADE foreign key
+    // tier_assignments will be deleted automatically via ON DELETE CASCADE foreign key
     const { error } = await client
         .from("tiers")
         .delete()
@@ -196,16 +206,16 @@ export async function moveMediaToTier(
 ): Promise<void> {
     const { client, user } = await requireSupabaseAuth();
 
-    // 1. Remove from any existing tier (DB constraint unique(user_id, tier_id, series_id) handles per-tier uniqueness,
+    // 1. Remove from any existing tier (DB constraint unique(user_id, board_id, media_id) handles per-tier uniqueness,
     // but application logic must ensure it's not in *another* tier).
     // Actually, to be safe and simple: delete *all* occurrences of this series for this user first.
     
     // We use series_id to identify the media across tiers.
     const { error: deleteError } = await client
-        .from("tier_items")
+        .from("tier_assignments")
         .delete()
         .eq("user_id", user.id)
-        .eq("series_id", seriesId);
+        .eq("media_id", String(seriesId));
 
     if (deleteError) {
         throw deleteError;
@@ -214,13 +224,13 @@ export async function moveMediaToTier(
     // 2. Insert into new tier if tierId is provided (not null)
     if (tierId) {
         const { error: insertError } = await client
-            .from("tier_items")
+            .from("tier_assignments")
             .insert({
                 user_id: user.id,
+                board_id: 'cloud', // Using constant board ID for simple mode
                 tier_id: tierId,
-                series_id: seriesId,
-                position: position,
-                media_type: mediaType
+                media_id: String(seriesId),
+                position: position
             });
 
         if (insertError) {
@@ -257,32 +267,32 @@ export async function reorderItemsInTier(
     // We can fetch the items first to get their IDs, then upsert.
     
     const { data: existingItems, error: fetchError } = await client
-        .from("tier_items")
-        .select("id, series_id")
+        .from("tier_assignments")
+        .select("id, media_id")
         .eq("user_id", user.id)
         .eq("tier_id", tierId)
-        .in("series_id", orderedSeriesIds);
+        .in("media_id", orderedSeriesIds.map(String));
 
     if (fetchError || !existingItems) {
         throw fetchError || new Error("Failed to fetch items for reorder");
     }
 
     const updates = existingItems.map(item => {
-        const newPos = orderedSeriesIds.indexOf(item.series_id);
+        const newPos = orderedSeriesIds.indexOf(Number(item.media_id));
         if (newPos === -1) return null; // Should not happen
         return {
             id: item.id,
             user_id: user.id,
+            board_id: 'cloud',
             tier_id: tierId,
-            series_id: item.series_id,
-            position: newPos,
-            updated_at: new Date().toISOString()
+            media_id: item.media_id,
+            position: newPos
         };
     }).filter(Boolean);
 
     if (updates.length > 0) {
         const { error: updateError } = await client
-            .from("tier_items")
+            .from("tier_assignments")
             .upsert(updates);
             
         if (updateError) throw updateError;
@@ -293,7 +303,7 @@ export async function getActivities(limit = 500): Promise<ActivityLog[]> {
     const { client, user } = await requireSupabaseAuth();
     
     const { data, error } = await client
-        .from("user_activity")
+        .from("activity_log")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -308,7 +318,6 @@ export async function getActivities(limit = 500): Promise<ActivityLog[]> {
         id: row.id,
         userId: row.user_id,
         seriesId: row.series_id,
-        mediaId: row.media_id,
         actionType: row.action_type,
         mediaType: row.media_type,
         details: row.details,
@@ -323,11 +332,10 @@ export async function logActivity(
         const { client, user } = await requireSupabaseAuth();
 
         const { error } = await client
-            .from("user_activity")
+            .from("activity_log")
             .insert({
                 user_id: user.id,
                 series_id: activity.seriesId,
-                media_id: activity.mediaId ? String(activity.mediaId) : null,
                 action_type: activity.actionType,
                 media_type: activity.mediaType,
                 details: activity.details
@@ -340,6 +348,40 @@ export async function logActivity(
         // Silently fail activity logging if not configured/logged in
         console.warn("Activity logging skipped:", e);
     }
+}
+
+/**
+ * HYBRID ARCHITECTURE: Fetching aggregated data
+ */
+export async function fetchCoreStats(userId: string) {
+    const { client } = await requireSupabaseAuth();
+    const { data, error } = await client
+        .from("user_stats_core")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+    if (error) throw error;
+    return data;
+}
+
+export async function fetchScoreDistribution(userId: string) {
+    const { client } = await requireSupabaseAuth();
+    const { data, error } = await client
+        .from("user_score_distribution")
+        .select("*")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return data;
+}
+
+export async function fetchActivityHeatmap(userId: string) {
+    const { client } = await requireSupabaseAuth();
+    const { data, error } = await client
+        .from("user_activity_heatmap")
+        .select("*")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return data;
 }
 
 /**

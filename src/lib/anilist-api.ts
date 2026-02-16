@@ -25,6 +25,7 @@ const MEDIA_QUERY = `
         countryOfOrigin
         averageScore
         popularity
+        updatedAt
       }
     }
   }
@@ -51,6 +52,7 @@ const SEARCH_QUERY = `
         countryOfOrigin
         averageScore
         popularity
+        updatedAt
       }
     }
   }

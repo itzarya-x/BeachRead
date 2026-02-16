@@ -253,6 +253,85 @@ CREATE POLICY "Users can manage their own media" ON public.user_media FOR ALL US
 DROP POLICY IF EXISTS "Users can view their own stats" ON public.user_stats_cache;
 CREATE POLICY "Users can view their own stats" ON public.user_stats_cache FOR SELECT USING (auth.uid() = user_id);
 
+-- HYBRID STAT ARCHITECTURE: DATABASE LAYER
+-- Views for efficient aggregation
+CREATE OR REPLACE VIEW public.user_stats_core AS
+SELECT
+  user_id,
+  count(*) AS total_entries,
+  count(*) FILTER (WHERE status = 'COMPLETED') AS completed,
+  count(*) FILTER (WHERE status = 'DROPPED') AS dropped,
+  count(*) FILTER (WHERE status = 'CURRENT') AS current,
+  count(*) FILTER (WHERE status = 'PLANNING') AS planning,
+  avg(score) FILTER (WHERE score > 0) AS mean_score,
+  sum(COALESCE(runtime, 24) * progress) AS total_minutes
+FROM public.user_media
+WHERE deleted = false
+GROUP BY user_id;
+
+CREATE OR REPLACE VIEW public.user_score_distribution AS
+SELECT
+  user_id,
+  floor(score/10)*10 AS score_bucket,
+  count(*) AS count
+FROM public.user_media
+WHERE score > 0 AND deleted = false
+GROUP BY user_id, score_bucket;
+
+CREATE OR REPLACE VIEW public.user_activity_heatmap AS
+SELECT
+  user_id,
+  date_trunc('day', created_at) AS day,
+  count(*) AS activity_count
+FROM public.activity_log
+GROUP BY user_id, day;
+
+-- Snapshot table for ultra-fast access
+CREATE TABLE IF NOT EXISTS public.user_stats_snapshot (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  total_entries INT DEFAULT 0,
+  mean_score NUMERIC DEFAULT 0,
+  completed INT DEFAULT 0,
+  dropped INT DEFAULT 0,
+  total_minutes BIGINT DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Trigger to keep snapshot updated
+CREATE OR REPLACE FUNCTION public.refresh_user_stats_snapshot()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_stats_snapshot (user_id, total_entries, mean_score, completed, dropped, total_minutes)
+  SELECT
+    user_id,
+    count(*),
+    avg(score),
+    count(*) FILTER (WHERE status = 'COMPLETED'),
+    count(*) FILTER (WHERE status = 'DROPPED'),
+    sum(COALESCE(runtime, 24) * progress)
+  FROM public.user_media
+  WHERE user_id = COALESCE(new.user_id, old.user_id) AND deleted = false
+  GROUP BY user_id
+  ON CONFLICT (user_id)
+  DO UPDATE SET
+    total_entries = EXCLUDED.total_entries,
+    mean_score = EXCLUDED.mean_score,
+    completed = EXCLUDED.completed,
+    dropped = EXCLUDED.dropped,
+    total_minutes = EXCLUDED.total_minutes,
+    updated_at = now();
+
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS update_stats_snapshot ON public.user_media;
+CREATE TRIGGER update_stats_snapshot
+AFTER INSERT OR UPDATE OR DELETE
+ON public.user_media
+FOR EACH ROW
+EXECUTE FUNCTION public.refresh_user_stats_snapshot();
+
 -- PHASE 5: User Integrations (OAuth Tokens)
 CREATE TABLE IF NOT EXISTS public.user_integrations (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,

@@ -17,6 +17,7 @@ import {
     deleteTier,
     getTierItems,
     getTiers,
+    getSupabaseSession,
     moveMediaToTier,
     reorderItemsInTier,
     supabase,
@@ -100,6 +101,13 @@ export default function TierMaker() {
             return;
         }
 
+        // Safety check to prevent AuthSessionMissingError
+        const session = await getSupabaseSession();
+        if (!session) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const [tierRows, itemRows] = await Promise.all([
                 getTiers(),
@@ -143,7 +151,7 @@ export default function TierMaker() {
         const channel = supabase
             .channel(`tier-maker-v2:${user.id}`)
             .on("postgres_changes", { event: "*", schema: "public", table: "tiers", filter: `user_id=eq.${user.id}` }, refreshBoardData)
-            .on("postgres_changes", { event: "*", schema: "public", table: "tier_items", filter: `user_id=eq.${user.id}` }, refreshBoardData)
+            .on("postgres_changes", { event: "*", schema: "public", table: "tier_assignments", filter: `user_id=eq.${user.id}` }, refreshBoardData)
             .subscribe();
 
         return () => {

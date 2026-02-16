@@ -1,7 +1,7 @@
 -- Migration: User Activity Tracking (v2 - aligned with ActivityLog interface)
 -- Date: 2026-02-16
 
-create table if not exists user_activity (
+create table if not exists activity_log (
   id uuid primary key default gen_random_uuid(),
 
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -20,14 +20,14 @@ create table if not exists user_activity (
 );
 
 -- Indices for performance
-create index if not exists idx_user_activity_user_id on user_activity (user_id);
-create index if not exists idx_user_activity_created_at on user_activity (created_at desc);
-create index if not exists idx_user_activity_action_type on user_activity (action_type);
+create index if not exists idx_activity_log_user_id on activity_log (user_id);
+create index if not exists idx_activity_log_created_at on activity_log (created_at desc);
+create index if not exists idx_activity_log_action_type on activity_log (action_type);
 
 -- RLS
-alter table user_activity enable row level security;
+alter table activity_log enable row level security;
 
 create policy "Users can access their own activity"
-on user_activity
+on activity_log
 for all
 using (auth.uid() = user_id);

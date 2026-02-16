@@ -1,11 +1,13 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { AddMediaModal } from "@/components/media/AddMediaModal";
 import { AdvancedFilterPanel } from "@/components/media/AdvancedFilterPanel";
-import { MediaGrid } from "@/components/media/MediaGrid";
+import { MediaListView } from "@/components/library/MediaListView";
+import { ViewSwitcher } from "@/components/library/ViewSwitcher";
 import { GridSkeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/YuraButton";
 import { useData } from "@/context/DataContext";
 import { useMediaFilters } from "@/hooks/useMediaFilters";
+import { useLibraryView } from "@/hooks/useLibraryView";
 import { applyFilters } from "@/lib/media-filters";
 import { BookOpen, Plus } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -16,7 +18,10 @@ const MangaList = () => {
     const [showAddModal, setShowAddModal] = useState(false);
     const navigate = useNavigate();
 
-    // NEW FILTER SYSTEM
+    // VIEW SYSTEM
+    const { viewMode, updateViewMode } = useLibraryView();
+
+    // FILTER SYSTEM
     const { filters, updateFilters, resetFilters } = useMediaFilters();
 
     const filtered = useMemo(() => {
@@ -74,6 +79,11 @@ const MangaList = () => {
                               updateFilters={updateFilters} 
                               resetFilters={resetFilters} 
                             />
+
+                            <ViewSwitcher 
+                              currentMode={viewMode} 
+                              onModeChange={updateViewMode} 
+                            />
                         </div>
 
                         <Button
@@ -86,9 +96,9 @@ const MangaList = () => {
                     </div>
                 </div>
 
-                {/* 3. Media Grid (Content Zone) */}
+                {/* 3. Media List View (Content Zone) */}
                 <div className="w-full">
-                    <MediaGrid items={filtered} emptyMessage="No manga match your filters" />
+                    <MediaListView items={filtered} viewMode={viewMode} />
                 </div>
             </PageContent>
             {showAddModal && (

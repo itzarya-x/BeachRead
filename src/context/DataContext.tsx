@@ -58,6 +58,7 @@ interface DataContextValue {
     duplicateCheck: DuplicateCheck | null;
     resolveDuplicate: (action: "view" | "update" | "cancel") => Promise<void>;
     activities: ActivityLog[];
+    getActivities: () => Promise<ActivityLog[]>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -774,7 +775,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     );
 
     const getActivities = useCallback(async () => {
-        if (!user) return [];
+        if (!user || !user.id || user.id === 0) return [];
         const storage = getStorageProvider();
         return storage.getActivities(user.id);
     }, [user]);
@@ -1216,6 +1217,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             duplicateCheck,
             resolveDuplicate,
             activities,
+            getActivities,
         }),
         [
             loading,
@@ -1241,6 +1243,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             duplicateCheck,
             resolveDuplicate,
             activities,
+            getActivities,
         ],
     );
 

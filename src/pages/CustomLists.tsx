@@ -1,14 +1,18 @@
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
 import { AutoBento } from "@/components/layout/AutoBento";
-import { MediaGrid } from "@/components/media/MediaGrid";
+import { MediaListView } from "@/components/library/MediaListView";
+import { ViewSwitcher } from "@/components/library/ViewSwitcher";
 import * as EmptyStates from "@/components/ui/EmptyState";
 import { GridSkeleton } from "@/components/ui/Skeleton";
 import { useData } from "@/context/DataContext";
+import { useLibraryView } from "@/hooks/useLibraryView";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const CustomLists = () => {
     const { user, getCustomListEntries, loading } = useData();
+    const { viewMode, updateViewMode } = useLibraryView();
+    
     const allLists = [
         ...(user?.customListNames.anime || []).map(n => ({ name: n, type: "ANIME" as const })),
         ...(user?.customListNames.manga || []).map(n => ({ name: n, type: "MANGA" as const })),
@@ -30,7 +34,16 @@ const CustomLists = () => {
     return (
         <PageWrapper>
             <div className="page-container">
-                <PageHeader title="Custom Lists" subtitle={`${allLists.length} lists created`} />
+                <PageHeader 
+                    title="Custom Lists" 
+                    subtitle={`${allLists.length} lists created`}
+                    action={
+                        <ViewSwitcher 
+                            currentMode={viewMode} 
+                            onModeChange={updateViewMode} 
+                        />
+                    }
+                />
             </div>
             <PageContent className="max-w-none px-0 space-y-10">
                 {allLists.length === 0 ? (
@@ -70,7 +83,7 @@ const CustomLists = () => {
                         </AutoBento>
 
                         <div className="w-full">
-                            <MediaGrid items={entries} emptyMessage="No entries in this custom list" />
+                            <MediaListView items={entries} viewMode={viewMode} />
                         </div>
                     </>
                 )}

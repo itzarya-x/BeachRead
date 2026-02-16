@@ -3,6 +3,71 @@ import type { ActivityLog } from "@/lib/storage/types";
 import type { DisplayMedia, MediaStatus, MediaType, OriginType, ScoreFormat } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
 
+import { 
+    fetchCoreStats, 
+    fetchScoreDistribution, 
+    fetchActivityHeatmap 
+} from "@/lib/supabase-client";
+
+/**
+ * HYBRID STAT ARCHITECTURE: INTELLIGENCE LAYER
+ * Logic-heavy computations performed on the frontend for flexibility.
+ */
+
+export async function generateHybridStats(userId: string) {
+    try {
+        const [core, distribution, heatmap] = await Promise.all([
+            fetchCoreStats(userId),
+            fetchScoreDistribution(userId),
+            fetchActivityHeatmap(userId)
+        ]);
+
+        const intelligence = computeBehavioralProfile(core, distribution);
+
+        return {
+            hero_summary: core,
+            score_distribution: distribution,
+            heatmap,
+            behavioral_profile: intelligence
+        };
+    } catch (error) {
+        console.error("Failed to generate hybrid stats:", error);
+        throw error;
+    }
+}
+
+export function computeBehavioralProfile(core: any, distribution: any[]) {
+    const meanScore = core.mean_score || 0;
+    const completionRate = (core.completed / (core.total_entries || 1)) * 100;
+    const dropRate = (core.dropped / (core.total_entries || 1)) * 100;
+
+    // Rating Volatility & Consistency (Calculated from bucket spread)
+    const scoredCount = distribution.reduce((s, b) => s + b.count, 0);
+    let variance = 0;
+    distribution.forEach(bucket => {
+        const bucketMean = bucket.score_bucket + 5; // Midpoint
+        variance += bucket.count * Math.pow(bucketMean - meanScore, 2);
+    });
+    const stdDev = scoredCount > 1 ? Math.sqrt(variance / scoredCount) : 0;
+
+    // Archetype Classification
+    let profileType: "completionist" | "critic" | "explorer" | "casual" | "strategist" = "strategist";
+    if (completionRate > 70) profileType = "completionist";
+    else if (dropRate > 30) profileType = "critic";
+    else if (core.total_entries < 20) profileType = "casual";
+
+    return {
+        completionist_score: Math.round(completionRate),
+        drop_tendency_score: Math.round(dropRate),
+        rating_strictness_score: Math.round(Math.max(0, 100 - meanScore)),
+        binge_watcher_score: 0, // Requires deeper activity analysis
+        consistency_score: Math.round(Math.max(0, 100 - (stdDev * 4))),
+        rating_volatility: Math.round(stdDev * 100) / 100,
+        harsh_vs_generous_index: Math.round((meanScore - 70) * 100) / 100,
+        profile_type: profileType
+    };
+}
+
 /**
  * YURA STATS ENGINE
  */

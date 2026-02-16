@@ -1,32 +1,116 @@
-import { MediaRowCard } from "@/components/home/MediaRowCard";
-import { AutoBento } from "@/components/layout/AutoBento";
+import { UpdateCard } from "@/components/continue/UpdateCard";
 import { PageContent, PageHeader, PageWrapper } from "@/components/layout/PageWrapper";
+import { GridSkeleton } from "@/components/ui/Skeleton";
 import { useData } from "@/context/DataContext";
+import { fetchMediaBatched } from "@/lib/anilist-api";
 import type { DisplayMedia } from "@/types/display";
 import { safeArray } from "@/utils/safeArray";
-import { Play } from "lucide-react";
-import { useMemo } from "react";
+import { Play, RotateCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 const Continue = () => {
-    const { animeList, mangaList, loading } = useData();
+    const { animeList, mangaList, loading, updateEntry, user } = useData();
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [updatedMedia, setUpdatedMedia] = useState<Map<number, any>>(new Map());
 
-    const currentItems = useMemo(() => {
+    // Filter for ongoing items
+    const ongoingItems = useMemo(() => {
         const all = [
             ...safeArray<DisplayMedia>(animeList), 
             ...safeArray<DisplayMedia>(mangaList)
         ];
-        return all
-            .filter(item => item.status === "CURRENT")
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        return all.filter(item => {
+            if (item.status === "CURRENT") return true;
+            // Also include items that are not completed but have progress
+            const total = item.episodes || item.chapters || 0;
+            return item.status !== "COMPLETED" && item.status !== "DROPPED" && item.progress > 0 && (total === 0 || item.progress < total);
+        });
     }, [animeList, mangaList]);
+
+    // Check for updates
+    const checkForUpdates = async () => {
+        if (ongoingItems.length === 0) return;
+        
+        setIsRefreshing(true);
+        try {
+            const ids = ongoingItems.map(m => m._seriesId);
+            const freshData = await fetchMediaBatched(ids);
+            setUpdatedMedia(freshData);
+            
+            // Check for new content
+            let newUpdates = 0;
+            ongoingItems.forEach(item => {
+                const fresh = freshData.get(item._seriesId);
+                if (fresh) {
+                    const total = fresh.episodes || fresh.chapters || 0;
+                    if (total > item.progress) newUpdates++;
+                }
+            });
+
+            if (newUpdates > 0) {
+                toast.success(`${newUpdates} new updates detected`);
+            }
+        } catch (err) {
+            console.error("Failed to check updates", err);
+            toast.error("Update check failed");
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    // Auto-check on mount (debounced)
+    useEffect(() => {
+        if (!loading && ongoingItems.length > 0) {
+            const timeout = setTimeout(() => {
+                void checkForUpdates();
+            }, 1000);
+            return () => clearTimeout(timeout);
+        }
+    }, [loading, ongoingItems.length]); // Only re-run if item count changes significantly
+
+    // Merge fresh data and sort
+    const displayItems = useMemo(() => {
+        return ongoingItems.map(item => {
+            const fresh = updatedMedia.get(item._seriesId);
+            if (fresh) {
+                return {
+                    ...item,
+                    episodes: fresh.episodes ?? item.episodes,
+                    chapters: fresh.chapters ?? item.chapters,
+                    updatedAt: fresh.updatedAt ? new Date(fresh.updatedAt * 1000).toISOString() : item.updatedAt,
+                    _hasUpdate: (fresh.episodes || fresh.chapters || 0) > item.progress
+                };
+            }
+            return {
+                ...item,
+                _hasUpdate: (item.episodes || item.chapters || 0) > item.progress && (item.episodes || item.chapters || 0) > 0
+            };
+        }).sort((a, b) => {
+            // Priority 1: Has new update
+            if (a._hasUpdate !== b._hasUpdate) return a._hasUpdate ? -1 : 1;
+            // Priority 2: Recently updated
+            return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        });
+    }, [ongoingItems, updatedMedia]);
+
+    const handleIncrement = async (id: number, current: number) => {
+        await updateEntry(id, { progress: current + 1 });
+        toast.success("Progress updated");
+    };
+
+    const handleComplete = async (id: number) => {
+        await updateEntry(id, { status: "COMPLETED" });
+        toast.success("Marked as completed");
+    };
 
     if (loading) {
         return (
             <PageWrapper className="p-6">
                 <div className="mb-8 h-10 w-48 animate-pulse rounded-lg bg-muted" />
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                    {[...Array(12)].map((_, i) => (
-                        <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-muted" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-32 animate-pulse rounded-2xl bg-muted" />
                     ))}
                 </div>
             </PageWrapper>
@@ -36,19 +120,37 @@ const Continue = () => {
     return (
         <PageWrapper>
             <div className="page-container">
-                <PageHeader 
-                    title="Neural Continuity" 
-                    subtitle={`Establishing ${currentItems.length} active sessions`}
-                    icon={Play}
-                />
+                <div className="flex items-center justify-between mb-8">
+                    <PageHeader 
+                        title="Live Feed" 
+                        subtitle={`${displayItems.length} active series tracked`}
+                        icon={Play}
+                    />
+                    <button
+                        onClick={checkForUpdates}
+                        disabled={isRefreshing}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold uppercase tracking-widest text-primary disabled:opacity-50 transition-colors"
+                    >
+                        <RotateCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                        {isRefreshing ? "Syncing..." : "Refresh"}
+                    </button>
+                </div>
             </div>
+
             <PageContent className="max-w-none px-0">
-                {currentItems.length > 0 ? (
-                    <AutoBento maxWidth={1500} minTileWidth={240}>
-                        {currentItems.map((item, i) => (
-                            <MediaRowCard key={`${item.mediaType}-${item._seriesId}`} media={item} index={i} className="w-full" />
-                        ))}
-                    </AutoBento>
+                {displayItems.length > 0 ? (
+                    <div className="page-container">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {displayItems.map((item) => (
+                                <UpdateCard 
+                                    key={`${item.mediaType}-${item._seriesId}`} 
+                                    media={item} 
+                                    onIncrement={() => handleIncrement(Number(item._entryId), item.progress)}
+                                    onComplete={() => handleComplete(Number(item._entryId))}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 ) : (
                     <div className="page-container">
                         <div className="sakura-glass p-20 flex flex-col items-center justify-center text-center space-y-6 shadow-depth2">
@@ -68,3 +170,4 @@ const Continue = () => {
 };
 
 export default Continue;
+import { cn } from "@/lib/utils";
