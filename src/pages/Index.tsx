@@ -175,7 +175,7 @@ const Index = () => {
                                     {recentActivity.slice(0, 3).map((item, i) => (
                                         <div key={`pulse-${item._seriesId}`} className="flex items-center gap-4">
                                             <div className="h-12 w-9 shrink-0 rounded-lg overflow-hidden border border-white/5">
-                                                <img src={item.coverImage} className="w-full h-full object-cover" alt="" />
+                                                <img src={item.coverImage} className="w-full h-full object-cover" alt={`${getTitle(item)} cover`} />
                                             </div>
                                             <div className="min-w-0">
                                                 <h4 className="truncate text-xs font-black uppercase tracking-widest text-white/80">{getTitle(item)}</h4>

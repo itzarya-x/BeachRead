@@ -1,5 +1,7 @@
 import type { AniListMediaResponse } from "@/types/display";
 import { getStorageProvider, initializeStorageProvider, isCloudProvider } from "./storage";
+import { LocalStorageProvider } from "./storage/local";
+import type { IStorageProvider } from "./storage/types";
 
 const ANILIST_API = "https://graphql.anilist.co";
 const BATCH_SIZE = 50;
@@ -63,17 +65,25 @@ const mediaCache = new Map<number, AniListMediaResponse>();
 
 // TASK 2: Initialize cache from IndexedDB
 let cacheInitialized = false;
+let localCacheProvider: LocalStorageProvider | null = null;
+
+async function getLocalCacheProvider(): Promise<LocalStorageProvider> {
+    if (!localCacheProvider) {
+        localCacheProvider = new LocalStorageProvider();
+        await localCacheProvider.initialize();
+    }
+    return localCacheProvider;
+}
+
 async function initializeCacheFromDB(): Promise<void> {
     if (cacheInitialized) return;
 
     // We now allow IndexedDB caching even in cloud mode for CONTENT METADATA.
     // This provides "Persistence" for hydrated items across sessions.
     try {
-        // We specifically use a separate instance of LocalStorageProvider 
-        // for content metadata to ensure it's always accessible from IndexedDB,
-        // even if the global provider is set to Cloud (Supabase).
-        const localProvider = new (await import("./storage/local")).LocalStorageProvider();
-        await localProvider.initialize();
+        // We specifically use a separate LocalStorageProvider for content metadata
+        // so IndexedDB cache remains available even in cloud mode.
+        const localProvider = await getLocalCacheProvider();
         
         const cached = await localProvider.getAllMediaCache();
         for (const [id, media] of cached.entries()) {
@@ -132,8 +142,7 @@ async function fetchBatch(ids: number[]): Promise<AniListMediaResponse[]> {
             // Save to active storage provider (force local storage for metadata)
             (async () => {
                 try {
-                    const localProvider = new (await import("./storage/local")).LocalStorageProvider();
-                    await localProvider.initialize();
+                    const localProvider = await getLocalCacheProvider();
                     await localProvider.saveMediaCache(m.id, m);
                 } catch (err) {
                     console.warn(`[HYDRATE] Failed to persist media ${m.id}:`, err);
@@ -232,7 +241,7 @@ export async function searchAniListMedia(
                 try {
                     if (isCloudProvider()) return;
 
-                    let storage: any;
+                    let storage: IStorageProvider;
                     try {
                         storage = getStorageProvider();
                     } catch (err) {

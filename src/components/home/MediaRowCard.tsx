@@ -30,6 +30,8 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
     }, [media.updatedAt]);
 
     const isHydrated = media._enriched;
+    const CardContainer = isHydrated ? Link : "div";
+    const cardContainerProps = isHydrated ? { to: linkPath } : {};
 
     return (
         <motion.div
@@ -48,8 +50,8 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
             )}
         >
             <div className="relative flex flex-col gap-3">
-                <Link 
-                    to={isHydrated ? linkPath : "#"} 
+                <CardContainer
+                    {...cardContainerProps}
                     className={cn(
                         "relative aspect-[2/3] overflow-hidden rounded-xl border border-border bg-muted shadow-sm transition-all duration-300",
                         isHydrated ? "group-hover/card:border-primary/35 group-hover/card:shadow-md" : "animate-pulse"
@@ -115,7 +117,7 @@ export function MediaRowCard({ media, index = 0, className, variant = "standard"
                             </div>
                         </div>
                     )}
-                </Link>
+                </CardContainer>
 
                 {/* Info Display */}
                 <div className="space-y-1.5 px-1">

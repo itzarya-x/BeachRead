@@ -1,8 +1,17 @@
+import { openCommandPalette } from "@/lib/command-palette";
 import { IconButton } from "@/components/ui/YuraButton";
 import { Input } from "@/components/ui/input";
-import { Bell, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
-export function TopHeader() {
+interface TopHeaderProps {
+    onQuickAdd?: () => void;
+}
+
+export function TopHeader({ onQuickAdd }: TopHeaderProps) {
+    const handleSearchFocus = () => {
+        openCommandPalette();
+    };
+
     return (
         <header className="sakura-topbar flex h-16 md:h-20 items-center shrink-0 shadow-depth1 sticky top-0 z-40">
             <div className="page-container flex items-center gap-3 md:gap-4 w-full px-4">
@@ -17,6 +26,16 @@ export function TopHeader() {
                         <Input
                             type="search"
                             placeholder="Search titles..."
+                            readOnly
+                            onFocus={handleSearchFocus}
+                            onClick={handleSearchFocus}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    handleSearchFocus();
+                                }
+                            }}
+                            aria-label="Open search palette"
                             className="h-10 md:h-12 w-full rounded-xl md:rounded-2xl border-white/5 bg-white/5 pl-10 md:pl-12 pr-4 md:pr-16 text-xs md:text-sm placeholder:text-white/30 focus-visible:border-primary/30 focus-visible:bg-white/10 focus-visible:ring-primary/20 transition-all duration-300 shadow-sm"
                         />
                         <kbd className="pointer-events-none absolute right-4 top-1/2 hidden h-6 -translate-y-1/2 items-center rounded-lg border border-white/10 bg-white/5 px-2 text-[9px] font-black uppercase tracking-widest text-white/30 md:inline-flex">
@@ -30,6 +49,8 @@ export function TopHeader() {
                         label="Quick Add" 
                         size="sm" 
                         variant="ghost"
+                        onClick={onQuickAdd}
+                        aria-label="Quick add entry"
                         className="h-10 w-10 md:h-12 md:w-12 rounded-xl md:rounded-2xl border border-white/5 bg-white/5 hover:border-primary/30 hover:bg-white/10 hover:text-primary transition-all duration-300" 
                     />
                 </div>

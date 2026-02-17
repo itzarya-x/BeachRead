@@ -1,3 +1,4 @@
+import { COMMAND_PALETTE_OPEN_EVENT } from "@/lib/command-palette";
 import { useData } from "@/context/DataContext";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,9 +39,20 @@ export function CommandPalette() {
     }, []);
 
     useEffect(() => {
+        const openListener = (event: Event) => {
+            const detail = (event as CustomEvent<{ query?: string }>).detail;
+            setIsOpen(true);
+            setQuery(detail?.query ?? "");
+            setSelectedIndex(0);
+        };
+
+        window.addEventListener(COMMAND_PALETTE_OPEN_EVENT, openListener);
+        return () => window.removeEventListener(COMMAND_PALETTE_OPEN_EVENT, openListener);
+    }, []);
+
+    useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 50);
-            setQuery("");
             setSelectedIndex(0);
         }
     }, [isOpen]);
@@ -58,6 +70,8 @@ export function CommandPalette() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (results.length === 0) return;
+
         if (e.key === "ArrowDown") {
             e.preventDefault();
             setSelectedIndex(prev => (prev + 1) % results.length);
@@ -121,7 +135,11 @@ export function CommandPalette() {
                                     >
                                         <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
                                             {item.coverImage ? (
-                                                <img src={item.coverImage} className="w-full h-full object-cover" />
+                                                <img
+                                                    src={item.coverImage}
+                                                    alt={`${getTitle(item)} cover`}
+                                                    className="w-full h-full object-cover"
+                                                />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center">
                                                     {item.type === 'ANIME' ? <Tv className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}

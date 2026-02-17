@@ -3,12 +3,14 @@ import { SessionRestoreToast } from "@/components/account/SessionRestoreToast";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { TopHeader } from "@/components/layout/TopHeader";
+import { AddMediaModal } from "@/components/media/AddMediaModal";
 import { DuplicateDetectorDialog } from "@/components/media/DuplicateDetectorDialog";
 import { ConflictResolver } from "@/components/sync/ConflictResolver";
 import { FirstLoginDialog } from "@/components/sync/FirstLoginDialog";
 import { OfflineBanner } from "@/components/sync/OfflineBanner";
 import { CommandPalette } from "@/components/ui/CommandPalette";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { PetalOverlay } from "@/components/ui/PetalOverlay";
 import { Toaster } from "@/components/ui/toaster";
 import { ToastProvider } from "@/components/ui/ToastNotification";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,36 +20,52 @@ import { FeatureFlagsProvider } from "@/context/FeatureFlags";
 import { StatsFilterProvider } from "@/context/StatsFilterContext";
 import { SyncUIProvider, useSyncUIContext } from "@/context/SyncUIContext";
 import { ThemeProvider } from "@/context/ThemeProvider";
-import { cn } from "@/lib/utils";
+import { debugLog } from "@/lib/logger";
 import { downloadVaultFromCloud, markVaultSkipped, mergeVaults, migrateVaultToCloud } from "@/lib/vault-migration";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
-import Activity from "./pages/Activity";
-import AnimeList from "./pages/AnimeList";
-import { AuthCallback } from "./pages/AuthCallback";
-import Continue from "./pages/Continue";
-import CustomLists from "./pages/CustomLists";
-import Index from "./pages/Index";
-import MangaList from "./pages/MangaList";
-import MediaDetail from "./pages/MediaDetail";
-import NotFound from "./pages/NotFound";
-import RawData from "./pages/RawData";
-import Settings from "./pages/Settings";
-import Stats from "./pages/Stats";
-import TierList from "./pages/TierList";
-import TierMaker from "./pages/TierMaker";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+
+const Activity = lazy(() => import("./pages/Activity"));
+const AnimeList = lazy(() => import("./pages/AnimeList"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback").then((module) => ({ default: module.AuthCallback })));
+const Continue = lazy(() => import("./pages/Continue"));
+const CustomLists = lazy(() => import("./pages/CustomLists"));
+const Index = lazy(() => import("./pages/Index"));
+const MangaList = lazy(() => import("./pages/MangaList"));
+const MediaDetail = lazy(() => import("./pages/MediaDetail"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const RawData = lazy(() => import("./pages/RawData"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Stats = lazy(() => import("./pages/Stats"));
+const TierList = lazy(() => import("./pages/TierList"));
+const TierMaker = lazy(() => import("./pages/TierMaker"));
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-    console.log("%c🔥 Yura App V2 (Cloud-Only Boot) Active", "color: #ff922b; font-weight: bold;");
+    debugLog("%c🔥 Yura App V2 (Cloud-Only Boot) Active", "color: #ff922b; font-weight: bold;");
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [quickAddType, setQuickAddType] = useState<"ANIME" | "MANGA" | null>(null);
     const { loading, user, error } = useData();
     const { user: authUser } = useAuth();
     const syncUI = useSyncUIContext();
     const location = useLocation();
+    const navigate = useNavigate();
+    const suspenseFallback = useMemo(
+        () => (
+            <div className="relative flex min-h-[50vh] items-center justify-center overflow-hidden">
+                <div className="h-12 w-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            </div>
+        ),
+        [],
+    );
+
+    const handleQuickAdd = () => {
+        const targetType = location.pathname.startsWith("/manga") ? "MANGA" : "ANIME";
+        setQuickAddType(targetType);
+    };
 
     // Show loading state
     if (loading) {
@@ -88,7 +106,7 @@ const AppContent = () => {
                             Retry
                         </button>
                         <button
-                            onClick={() => (window.location.href = "/")}
+                            onClick={() => navigate("/")}
                             className="sakura-ripple-button is-outline px-4 py-2 text-sm"
                         >
                             Home
@@ -119,33 +137,36 @@ const AppContent = () => {
     return (
         <>
             <div className="flex min-h-screen max-w-full bg-background pb-20 md:pb-0 overflow-x-hidden">
+                <PetalOverlay />
                 <div className="sakura-particle-layer" aria-hidden="true" />
                 <OfflineBanner />
                 
                 <AppSidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
                 
                 <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-                    <TopHeader />
+                    <TopHeader onQuickAdd={handleQuickAdd} />
                     <main className="flex-1 px-4 py-6 md:px-8 md:py-8 overflow-y-auto">
-                        <AnimatePresence mode="wait">
-                            <Routes location={location} key={location.pathname}>
-                                <Route path="/" element={<Index />} />
-                                <Route path="/auth/callback" element={<AuthCallback />} />
-                                <Route path="/continue" element={<Continue />} />
-                                <Route path="/anime" element={<AnimeList />} />
-                                <Route path="/anime/:id" element={<MediaDetail />} />
-                                <Route path="/manga" element={<MangaList />} />
-                                <Route path="/manga/:id" element={<MediaDetail />} />
-                                <Route path="/tiers" element={<TierList />} />
-                                <Route path="/tier-maker" element={<TierMaker />} />
-                                <Route path="/custom-lists" element={<CustomLists />} />
-                                <Route path="/stats" element={<Stats />} />
-                                <Route path="/activity" element={<Activity />} />
-                                <Route path="/settings" element={<Settings />} />
-                                <Route path="/raw-data" element={<RawData />} />
-                                <Route path="*" element={<NotFound />} />
-                            </Routes>
-                        </AnimatePresence>
+                        <Suspense fallback={suspenseFallback}>
+                            <AnimatePresence mode="wait">
+                                <Routes location={location} key={location.pathname}>
+                                    <Route path="/" element={<Index />} />
+                                    <Route path="/auth/callback" element={<AuthCallback />} />
+                                    <Route path="/continue" element={<Continue />} />
+                                    <Route path="/anime" element={<AnimeList />} />
+                                    <Route path="/anime/:id" element={<MediaDetail />} />
+                                    <Route path="/manga" element={<MangaList />} />
+                                    <Route path="/manga/:id" element={<MediaDetail />} />
+                                    <Route path="/tiers" element={<TierList />} />
+                                    <Route path="/tier-maker" element={<TierMaker />} />
+                                    <Route path="/custom-lists" element={<CustomLists />} />
+                                    <Route path="/stats" element={<Stats />} />
+                                    <Route path="/activity" element={<Activity />} />
+                                    <Route path="/settings" element={<Settings />} />
+                                    <Route path="/raw-data" element={<RawData />} />
+                                    <Route path="*" element={<NotFound />} />
+                                </Routes>
+                            </AnimatePresence>
+                        </Suspense>
                     </main>
                 </div>
 
@@ -172,9 +193,9 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await migrateVaultToCloud(authUser.id, {
-                        onStatus: status => console.log("Migration:", status),
+                        onStatus: status => debugLog("Migration:", status),
                         onProgress: (current, total) => {
-                            console.log(`Progress: ${current}/${total}`);
+                            debugLog(`Progress: ${current}/${total}`);
                         },
                     });
 
@@ -186,9 +207,9 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await downloadVaultFromCloud(authUser.id, {
-                        onStatus: status => console.log("Download:", status),
+                        onStatus: status => debugLog("Download:", status),
                         onProgress: (current, total) => {
-                            console.log(`Progress: ${current}/${total}`);
+                            debugLog(`Progress: ${current}/${total}`);
                         },
                     });
 
@@ -200,9 +221,9 @@ const AppContent = () => {
                     if (!authUser) throw new Error("No user authenticated");
 
                     const result = await mergeVaults(authUser.id, {
-                        onStatus: status => console.log("Merge:", status),
+                        onStatus: status => debugLog("Merge:", status),
                         onProgress: (current, total) => {
-                            console.log(`Progress: ${current}/${total}`);
+                            debugLog(`Progress: ${current}/${total}`);
                         },
                     });
 
@@ -218,12 +239,15 @@ const AppContent = () => {
                 conflicts={syncUI.conflicts}
                 onResolve={async (conflictId, choice) => {
                     // TODO: Connect to actual conflict resolver
-                    console.log(`Resolved conflict ${conflictId} with choice: ${choice}`);
+                    debugLog(`Resolved conflict ${conflictId} with choice: ${choice}`);
                 }}
             />
 
             <DuplicateDetectorDialog />
             <CommandPalette />
+            {quickAddType ? (
+                <AddMediaModal mediaType={quickAddType} onClose={() => setQuickAddType(null)} />
+            ) : null}
         </>
     );
 };
@@ -241,7 +265,9 @@ const App = () => (
                                 <StatsFilterProvider>
                                     <SyncUIProvider>
                                         <ToastProvider>
-                                            <AppContent />
+                                            <Suspense fallback={null}>
+                                                <AppContent />
+                                            </Suspense>
                                         </ToastProvider>
                                     </SyncUIProvider>
                                 </StatsFilterProvider>

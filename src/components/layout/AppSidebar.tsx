@@ -1,19 +1,10 @@
 import { SidebarAccountBlock } from "@/components/account/SidebarAccountBlock";
+import { APP_NAV_SECTIONS } from "@/components/layout/nav-config";
 import { CloudSyncStatusIndicator } from "@/components/sync/CloudSyncStatusIndicator";
 import { SyncStatusIndicator } from "@/components/sync/SyncStatusIndicator";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import {
-    Activity as ActivityIcon,
-    BarChart3,
-    BookOpen,
-    ChevronLeft,
-    Home,
-    Play,
-    Settings,
-    Trophy,
-    Tv
-} from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -21,42 +12,6 @@ interface AppSidebarProps {
     isCollapsed?: boolean;
     onCollapsedChange?: (collapsed: boolean) => void;
 }
-
-const mainNav = [
-    {
-        title: "Main",
-        items: [
-            { path: "/", label: "Home", icon: Home },
-            { path: "/continue", label: "Continue", icon: Play },
-        ]
-    },
-    {
-        title: "Library",
-        items: [
-            { path: "/anime", label: "Anime Archive", icon: Tv },
-            { path: "/manga", label: "Manga Library", icon: BookOpen },
-        ]
-    },
-    {
-        title: "Discover",
-        items: [
-             { path: "/tier-maker", label: "Tier Ranking", icon: Trophy },
-             { path: "/activity", label: "Interaction", icon: ActivityIcon },
-        ]
-    },
-    {
-        title: "Analytics",
-        items: [
-             { path: "/stats", label: "Intelligence", icon: BarChart3 },
-        ]
-    },
-    {
-        title: "System",
-        items: [
-             { path: "/settings", label: "Protocols", icon: Settings },
-        ]
-    },
-];
 
 export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSidebarProps) {
     const location = useLocation();
@@ -104,6 +59,8 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                 )}
                 <button
                     onClick={handleToggleCollapse}
+                    aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    aria-expanded={!collapsed}
                     className={cn(
                         "sakura-sidebar-button rounded-xl p-2.5 text-sidebar-foreground hover:text-sidebar-accent-foreground",
                         collapsed ? "mx-auto" : "ml-auto"
@@ -115,7 +72,7 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
 
             {/* Navigation */}
             <nav className={cn("scrollbar-hide flex-1 overflow-y-auto", collapsed ? "space-y-7 px-3 py-6" : "space-y-8 px-4 py-7")}>
-                {mainNav.map((section, idx) => (
+                {APP_NAV_SECTIONS.map((section, idx) => (
                     <div key={idx} className={cn("space-y-3", !collapsed && "px-2")}>
                         {!collapsed && (
                             <h3 className="px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -132,6 +89,7 @@ export function AppSidebar({ isCollapsed = false, onCollapsedChange }: AppSideba
                                     <Link
                                         key={link.path}
                                         to={link.path}
+                                        aria-current={isActive ? "page" : undefined}
                                         className={cn(
                                             "sakura-sidebar-button group relative flex items-center gap-4 rounded-xl border transition-all duration-200",
                                             isActive
