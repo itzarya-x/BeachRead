@@ -57,3 +57,13 @@ export function safeFormat(date: any, formatStr: string): string {
     return "unknown";
   }
 }
+
+export function safeToISO(date: any): string {
+  const d = safeDate(date);
+  if (!d) return new Date().toISOString();
+  try {
+    return d.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}

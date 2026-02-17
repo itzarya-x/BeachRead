@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { SafeImage } from "@/components/ui/SafeImage";
 
 const MediaDetail = () => {
     const { id } = useParams<{ id: string }>();
@@ -109,19 +110,19 @@ const MediaDetail = () => {
                 {/* 1. Cinematic Backdrop (Task 16) */}
                 <div className="relative w-full h-[650px] md:h-[850px] overflow-hidden">
                     <div className="absolute inset-0">
-                        {media.bannerImage || media.coverImage ? (
-                            <motion.img 
-                                initial={{ scale: 1.15, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 0.55 }}
-                                transition={{ duration: 1, ease: "easeOut" }}
-                                src={media.bannerImage || media.coverImage || ""} 
-                                alt="" 
-                                className="w-full h-full object-cover" 
-                                style={{ filter: "brightness(0.95) contrast(1) saturate(0.9)" }}
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-gradient-to-b from-surface-elevated1 to-background" />
-                        )}
+                        <SafeImage 
+                            src={media.bannerImage || media.coverImage || ""} 
+                            alt="" 
+                            className="w-full h-full object-cover" 
+                            style={{ filter: "brightness(0.95) contrast(1) saturate(0.9)" }}
+                            useMotion={true}
+                            initial={{ scale: 1.15, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 0.55 }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                            fallback={
+                                <div className="w-full h-full bg-gradient-to-b from-surface-elevated1 to-background" />
+                            }
+                        />
                         {/* Layered Fades (Task 16) */}
                         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/15" />
                         <div className="absolute inset-0 bg-gradient-to-r from-background/65 via-transparent to-background/35" />
@@ -150,7 +151,11 @@ const MediaDetail = () => {
                                 transition={{ duration: 0.6, delay: 0.2, ease: [0.23, 1, 0.32, 1] }}
                                 className="relative aspect-[2/3] w-[320px] overflow-hidden rounded-[1.5rem] border border-border shadow-md ring-1 ring-border/70 transition-all duration-500 group-hover:ring-primary/35 md:w-[420px]"
                             >
-                                <img src={media.coverImage} alt={title} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                                <SafeImage 
+                                    src={media.coverImage} 
+                                    alt={title} 
+                                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
+                                />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                             </motion.div>
 

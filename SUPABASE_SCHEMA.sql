@@ -63,6 +63,31 @@ BEGIN
         ALTER TABLE public.user_media ADD COLUMN raw_list_entry JSONB DEFAULT '{}'::jsonb;
     END IF;
 
+    -- Tiers Table Enhancement (Safety for V2 migration)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tiers' AND column_name='user_id') THEN
+        ALTER TABLE public.tiers ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tiers' AND column_name='order') THEN
+        ALTER TABLE public.tiers ADD COLUMN "order" INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tiers' AND column_name='updated_at') THEN
+        ALTER TABLE public.tiers ADD COLUMN updated_at TIMESTAMPTZ DEFAULT now();
+    END IF;
+    
+    -- Make board_id optional if it exists
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tiers' AND column_name='board_id') THEN
+        ALTER TABLE public.tiers ALTER COLUMN board_id DROP NOT NULL;
+    END IF;
+
+    -- Backfill user_id from boards if missing
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='tier_boards') THEN
+        UPDATE public.tiers t
+        SET user_id = b.user_id
+        FROM public.tier_boards b
+        WHERE t.board_id = b.id
+        AND t.user_id IS NULL;
+    END IF;
+
 END $$;
 
 -- 2. Update the Unique Constraint
@@ -83,11 +108,30 @@ CREATE TABLE IF NOT EXISTS public.tier_boards (
 
 CREATE TABLE IF NOT EXISTS public.tiers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    board_id UUID NOT NULL REFERENCES public.tier_boards(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    board_id UUID REFERENCES public.tier_boards(id) ON DELETE CASCADE, -- Made optional for V2
     name TEXT NOT NULL,
     color TEXT NOT NULL,
-    "order" INTEGER NOT NULL
+    "order" INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS public.tier_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    tier_id UUID NOT NULL REFERENCES public.tiers(id) ON DELETE CASCADE,
+    series_id INTEGER NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    media_type TEXT NOT NULL DEFAULT 'ANIME',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(user_id, tier_id, series_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tier_items_user_id ON public.tier_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_tier_items_tier_id ON public.tier_items(tier_id);
+CREATE INDEX IF NOT EXISTS idx_tier_items_user_series ON public.tier_items(user_id, series_id);
 
 CREATE TABLE IF NOT EXISTS public.tier_assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -187,10 +231,69 @@ ON public.user_media
 FOR EACH ROW
 EXECUTE FUNCTION public.refresh_user_stats_snapshot();
 
--- 7. Real-time Publication
+-- 7. Real-time Publication & RLS
+-- Enable RLS on all tables
+ALTER TABLE public.user_media ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tier_boards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tier_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tier_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_stats_snapshot ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+DO $$
+BEGIN
+    -- User Media
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_media' AND policyname = 'Users can manage their own media') THEN
+        CREATE POLICY "Users can manage their own media" ON public.user_media FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Tier Boards
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tier_boards' AND policyname = 'Users can manage their own boards') THEN
+        CREATE POLICY "Users can manage their own boards" ON public.tier_boards FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Tiers
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tiers' AND policyname = 'Users can manage their own tiers') THEN
+        CREATE POLICY "Users can manage their own tiers" ON public.tiers FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Tier Items
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tier_items' AND policyname = 'Users can manage their own tier items') THEN
+        CREATE POLICY "Users can manage their own tier items" ON public.tier_items FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Tier Assignments
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'tier_assignments' AND policyname = 'Users can manage their own assignments') THEN
+        CREATE POLICY "Users can manage their own assignments" ON public.tier_assignments FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    -- Activity Log
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'activity_log' AND policyname = 'Users can manage their own activities') THEN
+        CREATE POLICY "Users can manage their own activities" ON public.activity_log FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+    
+    -- Stats Snapshot
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'user_stats_snapshot' AND policyname = 'Users can manage their own snapshot') THEN
+        CREATE POLICY "Users can manage their own snapshot" ON public.user_stats_snapshot FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+END $$;
+
+-- Real-time Publication
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        -- Add tables one by one if they aren't already there
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'user_media') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE user_media;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'tiers') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE tiers;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'tier_items') THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE tier_items;
+        END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'user_stats_snapshot') THEN
             ALTER PUBLICATION supabase_realtime ADD TABLE user_stats_snapshot;
         END IF;

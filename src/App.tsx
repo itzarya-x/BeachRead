@@ -118,7 +118,7 @@ const AppContent = () => {
 
     return (
         <>
-            <div className="flex min-h-screen bg-background pb-20 md:pb-0">
+            <div className="flex min-h-screen max-w-full bg-background pb-20 md:pb-0 overflow-x-hidden">
                 <div className="sakura-particle-layer" aria-hidden="true" />
                 <OfflineBanner />
                 

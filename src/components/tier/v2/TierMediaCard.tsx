@@ -5,6 +5,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, X, Star } from "lucide-react";
+import { SafeImage } from "@/components/ui/SafeImage";
 
 interface TierMediaCardProps {
     media: DisplayMedia;
@@ -56,18 +57,17 @@ export function TierMediaCard({
             isSelected && "ring-4 ring-primary ring-offset-2 ring-offset-background",
             !overlay && "hover:scale-105"
         )}>
-            {media.coverImage ? (
-                <img 
-                    src={media.coverImage} 
-                    alt={title} 
-                    className="h-full w-full object-cover" 
-                    loading="lazy"
-                />
-            ) : (
-                <div className="flex h-full w-full items-center justify-center bg-secondary/50">
-                    <Trophy className="h-6 w-6 text-muted-foreground/30" />
-                </div>
-            )}
+            <SafeImage 
+                src={media.coverImage} 
+                alt={title} 
+                className="h-full w-full object-cover" 
+                loading="lazy"
+                fallback={
+                    <div className="flex h-full w-full items-center justify-center bg-secondary/50">
+                        <Trophy className="h-6 w-6 text-muted-foreground/30" />
+                    </div>
+                }
+            />
 
             {/* Score Badge */}
             {media.score > 0 && (

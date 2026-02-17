@@ -180,7 +180,7 @@ export default function TierMaker() {
     );
 
     const unassignedMedia = useMemo(
-        () => safeArray<DisplayMedia>(filteredLibraryMedia).filter((m) => !assignedMediaIds.has(String(m._entryId))),
+        () => safeArray<DisplayMedia>(filteredLibraryMedia).filter((m) => !assignedMediaIds.has(String(m._seriesId))),
         [filteredLibraryMedia, assignedMediaIds],
     );
 
@@ -191,7 +191,7 @@ export default function TierMaker() {
                 .sort((a, b) => a.position - b.position);
             
             return tierAssignments
-                .map((a) => filteredLibraryMedia.find((m) => String(m._entryId) === String(a.mediaId)))
+                .map((a) => filteredLibraryMedia.find((m) => String(m._seriesId) === String(a.mediaId)))
                 .filter(Boolean) as DisplayMedia[];
         },
         [assignments, filteredLibraryMedia],
@@ -229,8 +229,11 @@ export default function TierMaker() {
 
     const handleRemoveItem = async (mediaId: string | number) => {
         try {
-            await moveMediaToTier(Number(mediaId), null, 0);
-            toast.success("Subject relocated to pool");
+            const media = allLibraryMedia.find(m => String(m._entryId) === String(mediaId));
+            if (media) {
+                await moveMediaToTier(media._seriesId, null, 0, media.mediaType);
+                toast.success("Subject relocated to pool");
+            }
         } catch (err) {
             toast.error("Relocation failed");
         }
@@ -256,7 +259,7 @@ export default function TierMaker() {
 
                 const targetTier = sortedTiers[targetTierIndex] || sortedTiers[sortedTiers.length - 1];
                 if (targetTier) {
-                    await moveMediaToTier(Number(media._entryId), String(targetTier.id), 0, media.mediaType);
+                    await moveMediaToTier(media._seriesId, String(targetTier.id), 0, media.mediaType);
                 }
             }
             toast.success("Auto-sort protocol complete");
@@ -302,7 +305,9 @@ export default function TierMaker() {
         try {
             for (const id of Array.from(selectedIds)) {
                 const media = allLibraryMedia.find(m => String(m._entryId) === String(id));
-                await moveMediaToTier(Number(id), targetTierId ? String(targetTierId) : null, 0, media?.mediaType);
+                if (media) {
+                    await moveMediaToTier(media._seriesId, targetTierId ? String(targetTierId) : null, 0, media.mediaType);
+                }
             }
             setSelectedIds(new Set());
             setIsBulkMode(false);
@@ -332,7 +337,10 @@ export default function TierMaker() {
         const draggedId = active.id as string | number;
         const overId = over.id as string | number;
 
-        const activeAssignment = assignments.find(a => String(a.mediaId) === String(draggedId));
+        const draggedMedia = allLibraryMedia.find(m => String(m._entryId) === String(draggedId));
+        if (!draggedMedia) return;
+
+        const activeAssignment = assignments.find(a => String(a.mediaId) === String(draggedMedia._seriesId));
         const sourceTierId = activeAssignment?.tierId ?? null;
 
         let targetTierId: string | number | null = null;
@@ -341,7 +349,8 @@ export default function TierMaker() {
         } else if (overId === "pool") {
             targetTierId = null;
         } else {
-            const overAssignment = assignments.find(a => String(a.mediaId) === String(overId));
+            const overMedia = allLibraryMedia.find(m => String(m._entryId) === String(overId));
+            const overAssignment = assignments.find(a => String(a.mediaId) === String(overMedia?._seriesId));
             targetTierId = overAssignment?.tierId ?? null;
         }
 
@@ -351,23 +360,27 @@ export default function TierMaker() {
 
             const tierMedia = getTierMedia(targetTierId);
             const oldIndex = tierMedia.findIndex(m => String(m._entryId) === String(draggedId));
-            const newIndex = tierMedia.findIndex(m => String(m._entryId) === String(overId));
+            
+            // If overId is a media item, find its index. If it's the tier row itself, we might need a different logic
+            // but usually DnD kit gives us the item ID if we are over an item.
+            const overMedia = allLibraryMedia.find(m => String(m._entryId) === String(overId));
+            const newIndex = overMedia ? tierMedia.findIndex(m => String(m._entryId) === String(overId)) : -1;
 
             if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
                 const newOrderMedia = arrayMove(tierMedia, oldIndex, newIndex);
-                const newOrderIds = newOrderMedia.map(m => Number(m._entryId));
+                const newOrderSeriesIds = newOrderMedia.map(m => Number(m._seriesId));
 
                 // Optimistic UI
                 setAssignments(prev => prev.map(a => {
                     if (String(a.tierId) === String(targetTierId)) {
-                        const idx = newOrderIds.indexOf(Number(a.mediaId));
-                        return { ...a, position: idx };
+                        const idx = newOrderSeriesIds.indexOf(Number(a.mediaId));
+                        if (idx !== -1) return { ...a, position: idx };
                     }
                     return a;
                 }));
 
                 try {
-                    await reorderItemsInTier(String(targetTierId), newOrderIds);
+                    await reorderItemsInTier(String(targetTierId), newOrderSeriesIds);
                 } catch (err) {
                     toast.error("Reorder synchronization failed");
                     refreshBoardData();
@@ -377,24 +390,21 @@ export default function TierMaker() {
         }
 
         // 2. MOVE TO DIFFERENT TIER
-        const draggedMedia = allLibraryMedia.find(m => String(m._entryId) === String(draggedId));
-        if (!draggedMedia) return;
-
         try {
             // Optimistic UI
             setAssignments(prev => {
-                const filtered = prev.filter(a => String(a.mediaId) !== String(draggedId));
+                const filtered = prev.filter(a => String(a.mediaId) !== String(draggedMedia._seriesId));
                 if (targetTierId === null) return filtered;
                 return [...filtered, {
                     boardId: CLOUD_BOARD_ID,
-                    mediaId: draggedId,
+                    mediaId: draggedMedia._seriesId,
                     tierId: targetTierId,
                     position: 999 // Append
                 }];
             });
 
             await moveMediaToTier(
-                Number(draggedId), 
+                draggedMedia._seriesId, 
                 targetTierId ? String(targetTierId) : null, 
                 0, 
                 draggedMedia.mediaType

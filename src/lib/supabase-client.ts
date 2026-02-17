@@ -244,6 +244,37 @@ export async function moveMediaToTier(
         // Log removal from tier
         await logActivity({ seriesId, actionType: "tier_change", mediaType: mediaType as "ANIME" | "MANGA", details: { to: null } });
     }
+
+    // 3. SYNC: Update user_media JSONB for unified vault state
+    try {
+        const { data: mediaRecord } = await client
+            .from("user_media")
+            .select("id, data")
+            .eq("user_id", user.id)
+            .eq("series_id", seriesId)
+            .maybeSingle();
+
+        if (mediaRecord) {
+            const updatedData = { 
+                ...(mediaRecord.data || {}), 
+                tierId: tierId // Update or clear tierId
+            };
+            
+            await client
+                .from("user_media")
+                .update({ 
+                    data: updatedData,
+                    tier_id: tierId, // Sync column
+                    tier_position: position, // Sync column
+                    updated_at: new Date().toISOString()
+                })
+                .eq("id", mediaRecord.id);
+                
+            console.log(`[SYNC] Propagated tier change (${tierId || "NONE"}) to user_media for series ${seriesId}`);
+        }
+    } catch (err) {
+        console.warn("[SYNC] Failed to propagate tier change to user_media:", err);
+    }
 }
 
 export async function reorderItemsInTier(
@@ -282,6 +313,31 @@ export async function reorderItemsInTier(
             .upsert(updates);
             
         if (updateError) throw updateError;
+
+        // SYNC: Update user_media for each item to reflect new positions
+        for (const item of updates) {
+            try {
+                const { data: mediaRecord } = await client
+                    .from("user_media")
+                    .select("data")
+                    .eq("user_id", user.id)
+                    .eq("series_id", item.series_id)
+                    .maybeSingle();
+                
+                if (mediaRecord) {
+                    await client
+                        .from("user_media")
+                        .update({
+                            tier_position: item.position,
+                            data: { ...mediaRecord.data, tierId: tierId }
+                        })
+                        .eq("user_id", user.id)
+                        .eq("series_id", item.series_id);
+                }
+            } catch (err) {
+                console.warn(`[SYNC] Failed to update position for series ${item.series_id}:`, err);
+            }
+        }
     }
 }
 

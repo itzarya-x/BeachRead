@@ -6,6 +6,8 @@
  * Logs to console and LocalStorage for debugging.
  */
 
+import { safeToISO } from "./utils";
+
 interface AuthLogEntry {
     timestamp: number;
     level: "info" | "warn" | "error";
@@ -156,7 +158,7 @@ export function getLogs(): AuthLogEntry[] {
 export function getLogsAsString(): string {
     return logs
         .map(log => {
-            const date = new Date(log.timestamp).toISOString();
+            const date = safeToISO(log.timestamp);
             const level = log.level.toUpperCase();
             const details = log.details ? JSON.stringify(log.details) : "";
             return `[${date}] ${level} ${log.event} ${log.reason || ""} ${details}`.trim();
@@ -182,7 +184,7 @@ export function exportLogsForSupport(): {
 } {
     return {
         logs: getLogs(),
-        timestamp: new Date().toISOString(),
+        timestamp: safeToISO(new Date()),
         userAgent: navigator.userAgent,
     };
 }

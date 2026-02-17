@@ -4,6 +4,7 @@ import type { DisplayMedia } from "@/types/display";
 import { motion } from "framer-motion";
 import { BookOpen, Edit2, Play, Star } from "lucide-react";
 import { Link } from "react-router-dom";
+import { SafeImage } from "@/components/ui/SafeImage";
 
 const cardEase = [0.16, 1, 0.3, 1] as const;
 const hoverEase = [0.23, 1, 0.32, 1] as const;
@@ -55,22 +56,22 @@ export function MediaCard({ media, isSelected, onToggleSelect, index = 0 }: Medi
             <Link to={isHydrated ? linkPath : "#"} className="block min-h-[44px]">
                 {/* Cover Image Container */}
                 <div className="relative aspect-[2/3] overflow-hidden bg-muted">
-                    {media?.coverImage ? (
-                        <motion.img
-                            src={media.coverImage}
-                            alt={title}
-                            className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-[1.08]"
-                            loading="lazy"
-                            transition={{ duration: 0.8, ease: cardEase }}
-                        />
-                    ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
-                            {media?.mediaType === "ANIME" ? 
-                                <Play className={cn("w-12 h-12 opacity-20", !isHydrated && "animate-spin")} /> : 
-                                <BookOpen className={cn("w-12 h-12 opacity-20", !isHydrated && "animate-pulse")} />
-                            }
-                        </div>
-                    )}
+                    <SafeImage
+                        src={media?.coverImage}
+                        alt={title}
+                        className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-[1.08]"
+                        loading="lazy"
+                        useMotion={true}
+                        transition={{ duration: 0.8, ease: cardEase }}
+                        fallback={
+                            <div className="flex h-full w-full items-center justify-center text-muted-foreground/20">
+                                {media?.mediaType === "ANIME" ? 
+                                    <Play className={cn("w-12 h-12 opacity-20", !isHydrated && "animate-spin")} /> : 
+                                    <BookOpen className={cn("w-12 h-12 opacity-20", !isHydrated && "animate-pulse")} />
+                                }
+                            </div>
+                        }
+                    />
 
                     {!isHydrated && <div className="absolute inset-0 animate-pulse bg-muted/40" />}
 

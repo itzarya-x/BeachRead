@@ -14,6 +14,7 @@ import { assertCloud, DataLog } from "@/lib/storage-mode";
 import { createClient } from "@supabase/supabase-js";
 import { LocalStorageProvider } from "./local";
 import type { ActivityLog, IStorageProvider, SyncRecord, Tier, TierAssignment, TierBoard, UserEntry } from "./types";
+import { safeToISO } from "@/lib/utils";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -206,9 +207,9 @@ export class CloudStorageProvider implements IStorageProvider {
                 user_id: this.userId,
                 series_id: entry.seriesId,
                 data: entry.data,
-                edited_at: new Date(entry.editedAt).toISOString(),
+                edited_at: safeToISO(entry.editedAt),
                 deleted: entry.deleted,
-                updated_at: new Date().toISOString(),
+                updated_at: safeToISO(new Date()),
                 media_type: entry.data.mediaType || "ANIME",
             };
 
@@ -269,9 +270,9 @@ export class CloudStorageProvider implements IStorageProvider {
                         user_id: this.userId,
                         series_id: entry.seriesId,
                         data: entry.data,
-                        edited_at: new Date(entry.editedAt).toISOString(),
+                        edited_at: safeToISO(entry.editedAt),
                         deleted: entry.deleted,
-                        updated_at: new Date().toISOString(),
+                        updated_at: safeToISO(new Date()),
                         media_type: entry.data.mediaType || "ANIME",
                     };
                     if (isRealUUID) record.id = entry.entryId;
@@ -302,7 +303,7 @@ export class CloudStorageProvider implements IStorageProvider {
             DataLog.deleted("SUPABASE", entryId, true);
             const { error } = await this.supabase
                 .from("user_media")
-                .update({ deleted: true, updated_at: new Date().toISOString() })
+                .update({ deleted: true, updated_at: safeToISO(new Date()) })
                 .eq("id", entryId)
                 .eq("user_id", this.userId);
 
@@ -381,7 +382,7 @@ export class CloudStorageProvider implements IStorageProvider {
             .update({
                 name: updates.name,
                 description: updates.description,
-                updated_at: new Date().toISOString()
+                updated_at: safeToISO(new Date())
             })
             .eq("id", id);
         if (error) throw error;
