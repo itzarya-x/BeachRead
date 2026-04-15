@@ -1,0 +1,12 @@
+node_modules/
+api/node_modules/
+client/node_modules/
+client/dist/
+api/.cache/
+.env
+.env.local
+api/.env
+api/.env.local
+client/.env
+client/.env.local
+.codex

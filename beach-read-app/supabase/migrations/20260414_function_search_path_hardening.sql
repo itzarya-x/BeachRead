@@ -1,0 +1,14 @@
+alter function public.touch_updated_at() set search_path = public;
+alter function public.ensure_note_owner() set search_path = public;
+alter function public.emit_outbox_event(text, text, uuid, uuid, jsonb, text) set search_path = public;
+alter function public.capture_library_entry_change() set search_path = public;
+alter function public.capture_release_change() set search_path = public;
+alter function public.app_enqueue_sync_job(uuid, text, text, text, smallint, text, jsonb) set search_path = public;
+alter function public.app_claim_sync_jobs(text, integer) set search_path = public;
+alter function public.app_claim_outbox_events(text, integer) set search_path = public;
+alter function public.app_complete_outbox_event(uuid) set search_path = public;
+alter function public.app_fail_outbox_event(uuid, text, boolean) set search_path = public;
+alter function public.get_next_to_read(uuid, integer) set search_path = public;
+alter function public.get_finish_quickly(uuid, integer) set search_path = public;
+alter function public.get_short_reads(uuid, integer, integer) set search_path = public;
+alter function public.get_backlog_cleanup(uuid, integer) set search_path = public;

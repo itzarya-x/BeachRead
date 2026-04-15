@@ -1,0 +1,1809 @@
+const express = require('express');
+const cors = require('cors');
+const crypto = require('crypto');
+const fs = require('fs/promises');
+const fsSync = require('fs');
+const path = require('path');
+
+function loadApiEnvFile(filename) {
+  const filePath = path.join(__dirname, filename);
+  if (!fsSync.existsSync(filePath)) return;
+
+  const raw = fsSync.readFileSync(filePath, 'utf8');
+  raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && line.includes('='))
+    .forEach((line) => {
+      const [key, ...rest] = line.split('=');
+      const value = rest.join('=').trim();
+      if (!process.env[key]) process.env[key] = value;
+    });
+}
+
+loadApiEnvFile('.env.local');
+loadApiEnvFile('.env');
+
+const PORT = 3001;
+const ANILIST_API = 'https://graphql.anilist.co';
+const CACHE_FILE_PATH = path.join(__dirname, '.cache', 'anilist-cache.json');
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
+const CACHE_FILE_TTL_FALLBACK_MS = WEEK_MS;
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPABASE_CACHE_TABLE = process.env.SUPABASE_CACHE_TABLE || 'api_cache';
+const ANILIST_CLIENT_ID = process.env.ANILIST_CLIENT_ID || '';
+const ANILIST_CLIENT_SECRET = process.env.ANILIST_CLIENT_SECRET || '';
+const ANILIST_REDIRECT_URI = process.env.ANILIST_REDIRECT_URI || '';
+const MAL_CLIENT_ID = process.env.MAL_CLIENT_ID || '';
+const MAL_CLIENT_SECRET = process.env.MAL_CLIENT_SECRET || '';
+const MAL_REDIRECT_URI = process.env.MAL_REDIRECT_URI || '';
+const OAUTH_FRONTEND_ORIGIN = process.env.OAUTH_FRONTEND_ORIGIN || '';
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'beachread-dev-oauth-state-secret-change-me';
+const CLOUD_CACHE_ENABLED = Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+const DEFAULT_FRONTEND_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+const ALLOWED_IMAGE_HOSTS = new Set([
+  's4.anilist.co',
+  'img.anili.st',
+  'anilist.co',
+]);
+const HOME_RANKINGS_CACHE_TTL_MS = WEEK_MS;
+const HOME_RANKINGS_COOLDOWN_DEFAULT_MS = 60 * 1000;
+const ENDPOINT_CACHE_TTL_MS = WEEK_MS;
+const ENDPOINT_COOLDOWN_DEFAULT_MS = 60 * 1000;
+const homeRankingsState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const updatesState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const recentlyAddedState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const latestNewsState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const trendingState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const homeFeedState = {
+  data: null,
+  fetchedAt: 0,
+  cooldownUntil: 0,
+  inFlight: null,
+};
+const searchState = new Map();
+const mangaDetailsState = new Map();
+let cacheLoaded = false;
+let cacheWriteQueue = Promise.resolve();
+let last429LogAt = 0;
+if (OAUTH_STATE_SECRET === 'beachread-dev-oauth-state-secret-change-me') {
+  console.warn('[oauth] OAUTH_STATE_SECRET is not set; using fallback dev secret.');
+}
+
+function randomToken(size = 24) {
+  return crypto.randomBytes(size).toString('hex');
+}
+
+function base64Url(input) {
+  return Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function sha256Base64Url(input) {
+  return crypto.createHash('sha256').update(input).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function isSafeOrigin(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_err) {
+    return false;
+  }
+}
+
+function parseAllowedOrigins(value) {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter(isSafeOrigin)
+    .map((entry) => new URL(entry).origin);
+}
+
+function base64UrlDecode(input) {
+  const normalized = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  return Buffer.from(padded, 'base64').toString('utf8');
+}
+
+function signOAuthState(payloadBase64) {
+  return crypto
+    .createHmac('sha256', OAUTH_STATE_SECRET)
+    .update(payloadBase64)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function createOAuthState(payload) {
+  const payloadBase64 = base64Url(JSON.stringify(payload));
+  const signature = signOAuthState(payloadBase64);
+  return `${payloadBase64}.${signature}`;
+}
+
+function consumeOAuthState(state, provider) {
+  if (!state || typeof state !== 'string') return null;
+  const [payloadBase64, signature] = state.split('.');
+  if (!payloadBase64 || !signature) return null;
+  if (signOAuthState(payloadBase64) !== signature) return null;
+
+  try {
+    const parsed = JSON.parse(base64UrlDecode(payloadBase64));
+    if (!parsed || parsed.provider !== provider) return null;
+    if (!parsed.expiresAt || parsed.expiresAt < Date.now()) return null;
+    if (!parsed.origin || !isAllowedOrigin(parsed.origin)) return null;
+    return parsed;
+  } catch (_err) {
+    return null;
+  }
+}
+
+const allowedFrontendOrigins = new Set([
+  ...DEFAULT_FRONTEND_ORIGINS,
+  ...parseAllowedOrigins(OAUTH_FRONTEND_ORIGIN),
+]);
+
+function isAllowedOrigin(value) {
+  if (!isSafeOrigin(value)) return false;
+  return allowedFrontendOrigins.has(new URL(value).origin);
+}
+
+const app = express();
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('CORS origin not allowed.'));
+  },
+}));
+app.use(express.json());
+app.use('/api/v1', require('./routes/v1'));
+
+function resolveFrontendOrigin(req) {
+  const requestedOrigin = (req.query.origin || '').toString().trim();
+  if (requestedOrigin && isAllowedOrigin(requestedOrigin)) {
+    return new URL(requestedOrigin).origin;
+  }
+
+  const configuredOrigin = parseAllowedOrigins(OAUTH_FRONTEND_ORIGIN)[0];
+  if (configuredOrigin) return configuredOrigin;
+  return DEFAULT_FRONTEND_ORIGINS[0];
+}
+
+function apiBaseUrl(req) {
+  const forwardedProto = req.get('x-forwarded-proto');
+  const proto = forwardedProto || req.protocol;
+  return `${proto}://${req.get('host')}`;
+}
+
+function resolveRedirectUri(req, provider) {
+  if (provider === 'anilist') {
+    return ANILIST_REDIRECT_URI || `${apiBaseUrl(req)}/api/oauth/anilist/callback`;
+  }
+
+  return MAL_REDIRECT_URI || `${apiBaseUrl(req)}/api/oauth/mal/callback`;
+}
+
+function oauthCallbackHtml(origin, payload) {
+  const safeOrigin = JSON.stringify(origin);
+  const safePayload = JSON.stringify(payload);
+  return `<!doctype html>
+<html>
+  <body>
+    <script>
+      (function () {
+        const origin = ${safeOrigin};
+        const payload = ${safePayload};
+        if (window.opener && origin) {
+          window.opener.postMessage(payload, origin);
+          window.close();
+          return;
+        }
+        const url = new URL(origin + '/settings');
+        url.searchParams.set('sync_oauth', '1');
+        window.location.replace(url.toString());
+      })();
+    </script>
+  </body>
+</html>`;
+}
+
+function tokenExpiresAt(expiresInSeconds) {
+  const seconds = Number(expiresInSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return new Date(Date.now() + (seconds * 1000)).toISOString();
+}
+
+function sendOAuthError(res, origin, provider, message) {
+  res.status(400).type('html').send(oauthCallbackHtml(origin, {
+    source: 'beachread-oauth',
+    ok: false,
+    provider,
+    error: message,
+  }));
+}
+
+async function exchangeMalToken(body) {
+  const response = await fetch('https://myanimelist.net/v1/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: body.toString(),
+  });
+
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.access_token) {
+    return {
+      ok: false,
+      message: data?.error_description || data?.message || 'MyAnimeList token exchange failed.',
+    };
+  }
+
+  return {
+    ok: true,
+    data,
+  };
+}
+
+function hasUsableCache(state, ttlMs) {
+  return Boolean(state.data && (Date.now() - state.fetchedAt < ttlMs));
+}
+
+function toPersistableState(state) {
+  return {
+    data: state.data,
+    fetchedAt: state.fetchedAt || 0,
+    cooldownUntil: state.cooldownUntil || 0,
+  };
+}
+
+function applyPersistedState(state, persisted) {
+  if (!persisted) return;
+  state.data = persisted.data ?? null;
+  state.fetchedAt = Number.isFinite(persisted.fetchedAt) ? persisted.fetchedAt : 0;
+  state.cooldownUntil = Number.isFinite(persisted.cooldownUntil) ? persisted.cooldownUntil : 0;
+}
+
+function normalizeHomeFeedData(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+
+  let hero = payload.hero;
+  if (hero && !Array.isArray(hero)) {
+    hero = [hero];
+  } else if (!hero) {
+    hero = [];
+  }
+
+  const rankings = payload.rankings || {};
+  const safeRankings = {
+    season: rankings.season || 'SPRING',
+    seasonYear: rankings.seasonYear || new Date().getFullYear(),
+    trending: Array.isArray(rankings.trending) ? rankings.trending : [],
+    popular: Array.isArray(rankings.popular) ? rankings.popular : [],
+    topScored: Array.isArray(rankings.topScored) ? rankings.topScored : [],
+    seasonal: Array.isArray(rankings.seasonal) ? rankings.seasonal : [],
+    airingSchedule: Array.isArray(rankings.airingSchedule) ? rankings.airingSchedule : [],
+  };
+
+  return {
+    ...payload,
+    hero,
+    rankings: safeRankings,
+    updates: Array.isArray(payload.updates) ? payload.updates : [],
+    recentlyAdded: Array.isArray(payload.recentlyAdded) ? payload.recentlyAdded : [],
+    latestNews: Array.isArray(payload.latestNews) ? payload.latestNews : [],
+  };
+}
+
+function hasCompleteHomeFeedData(payload) {
+  if (!payload || typeof payload !== 'object') return false;
+  return Array.isArray(payload.latestNews);
+}
+
+async function persistCacheToDisk() {
+  const payload = {
+    updatedAt: Date.now(),
+    endpoints: {
+      homeFeed: toPersistableState(homeFeedState),
+      trending: toPersistableState(trendingState),
+      homeRankings: toPersistableState(homeRankingsState),
+      updates: toPersistableState(updatesState),
+      recentlyAdded: toPersistableState(recentlyAddedState),
+      latestNews: toPersistableState(latestNewsState),
+      mangaDetails: Object.fromEntries(
+        Array.from(mangaDetailsState.entries()).map(([id, state]) => [id, toPersistableState(state)])
+      ),
+    },
+  };
+
+  await fs.mkdir(path.dirname(CACHE_FILE_PATH), { recursive: true });
+  await fs.writeFile(CACHE_FILE_PATH, JSON.stringify(payload), 'utf8');
+}
+
+function queuePersistCacheToDisk() {
+  cacheWriteQueue = cacheWriteQueue
+    .then(() => persistCacheToDisk())
+    .catch(() => null);
+}
+
+async function loadCacheFromDisk() {
+  if (cacheLoaded) return;
+  cacheLoaded = true;
+
+  try {
+    const raw = await fs.readFile(CACHE_FILE_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    const endpoints = parsed?.endpoints || {};
+
+    applyPersistedState(homeRankingsState, endpoints.homeRankings);
+    applyPersistedState(homeFeedState, endpoints.homeFeed);
+    applyPersistedState(trendingState, endpoints.trending);
+    applyPersistedState(updatesState, endpoints.updates);
+    applyPersistedState(recentlyAddedState, endpoints.recentlyAdded);
+    applyPersistedState(latestNewsState, endpoints.latestNews);
+
+    const mangaPersisted = endpoints.mangaDetails || {};
+    for (const [id, persisted] of Object.entries(mangaPersisted)) {
+      const state = { data: null, fetchedAt: 0, cooldownUntil: 0, inFlight: null };
+      applyPersistedState(state, persisted);
+      mangaDetailsState.set(id, state);
+    }
+  } catch (_err) {
+    // First boot / no cache file / invalid cache.
+  }
+}
+
+function getMangaState(id) {
+  if (!mangaDetailsState.has(id)) {
+    mangaDetailsState.set(id, { data: null, fetchedAt: 0, cooldownUntil: 0, inFlight: null });
+  }
+  return mangaDetailsState.get(id);
+}
+
+function getSearchState(key) {
+  if (!searchState.has(key)) {
+    searchState.set(key, { data: null, fetchedAt: 0, cooldownUntil: 0, inFlight: null });
+  }
+  return searchState.get(key);
+}
+
+async function supabaseRequest(url, init = {}) {
+  if (!CLOUD_CACHE_ENABLED) return null;
+
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        ...(init.headers || {}),
+      },
+    });
+
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function pullCloudCacheEntry(cacheKey) {
+  if (!CLOUD_CACHE_ENABLED) return null;
+  const encodedKey = encodeURIComponent(cacheKey);
+  const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_CACHE_TABLE}?cache_key=eq.${encodedKey}&select=payload,fetched_at,cooldown_until&limit=1`;
+  const rows = await supabaseRequest(url);
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    data: row?.payload ?? null,
+    fetchedAt: row?.fetched_at ? Date.parse(row.fetched_at) : 0,
+    cooldownUntil: row?.cooldown_until ? Date.parse(row.cooldown_until) : 0,
+  };
+}
+
+async function pushCloudCacheEntry(cacheKey, state, ttlMs = CACHE_FILE_TTL_FALLBACK_MS) {
+  if (!CLOUD_CACHE_ENABLED) return;
+
+  const now = Date.now();
+  const body = [
+    {
+      cache_key: cacheKey,
+      payload: state.data,
+      fetched_at: new Date(state.fetchedAt || now).toISOString(),
+      expires_at: new Date((state.fetchedAt || now) + ttlMs).toISOString(),
+      cooldown_until: state.cooldownUntil ? new Date(state.cooldownUntil).toISOString() : null,
+      updated_at: new Date(now).toISOString(),
+    },
+  ];
+
+  const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_CACHE_TABLE}?on_conflict=cache_key`;
+  await supabaseRequest(url, {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+async function hydrateStateFromStorage(cacheKey, state) {
+  await loadCacheFromDisk();
+  if (state.data) return;
+
+  const cloud = await pullCloudCacheEntry(cacheKey);
+  if (!cloud || !cloud.data) return;
+
+  state.data = cloud.data;
+  state.fetchedAt = cloud.fetchedAt || Date.now();
+  state.cooldownUntil = cloud.cooldownUntil || 0;
+}
+
+async function queryAniList(query, variables) {
+  try {
+    const response = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, variables }),
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (_parseErr) {
+      payload = null;
+    }
+
+    if (!response.ok) {
+      const retryAfterRaw = response.headers.get('retry-after');
+      const retryAfterSec = retryAfterRaw ? Number.parseInt(retryAfterRaw, 10) : NaN;
+      const err = new Error(`AniList API error: ${response.status}`);
+      err.status = response.status;
+      err.payload = payload;
+      err.retryAfterSec = Number.isFinite(retryAfterSec) ? retryAfterSec : null;
+      throw err;
+    }
+
+    if (payload?.errors?.length) {
+      return { data: null, errors: payload.errors, status: 502 };
+    }
+
+    return payload;
+  } catch (error) {
+    if (error?.status === 429) {
+      const now = Date.now();
+      if (now - last429LogAt > 30000) {
+        last429LogAt = now;
+        console.warn('AniList rate-limited (429). Serving cached data where available.');
+      }
+    } else {
+      console.error('AniList fetch error:', error);
+    }
+    return { data: null, error, status: error?.status || 502, retryAfterSec: error?.retryAfterSec || null };
+  }
+}
+
+async function queryAniListWithToken(query, variables, accessToken) {
+  try {
+    const headers = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query, variables }),
+    });
+
+    const payload = await response.json().catch(() => null);
+    return {
+      ok: response.ok,
+      status: response.status,
+      payload,
+    };
+  } catch (_err) {
+    return {
+      ok: false,
+      status: 502,
+      payload: { errors: [{ message: 'AniList request failed due to network error.' }] },
+    };
+  }
+}
+
+const MEDIA_FRAGMENT = `
+  id
+  type
+  format
+  title { romaji english native }
+  description
+  genres
+  coverImage { extraLarge large medium }
+  bannerImage
+  averageScore
+  popularity
+  chapters
+  episodes
+  status
+  startDate { year month day }
+  characters(perPage: 12, sort: [ROLE, RELEVANCE, ID]) {
+    edges {
+      role
+      node {
+        id
+        name { full }
+        image { large }
+      }
+    }
+  }
+`;
+
+function getCurrentSeasonInfo(date = new Date()) {
+  const month = date.getUTCMonth() + 1;
+  const year = date.getUTCFullYear();
+  if (month >= 3 && month <= 5) return { season: 'SPRING', year };
+  if (month >= 6 && month <= 8) return { season: 'SUMMER', year };
+  if (month >= 9 && month <= 11) return { season: 'FALL', year };
+  return { season: 'WINTER', year };
+}
+
+function formatCountdown(totalSeconds) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) return 'Airing soon';
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+app.get('/api/image', async (req, res) => {
+  const raw = typeof req.query.url === 'string' ? req.query.url.trim() : '';
+  if (!raw) {
+    return res.status(400).json({ message: 'Missing image url' });
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(raw);
+  } catch (_error) {
+    return res.status(400).json({ message: 'Invalid image url' });
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return res.status(400).json({ message: 'Unsupported image protocol' });
+  }
+
+  if (!ALLOWED_IMAGE_HOSTS.has(parsedUrl.hostname)) {
+    return res.status(400).json({ message: 'Image host is not allowed' });
+  }
+
+  try {
+    const response = await fetch(parsedUrl.toString(), {
+      headers: {
+        Accept: 'image/*,*/*;q=0.8',
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ message: 'Upstream image request failed' });
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    if (!contentType.startsWith('image/')) {
+      return res.status(415).json({ message: 'Upstream response is not an image' });
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Image proxy error:', error);
+    return res.status(502).json({ message: 'Failed to fetch remote image' });
+  }
+});
+
+app.get('/api/oauth/config', (_req, res) => {
+  res.json({
+    anilist: Boolean(ANILIST_CLIENT_ID && ANILIST_CLIENT_SECRET),
+    mal: Boolean(MAL_CLIENT_ID),
+  });
+});
+
+app.get('/api/oauth/anilist/start', (req, res) => {
+  if (!ANILIST_CLIENT_ID || !ANILIST_CLIENT_SECRET) {
+    return res.status(503).json({ message: 'AniList OAuth is not configured on the API server.' });
+  }
+
+  const redirectUri = resolveRedirectUri(req, 'anilist');
+  const frontendOrigin = resolveFrontendOrigin(req);
+  const state = createOAuthState({
+    provider: 'anilist',
+    origin: frontendOrigin,
+    nonce: randomToken(12),
+    expiresAt: Date.now() + (10 * 60 * 1000),
+  });
+
+  const url = new URL('https://anilist.co/api/v2/oauth/authorize');
+  url.searchParams.set('client_id', ANILIST_CLIENT_ID);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('state', state);
+  return res.redirect(url.toString());
+});
+
+app.get('/api/oauth/mal/start', (req, res) => {
+  if (!MAL_CLIENT_ID) {
+    return res.status(503).json({ message: 'MyAnimeList OAuth is not configured on the API server.' });
+  }
+
+  const codeVerifier = base64Url(crypto.randomBytes(48));
+  const redirectUri = resolveRedirectUri(req, 'mal');
+  const frontendOrigin = resolveFrontendOrigin(req);
+  const state = createOAuthState({
+    provider: 'mal',
+    origin: frontendOrigin,
+    codeVerifier,
+    nonce: randomToken(12),
+    expiresAt: Date.now() + (10 * 60 * 1000),
+  });
+
+  const url = new URL('https://myanimelist.net/v1/oauth2/authorize');
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('client_id', MAL_CLIENT_ID);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('code_challenge', sha256Base64Url(codeVerifier));
+  url.searchParams.set('code_challenge_method', 'S256');
+  url.searchParams.set('state', state);
+  return res.redirect(url.toString());
+});
+
+app.post('/api/oauth/mal/refresh', async (req, res) => {
+  if (!MAL_CLIENT_ID) {
+    return res.status(503).json({ message: 'MyAnimeList OAuth is not configured on the API server.' });
+  }
+
+  const refreshToken = (req.body?.refreshToken || '').toString().trim();
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'Missing MAL refresh token.' });
+  }
+
+  try {
+    const body = new URLSearchParams();
+    body.set('grant_type', 'refresh_token');
+    body.set('refresh_token', refreshToken);
+    body.set('client_id', MAL_CLIENT_ID);
+    if (MAL_CLIENT_SECRET) body.set('client_secret', MAL_CLIENT_SECRET);
+
+    const result = await exchangeMalToken(body);
+    if (!result.ok) {
+      return res.status(400).json({ message: result.message });
+    }
+
+    return res.json({
+      accessToken: result.data.access_token,
+      refreshToken: result.data.refresh_token || refreshToken,
+      tokenExpiresAt: tokenExpiresAt(result.data.expires_in),
+    });
+  } catch (_err) {
+    return res.status(502).json({ message: 'MyAnimeList token refresh failed.' });
+  }
+});
+
+app.get('/api/oauth/anilist/callback', async (req, res) => {
+  const code = (req.query.code || '').toString();
+  const state = (req.query.state || '').toString();
+  const stored = consumeOAuthState(state, 'anilist');
+  const origin = stored?.origin || resolveFrontendOrigin(req);
+
+  if (!code || !state || !stored) {
+    return sendOAuthError(res, origin, 'anilist', 'AniList OAuth callback state is invalid or expired.');
+  }
+
+  try {
+    const body = {
+      grant_type: 'authorization_code',
+      client_id: ANILIST_CLIENT_ID,
+      client_secret: ANILIST_CLIENT_SECRET,
+      redirect_uri: resolveRedirectUri(req, 'anilist'),
+      code,
+    };
+
+    const response = await fetch('https://anilist.co/api/v2/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.access_token) {
+      return sendOAuthError(res, origin, 'anilist', data?.error_description || data?.message || 'AniList token exchange failed.');
+    }
+
+    return res.type('html').send(oauthCallbackHtml(origin, {
+      source: 'beachread-oauth',
+      ok: true,
+      provider: 'anilist',
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || null,
+      tokenExpiresAt: tokenExpiresAt(data.expires_in),
+    }));
+  } catch (_err) {
+    return sendOAuthError(res, origin, 'anilist', 'AniList token exchange failed.');
+  }
+});
+
+app.get('/api/oauth/mal/callback', async (req, res) => {
+  const code = (req.query.code || '').toString();
+  const state = (req.query.state || '').toString();
+  const stored = consumeOAuthState(state, 'mal');
+  const origin = stored?.origin || resolveFrontendOrigin(req);
+
+  if (!code || !state || !stored?.codeVerifier) {
+    return sendOAuthError(res, origin, 'mal', 'MyAnimeList OAuth callback state is invalid or expired.');
+  }
+
+  try {
+    const body = new URLSearchParams();
+    body.set('grant_type', 'authorization_code');
+    body.set('client_id', MAL_CLIENT_ID);
+    if (MAL_CLIENT_SECRET) body.set('client_secret', MAL_CLIENT_SECRET);
+    body.set('code', code);
+    body.set('code_verifier', stored.codeVerifier);
+    body.set('redirect_uri', resolveRedirectUri(req, 'mal'));
+
+    const result = await exchangeMalToken(body);
+    if (!result.ok) {
+      return sendOAuthError(res, origin, 'mal', result.message);
+    }
+
+    return res.type('html').send(oauthCallbackHtml(origin, {
+      source: 'beachread-oauth',
+      ok: true,
+      provider: 'mal',
+      accessToken: result.data.access_token,
+      refreshToken: result.data.refresh_token || null,
+      tokenExpiresAt: tokenExpiresAt(result.data.expires_in),
+    }));
+  } catch (_err) {
+    return sendOAuthError(res, origin, 'mal', 'MyAnimeList token exchange failed.');
+  }
+});
+
+app.post('/api/anilist/graphql', async (req, res) => {
+  const query = typeof req.body?.query === 'string' ? req.body.query : '';
+  const variables = req.body?.variables && typeof req.body.variables === 'object' ? req.body.variables : {};
+  const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
+
+  if (!query.trim()) {
+    return res.status(400).json({ message: 'Missing AniList GraphQL query.' });
+  }
+
+  const result = await queryAniListWithToken(query, variables, accessToken || '');
+  if (!result.ok) {
+    const primaryError = Array.isArray(result.payload?.errors) ? result.payload.errors[0]?.message : null;
+    return res.status(result.status || 502).json({
+      message: primaryError || `ANILIST request failed with status ${result.status || 502}`,
+      errors: result.payload?.errors || null,
+      data: result.payload?.data || null,
+    });
+  }
+
+  if (result.payload?.errors?.length) {
+    return res.status(400).json({
+      message: result.payload.errors[0]?.message || 'AniList GraphQL returned errors.',
+      errors: result.payload.errors,
+      data: result.payload?.data || null,
+    });
+  }
+
+  return res.json(result.payload || { data: null });
+});
+
+// Endpoints
+const { supabaseAdmin: supabase } = require('./lib/supabase');
+
+async function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ message: 'Unauthorized' });
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) return res.status(401).json({ message: 'Unauthorized' });
+  req.user = user;
+  next();
+}
+
+app.get('/api/library', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('library_entries').select('*, titles(*)').eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  const library = data.map(entry => ({
+    id: entry.titles.external_id,
+    title: entry.titles.title_romaji || entry.titles.title_english,
+    status: entry.status,
+    progress: entry.progress,
+    score: entry.score,
+    coverUrl: entry.titles.cover_url,
+    genres: [],
+    updatedAt: entry.updated_at
+  }));
+  res.json(library);
+});
+
+app.post('/api/library/add', authMiddleware, async (req, res) => {
+  const { manga } = req.body;
+  const { data: title, error: titleErr } = await supabase.from('titles').upsert({
+    external_provider: 'ANILIST',
+    external_id: manga.id.toString(),
+    title_romaji: manga.title,
+    cover_url: manga.coverUrl
+  }, { onConflict: 'external_provider,external_id' }).select().single();
+  if (titleErr) return res.status(500).json({ error: titleErr.message });
+  const { data: entry, error: entryErr } = await supabase.from('library_entries').insert({
+    user_id: req.user.id, title_id: title.id, status: 'PLANNING', progress: 0, score: 0
+  }).select('*, titles(*)').single();
+  if (entryErr) return res.status(500).json({ error: entryErr.message });
+  res.json(entry);
+});
+
+app.patch('/api/library/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { status, progress, score } = req.body;
+  const { data: title } = await supabase.from('titles').select('id').eq('external_id', id).single();
+  if (!title) return res.status(404).json({ error: 'Title not found' });
+  const updates = { updated_at: new Date().toISOString() };
+  if (status) updates.status = status;
+  if (progress !== undefined) updates.progress = progress;
+  if (score !== undefined) updates.score = score;
+  const { data, error } = await supabase.from('library_entries').update(updates).eq('user_id', req.user.id).eq('title_id', title.id).select('*, titles(*)').single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.delete('/api/library/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  const { data: title } = await supabase.from('titles').select('id').eq('external_id', id).single();
+  if (!title) return res.status(404).json({ error: 'Title not found' });
+  const { error } = await supabase.from('library_entries').delete().eq('user_id', req.user.id).eq('title_id', title.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.get('/api/user/stats', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('library_entries').select('status, progress, score').eq('user_id', req.user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  const completed = data.filter(m => m.status === 'COMPLETED').length;
+  const reading = data.filter(m => m.status === 'READING').length;
+  const totalChapters = data.reduce((acc, m) => acc + (m.progress || 0), 0);
+  const scoredItems = data.filter(m => m.score > 0);
+  const meanScore = scoredItems.length > 0 ? scoredItems.reduce((acc, m) => acc + m.score, 0) / scoredItems.length : 0;
+  res.json({ completed, reading, totalChapters, meanScore: parseFloat(meanScore.toFixed(1)), genreStats: [] });
+});
+
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('notifications').select('*').eq('user_id', req.user.id).order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.patch('/api/notifications/:id/read', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.from('notifications').update({ is_read: true }).eq('id', req.params.id).eq('user_id', req.user.id).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/notifications/read-all', authMiddleware, async (req, res) => {
+  const { error } = await supabase.from('notifications').update({ is_read: true }).eq('user_id', req.user.id).eq('is_read', false);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
+});
+
+app.post('/api/recommendations/short-reads', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.rpc('get_short_reads_queue', { p_user_id: req.user.id });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/recommendations/finish-quickly', authMiddleware, async (req, res) => {
+  const { data, error } = await supabase.rpc('get_finish_quickly_queue', { p_user_id: req.user.id });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/sync/trigger', authMiddleware, async (req, res) => {
+  const { provider = 'ANILIST' } = req.body;
+  const { data, error } = await supabase.from('sync_jobs').insert({ user_id: req.user.id, provider, type: 'INCREMENTAL' }).select('id').single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/search', async (req, res) => {
+  const { query: search, genre, demographic, status, format, year, score, chapters, mature, sort, page = 1, mediaType = 'MANGA' } = req.query;
+  const cacheKey = `search:${JSON.stringify({ search, genre, demographic, status, format, year, score, chapters, mature, sort, page, mediaType })}`;
+  const state = getSearchState(cacheKey);
+  await hydrateStateFromStorage(cacheKey, state);
+  const now = Date.now();
+  if (hasUsableCache(state, ENDPOINT_CACHE_TTL_MS)) {
+    return res.json(state.data);
+  }
+  if (state.cooldownUntil > now) {
+    if (state.data) return res.json(state.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  // Parse ranges
+  let startDate_greater = undefined;
+  let startDate_lesser = undefined;
+  if (year) {
+    const [start, end] = year.split('-');
+    if (start && start !== 'undefined') startDate_greater = parseInt(start) * 10000;
+    if (end && end !== 'undefined') startDate_lesser = parseInt(end) * 10000 + 1231;
+  }
+
+  let chapters_greater = undefined;
+  let chapters_lesser = undefined;
+  if (chapters) {
+    const [min, max] = chapters.split('-');
+    if (min && min !== 'undefined') chapters_greater = parseInt(min);
+    if (max && max !== 'undefined') chapters_lesser = parseInt(max);
+  }
+
+  // Adult content logic: if mature=true, we don't pass isAdult so it can include both. 
+  // If mature=false or undefined, we pass isAdult: false to exclude adult content.
+  const isAdult = mature === 'true' ? undefined : false;
+  let mediaFormat = format || undefined;
+  let countryOfOrigin = undefined;
+
+  if (format === 'MANHWA') {
+    mediaFormat = 'MANGA';
+    countryOfOrigin = 'KR';
+  } else if (format === 'MANHUA') {
+    mediaFormat = 'MANGA';
+    countryOfOrigin = 'CN';
+  } else if (format === 'MANGA' && mediaType === 'MANGA') {
+    mediaFormat = 'MANGA';
+    countryOfOrigin = 'JP';
+  } else if (format === 'NOVEL') {
+    mediaFormat = 'NOVEL';
+  }
+
+  const gqlQuery = `
+      query ($search: String, $type: MediaType, $genre_in: [String], $tag_in: [String], $status: MediaStatus, $format: MediaFormat, $countryOfOrigin: CountryCode, $startDate_greater: FuzzyDateInt, $startDate_lesser: FuzzyDateInt, $averageScore_greater: Int, $chapters_greater: Int, $chapters_lesser: Int, $isAdult: Boolean, $sort: [MediaSort], $page: Int) {
+        Page(page: $page, perPage: 21) {
+          pageInfo { total perPage currentPage lastPage hasNextPage }
+          media(type: $type, search: $search, genre_in: $genre_in, tag_in: $tag_in, status: $status, format: $format, countryOfOrigin: $countryOfOrigin, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, averageScore_greater: $averageScore_greater, chapters_greater: $chapters_greater, chapters_lesser: $chapters_lesser, isAdult: $isAdult, sort: $sort) {
+            id
+            type
+            title { romaji english native }
+            description
+            genres
+            tags { name }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            status
+            chapters
+            episodes
+            format
+            countryOfOrigin
+            startDate { year }
+          }
+        }
+      }
+    `;
+
+  const variables = {
+    search: search || undefined,
+    type: mediaType,
+    genre_in: genre ? genre.split(',') : undefined,
+    tag_in: demographic ? demographic.split(',') : undefined,
+    status: status || undefined,
+    format: mediaFormat,
+    countryOfOrigin,
+    startDate_greater,
+    startDate_lesser,
+    averageScore_greater: score ? parseInt(score) : undefined,
+    chapters_greater,
+    chapters_lesser,
+    isAdult,
+    sort: sort ? [sort] : ['POPULARITY_DESC'],
+    page: parseInt(page)
+  };
+
+  if (!state.inFlight) {
+    state.inFlight = queryAniList(gqlQuery, variables);
+  }
+  const result = await state.inFlight;
+  state.inFlight = null;
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      state.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
+      if (state.data) return res.json(state.data);
+    }
+    if (state.data) return res.json(state.data);
+    const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
+    return res.status(result?.status || 502).json({ message: 'AniList search fetch failed', upstreamErrors });
+  }
+  const pageInfo = result?.data?.Page?.pageInfo;
+  const media = result?.data?.Page?.media || [];
+
+  const results = media.map(m => ({
+    id: m.id.toString(),
+    type: m.type,
+    title: m.title.romaji || m.title.english || m.title.native,
+    nativeTitle: m.title.native,
+    description: m.description,
+    genres: m.genres,
+    demographics: m.tags?.map(t => t.name).filter(n => ['Shounen', 'Shoujo', 'Seinen', 'Josei'].includes(n)),
+    coverUrl: m.coverImage.extraLarge || m.coverImage.large,
+    score: m.averageScore,
+    popularity: m.popularity,
+    status: m.status,
+    chapters: m.chapters,
+    episodes: m.episodes,
+    total_episodes: m.episodes,
+    format: m.countryOfOrigin === 'KR' ? 'MANHWA' : m.countryOfOrigin === 'CN' ? 'MANHUA' : m.format,
+    year: m.startDate?.year
+  }));
+
+  const payload = { results, pageInfo };
+  state.data = payload;
+  state.fetchedAt = Date.now();
+  state.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
+  res.json(payload);
+});
+
+app.get('/api/trending', async (req, res) => {
+  await hydrateStateFromStorage('trending', trendingState);
+  const now = Date.now();
+  if (hasUsableCache(trendingState, ENDPOINT_CACHE_TTL_MS)) {
+    return res.json(trendingState.data);
+  }
+  if (trendingState.cooldownUntil > now) {
+    if (trendingState.data) return res.json(trendingState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const query = `
+      query ($page: Int, $perPage: Int) {
+        trending: Page(page: 1, perPage: 1) {
+          media(type: MANGA, sort: TRENDING_DESC) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
+        rankings: Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: SCORE_DESC) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
+      }
+    `;
+
+  if (!trendingState.inFlight) {
+    trendingState.inFlight = queryAniList(query);
+  }
+  const result = await trendingState.inFlight;
+  trendingState.inFlight = null;
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      trendingState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('trending', trendingState, ENDPOINT_CACHE_TTL_MS);
+      if (trendingState.data) return res.json(trendingState.data);
+    }
+    if (trendingState.data) return res.json(trendingState.data);
+    return res.status(result?.status || 502).json({ message: 'AniList trending fetch failed' });
+  }
+  const trendingMedia = result?.data?.trending?.media?.[0];
+  const rankingsMedia = result?.data?.rankings?.media || [];
+
+  const hero = trendingMedia ? {
+    id: trendingMedia.id.toString(),
+    title: trendingMedia.title.romaji || trendingMedia.title.english || trendingMedia.title.native,
+    titleJp: trendingMedia.title.native,
+    description: trendingMedia.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
+    genres: trendingMedia.genres,
+    coverUrl: trendingMedia.bannerImage || trendingMedia.coverImage.extraLarge,
+    stats: { score: trendingMedia.averageScore / 10, status: 'Publishing', popularity: `#${trendingMedia.popularity}` }
+  } : null;
+
+  const rankings = rankingsMedia.map((m, index) => ({
+    rank: index + 1,
+    id: m.id.toString(),
+    title: m.title.romaji || m.title.english || m.title.native,
+    titleJp: m.title.native,
+    chapters: m.chapters || '?',
+    reads: m.popularity.toLocaleString(),
+    coverUrl: m.coverImage.large
+  }));
+
+  const payload = { hero, rankings };
+  trendingState.data = payload;
+  trendingState.fetchedAt = Date.now();
+  trendingState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('trending', trendingState, ENDPOINT_CACHE_TTL_MS);
+  res.json(payload);
+});
+
+app.get('/api/home-feed', async (req, res) => {
+  await hydrateStateFromStorage('home-feed', homeFeedState);
+  homeFeedState.data = normalizeHomeFeedData(homeFeedState.data);
+  if (homeFeedState.data && homeFeedState.data.latestNews.length === 0) {
+    await hydrateStateFromStorage('latest-news', latestNewsState);
+    if (Array.isArray(latestNewsState.data) && latestNewsState.data.length > 0) {
+      homeFeedState.data.latestNews = latestNewsState.data;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+    }
+  }
+  const now = Date.now();
+  if (hasUsableCache(homeFeedState, ENDPOINT_CACHE_TTL_MS) && hasCompleteHomeFeedData(homeFeedState.data)) {
+    return res.json(homeFeedState.data);
+  }
+  if (homeFeedState.cooldownUntil > now) {
+    if (homeFeedState.data && hasCompleteHomeFeedData(homeFeedState.data)) return res.json(homeFeedState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const { season, year } = getCurrentSeasonInfo();
+  const query = `
+      query ($season: MediaSeason!, $seasonYear: Int!) {
+        hero: Page(page: 1, perPage: 5) {
+          media(type: MANGA, sort: TRENDING_DESC, isAdult: false) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
+        rankingTrending: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        rankingPopular: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        rankingTopScored: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: SCORE_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        rankingSeasonal: Page(page: 1, perPage: 10) {
+          media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        rankingAiring: Page(page: 1, perPage: 10) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        updates: Page(page: 1, perPage: 6) {
+          media(type: MANGA, sort: UPDATED_AT_DESC, isAdult: false) {
+            ${MEDIA_FRAGMENT}
+            staff(perPage: 1) {
+              edges {
+                node {
+                  name { full }
+                }
+              }
+            }
+          }
+        }
+        recentlyAdded: Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: ID_DESC, isAdult: false) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
+        latestNews: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            description
+            bannerImage
+            coverImage { extraLarge large }
+            siteUrl
+          }
+        }
+      }
+    `;
+
+  if (!homeFeedState.inFlight) {
+    homeFeedState.inFlight = queryAniList(query, { season, seasonYear: year });
+  }
+  const result = await homeFeedState.inFlight;
+  homeFeedState.inFlight = null;
+
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      homeFeedState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+      if (homeFeedState.data) return res.json(homeFeedState.data);
+    }
+    if (homeFeedState.data) return res.json(homeFeedState.data);
+    const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
+    return res.status(result?.status || 502).json({ message: 'AniList home feed fetch failed', upstreamErrors });
+  }
+
+  const mapRanking = (list = []) =>
+    list.map((m, index) => ({
+      rank: index + 1,
+      id: m.id?.toString() || '',
+      title: m.title?.romaji || m.title?.english || m.title?.native || 'Untitled',
+      titleJp: m.title?.native || '',
+      coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || '',
+      episodes: m.episodes || '?',
+      total_episodes: m.episodes || '?',
+      score: m.averageScore || 0,
+      genres: m.genres || [],
+      status: m.status || '',
+      popularity: typeof m.popularity === 'number' ? m.popularity.toLocaleString() : 'N/A',
+      nextEpisode: m.nextAiringEpisode?.episode || null,
+      countdown: formatCountdown(m.nextAiringEpisode?.timeUntilAiring),
+    }));
+
+  const heroMedias = result?.data?.hero?.media || [];
+  const latestNewsMedia = result?.data?.latestNews?.media || [];
+  const updatesMedia = result?.data?.updates?.media || [];
+  const recentlyAddedMedia = result?.data?.recentlyAdded?.media || [];
+
+  const payload = {
+    hero: heroMedias.map((m) => ({
+      id: m.id.toString(),
+      title: m.title.romaji || m.title.english || m.title.native,
+      titleJp: m.title.native,
+      description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
+      genres: m.genres,
+      coverUrl: m.bannerImage || m.coverImage.extraLarge,
+    })),
+    rankings: {
+      season,
+      seasonYear: year,
+      trending: mapRanking(result?.data?.rankingTrending?.media),
+      popular: mapRanking(result?.data?.rankingPopular?.media),
+      topScored: mapRanking(result?.data?.rankingTopScored?.media),
+      seasonal: mapRanking(result?.data?.rankingSeasonal?.media),
+      airingSchedule: mapRanking(result?.data?.rankingAiring?.media),
+    },
+    updates: updatesMedia.map((m) => ({
+      id: m.id.toString(),
+      title: m.title.romaji || m.title.english || m.title.native,
+      author: m.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
+      genres: m.genres,
+      updatedAt: 'Updated recently',
+      coverUrl: m.coverImage.large,
+      chapters: [{ num: `Chapter ${m.chapters || '?'}`, title: 'Latest' }],
+    })),
+    recentlyAdded: recentlyAddedMedia.map((m) => ({
+      id: m.id.toString(),
+      title: m.title.romaji || m.title.english || m.title.native,
+      genres: m.genres,
+      coverUrl: m.coverImage.large,
+    })),
+    latestNews: (Array.isArray(latestNewsMedia) ? latestNewsMedia : []).map((m) => ({
+      id: m.id.toString(),
+      title: m.title.romaji || m.title.english || m.title.native,
+      description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
+      coverUrl: m.bannerImage || m.coverImage?.extraLarge || m.coverImage?.large || '',
+      url: m.siteUrl || null,
+    })),
+  };
+
+  homeFeedState.data = payload;
+  homeFeedState.fetchedAt = Date.now();
+  homeFeedState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+
+  res.json(payload);
+});
+
+app.get('/api/home-rankings', async (req, res) => {
+  await hydrateStateFromStorage('home-rankings', homeRankingsState);
+  const now = Date.now();
+  if (hasUsableCache(homeRankingsState, HOME_RANKINGS_CACHE_TTL_MS)) {
+    return res.json({
+      ...homeRankingsState.data,
+      source: 'cache',
+      cachedAt: new Date(homeRankingsState.fetchedAt).toISOString(),
+    });
+  }
+
+  if (homeRankingsState.cooldownUntil > now) {
+    if (homeRankingsState.data) {
+      return res.json({
+        ...homeRankingsState.data,
+        source: 'stale-cache',
+        cachedAt: new Date(homeRankingsState.fetchedAt).toISOString(),
+      });
+    }
+    return res.status(429).json({
+      message: 'AniList rate-limited. Retry shortly.',
+      retryAfterMs: homeRankingsState.cooldownUntil - now,
+    });
+  }
+
+  const { season, year } = getCurrentSeasonInfo();
+  const query = `
+      query ($season: MediaSeason!, $seasonYear: Int!) {
+        trending: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        popular: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        topScored: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: SCORE_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        seasonal: Page(page: 1, perPage: 10) {
+          media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        airingSchedule: Page(page: 1, perPage: 10) {
+          media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            episodes
+            nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+      }
+    `;
+
+  if (!homeRankingsState.inFlight) {
+    homeRankingsState.inFlight = queryAniList(query, { season, seasonYear: year });
+  }
+  const result = await homeRankingsState.inFlight;
+  homeRankingsState.inFlight = null;
+
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : HOME_RANKINGS_COOLDOWN_DEFAULT_MS;
+      homeRankingsState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('home-rankings', homeRankingsState, HOME_RANKINGS_CACHE_TTL_MS);
+      if (homeRankingsState.data) {
+        return res.json({
+          ...homeRankingsState.data,
+          source: 'stale-cache',
+          cachedAt: new Date(homeRankingsState.fetchedAt).toISOString(),
+        });
+      }
+    }
+    if (homeRankingsState.data) {
+      return res.json({
+        ...homeRankingsState.data,
+        source: 'stale-cache',
+        cachedAt: new Date(homeRankingsState.fetchedAt).toISOString(),
+      });
+    }
+    const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
+    return res.status(result?.status || 502).json({
+      message: 'AniList ranking fetch failed',
+      upstreamErrors,
+    });
+  }
+
+  const mapRanking = (list = []) =>
+    list.map((m, index) => ({
+      rank: index + 1,
+      id: m.id?.toString() || '',
+      title: m.title?.romaji || m.title?.english || m.title?.native || 'Untitled',
+      titleJp: m.title?.native || '',
+      coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || '',
+      episodes: m.episodes || '?',
+      total_episodes: m.episodes || '?',
+      score: typeof m.averageScore === 'number' ? (m.averageScore / 10).toFixed(1) : 'N/A',
+      popularity: typeof m.popularity === 'number' ? m.popularity.toLocaleString() : 'N/A',
+      nextEpisode: m.nextAiringEpisode?.episode || null,
+      airingAt: m.nextAiringEpisode?.airingAt || null,
+      countdown: formatCountdown(m.nextAiringEpisode?.timeUntilAiring),
+    }));
+
+  const responsePayload = {
+    season,
+    seasonYear: year,
+    generatedAt: new Date().toISOString(),
+    trending: mapRanking(result?.data?.trending?.media),
+    popular: mapRanking(result?.data?.popular?.media),
+    topScored: mapRanking(result?.data?.topScored?.media),
+    seasonal: mapRanking(result?.data?.seasonal?.media),
+    airingSchedule: mapRanking(result?.data?.airingSchedule?.media),
+    source: 'anilist',
+  };
+  homeRankingsState.data = responsePayload;
+  homeRankingsState.fetchedAt = Date.now();
+  homeRankingsState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('home-rankings', homeRankingsState, HOME_RANKINGS_CACHE_TTL_MS);
+
+  res.json(responsePayload);
+});
+
+app.get('/api/updates', async (req, res) => {
+  await hydrateStateFromStorage('updates', updatesState);
+  const now = Date.now();
+  if (hasUsableCache(updatesState, ENDPOINT_CACHE_TTL_MS)) {
+    return res.json(updatesState.data);
+  }
+  if (updatesState.cooldownUntil > now) {
+    if (updatesState.data) return res.json(updatesState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const query = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: 1, perPage: 6) {
+          media(type: MANGA, sort: UPDATED_AT_DESC) {
+            ${MEDIA_FRAGMENT}
+            staff(perPage: 1) {
+              edges {
+                node {
+                  name { full }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+  if (!updatesState.inFlight) {
+    updatesState.inFlight = queryAniList(query);
+  }
+  const result = await updatesState.inFlight;
+  updatesState.inFlight = null;
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      updatesState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
+      if (updatesState.data) return res.json(updatesState.data);
+    }
+    if (updatesState.data) return res.json(updatesState.data);
+    return res.status(result?.status || 502).json({ message: 'AniList updates fetch failed' });
+  }
+  const media = result?.data?.Page?.media || [];
+
+  const updates = media.map(m => ({
+    id: m.id.toString(),
+    title: m.title.romaji || m.title.english || m.title.native,
+    author: m.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
+    genres: m.genres,
+    updatedAt: 'Updated recently',
+    coverUrl: m.coverImage.large,
+    chapters: [
+      { num: `Chapter ${m.chapters || '?'}`, title: 'Latest' }
+    ]
+  }));
+
+  updatesState.data = updates;
+  updatesState.fetchedAt = Date.now();
+  updatesState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
+  res.json(updates);
+});
+
+app.get('/api/recently-added', async (req, res) => {
+  await hydrateStateFromStorage('recently-added', recentlyAddedState);
+  const now = Date.now();
+  if (hasUsableCache(recentlyAddedState, ENDPOINT_CACHE_TTL_MS)) {
+    return res.json(recentlyAddedState.data);
+  }
+  if (recentlyAddedState.cooldownUntil > now) {
+    if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const query = `
+      query ($page: Int, $perPage: Int) {
+        Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: ID_DESC) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
+      }
+    `;
+
+  if (!recentlyAddedState.inFlight) {
+    recentlyAddedState.inFlight = queryAniList(query);
+  }
+  const result = await recentlyAddedState.inFlight;
+  recentlyAddedState.inFlight = null;
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      recentlyAddedState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
+      if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+    }
+    if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+    return res.status(result?.status || 502).json({ message: 'AniList recently-added fetch failed' });
+  }
+  const media = result?.data?.Page?.media || [];
+
+  const recentlyAdded = media.map(m => ({
+    id: m.id.toString(),
+    title: m.title.romaji || m.title.english || m.title.native,
+    genres: m.genres,
+    coverUrl: m.coverImage.large
+  }));
+
+  recentlyAddedState.data = recentlyAdded;
+  recentlyAddedState.fetchedAt = Date.now();
+  recentlyAddedState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
+  res.json(recentlyAdded);
+});
+
+app.get('/api/latest-news', async (req, res) => {
+  await hydrateStateFromStorage('latest-news', latestNewsState);
+  const now = Date.now();
+  if (hasUsableCache(latestNewsState, ENDPOINT_CACHE_TTL_MS)) {
+    return res.json(latestNewsState.data);
+  }
+  if (latestNewsState.cooldownUntil > now) {
+    if (latestNewsState.data) return res.json(latestNewsState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const query = `
+      query {
+        Page(page: 1, perPage: 20) {
+          media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            description
+            bannerImage
+            coverImage { extraLarge large }
+            siteUrl
+          }
+        }
+      }
+    `;
+
+  if (!latestNewsState.inFlight) {
+    latestNewsState.inFlight = queryAniList(query);
+  }
+  const result = await latestNewsState.inFlight;
+  latestNewsState.inFlight = null;
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      latestNewsState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
+      if (latestNewsState.data) return res.json(latestNewsState.data);
+    }
+    if (latestNewsState.data) return res.json(latestNewsState.data);
+    return res.status(result?.status || 502).json({ message: 'AniList latest-news fetch failed' });
+  }
+
+  const latestNews = (result?.data?.Page?.media || []).map((m) => ({
+    id: m.id.toString(),
+    title: m.title.romaji || m.title.english || m.title.native,
+    description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
+    coverUrl: m.bannerImage || m.coverImage?.extraLarge || m.coverImage?.large || '',
+    url: m.siteUrl || null,
+  }));
+
+  latestNewsState.data = latestNews;
+  latestNewsState.fetchedAt = Date.now();
+  latestNewsState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
+  res.json(latestNews);
+});
+
+app.get(['/api/manga/:id', '/api/media/:id'], async (req, res) => {
+  const id = String(parseInt(req.params.id, 10));
+  if (!id || id === 'NaN') {
+    return res.status(400).json({ error: 'Invalid media id' });
+  }
+
+  const mediaState = getMangaState(id);
+  await hydrateStateFromStorage(`media:${id}`, mediaState);
+
+  const now = Date.now();
+  if (hasUsableCache(mediaState, CACHE_FILE_TTL_FALLBACK_MS)) {
+    return res.json(mediaState.data);
+  }
+  if (mediaState.cooldownUntil > now) {
+    if (mediaState.data) return res.json(mediaState.data);
+    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+  }
+
+  const query = `
+      query ($id: Int) {
+        Media(id: $id) {
+          ${MEDIA_FRAGMENT}
+        }
+      }
+    `;
+
+  if (!mediaState.inFlight) {
+    mediaState.inFlight = queryAniList(query, { id: parseInt(id, 10) });
+  }
+  const result = await mediaState.inFlight;
+  mediaState.inFlight = null;
+
+  if (!result?.data) {
+    if (result?.status === 429) {
+      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+      mediaState.cooldownUntil = Date.now() + retryAfterMs;
+      queuePersistCacheToDisk();
+      void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
+      if (mediaState.data) return res.json(mediaState.data);
+    }
+    if (mediaState.data) return res.json(mediaState.data);
+    return res.status(result?.status || 502).json({ error: 'Media fetch failed' });
+  }
+
+  const m = result?.data?.Media;
+
+  if (!m) {
+    return res.status(404).json({ error: 'Media not found' });
+  }
+
+  const payload = {
+    id: m.id.toString(),
+    type: m.type,
+    title: m.title.romaji || m.title.english || m.title.native,
+    titleJp: m.title.native,
+    description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
+    genres: m.genres,
+    coverUrl: m.coverImage.extraLarge,
+    bannerUrl: m.bannerImage,
+    chapters: m.chapters,
+    episodes: m.episodes,
+    total_episodes: m.episodes,
+    characters: (m.characters?.edges || []).map(edge => ({
+      id: edge.node.id.toString(),
+      name: edge.node.name.full,
+      image: edge.node.image.large,
+      role: edge.role
+    })),
+    stats: { score: m.averageScore / 10, status: m.status, popularity: `#${m.popularity.toLocaleString()}` }
+  };
+
+  mediaState.data = payload;
+  mediaState.fetchedAt = Date.now();
+  mediaState.cooldownUntil = 0;
+  queuePersistCacheToDisk();
+  void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
+  res.json(payload);
+});
+
+
+app.listen(PORT, () => {
+  console.log(`Backend API running on http://localhost:${PORT}`);
+});
