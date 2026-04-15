@@ -22,6 +22,7 @@ export default function Onboarding() {
     // Step 1: Sync
     const [provider, setProvider] = React.useState<'ANILIST' | 'MAL' | null>(null);
     const [username, setUsername] = React.useState('');
+    const [accessToken, setAccessToken] = React.useState('');
     
     // Step 2: Preferences
     const [theme, setTheme] = React.useState('DARK');
@@ -63,8 +64,9 @@ export default function Onboarding() {
                     .upsert({
                         user_id: user.id,
                         provider: normalizedProvider,
-                        status: 'connected',
+                        status: accessToken ? 'connected' : 'none',
                         username,
+                        access_token: accessToken || null,
                         sync_mode: 'manual',
                         conflict_mode: 'newest_wins',
                         last_sync_at: new Date().toISOString(),
@@ -162,14 +164,36 @@ export default function Onboarding() {
 
                         {provider && (
                             <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Provider Username</label>
-                                <input 
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    placeholder={`Enter your ${provider === 'ANILIST' ? 'AniList' : 'MAL'} username`}
-                                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-sm font-bold text-white outline-none focus:border-primary/50 transition-all"
-                                />
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2">Provider Username</label>
+                                    <input 
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        placeholder={`Enter your ${provider === 'ANILIST' ? 'AniList' : 'MAL'} username`}
+                                        className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-sm font-bold text-white outline-none focus:border-primary/50 transition-all"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between px-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-white/40">Access Token (Optional)</label>
+                                        <a 
+                                            href={provider === 'ANILIST' ? "https://anilist.co/settings/developer" : "https://myanimelist.net/apiconfig-example"} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline"
+                                        >
+                                            Get Token
+                                        </a>
+                                    </div>
+                                    <input 
+                                        type="password"
+                                        value={accessToken}
+                                        onChange={(e) => setAccessToken(e.target.value)}
+                                        placeholder="Paste your personal access token"
+                                        className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-sm font-bold text-white outline-none focus:border-primary/50 transition-all"
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>

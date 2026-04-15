@@ -58,7 +58,11 @@ export const useSearch = (initialQuery = '') => {
             params.append('page', page.toString());
 
             const data = await apiClient.get<SearchResponse>(`/search?${params.toString()}`);
-            setResults((data.results || []).map((item) => ({ ...item, coverUrl: sanitizeCoverUrl(item.coverUrl) })));
+            setResults((data.results || []).map((item) => ({ 
+                ...item, 
+                mediaType: item.mediaType || (item as any).type,
+                coverUrl: sanitizeCoverUrl(item.coverUrl) 
+            })));
             setPageInfo(data.pageInfo);
         } catch (err: any) {
             if (err?.status === 502 || err?.status === 0) {

@@ -12,6 +12,8 @@ interface FiltersPanelProps {
     setFormat: (format: string | null) => void;
     year: string | null;
     setYear: (year: string | null) => void;
+    mediaType: string | null;
+    setMediaType: (type: string | null) => void;
     clearFilters: () => void;
 }
 
@@ -28,6 +30,10 @@ const FORMAT_OPTIONS = [
     { label: 'Manhua', value: 'MANHUA' },
     { label: 'One-Shot', value: 'ONE_SHOT' }
 ];
+const TYPE_OPTIONS = [
+    { label: 'Anime', value: 'ANIME' },
+    { label: 'Manga', value: 'MANGA' }
+];
 const YEAR_OPTIONS = Array.from({ length: 35 }, (_, i) => (new Date().getFullYear() + 1 - i).toString());
 
 export const FiltersPanel: React.FC<FiltersPanelProps> = ({
@@ -41,6 +47,8 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({
     setFormat,
     year,
     setYear,
+    mediaType,
+    setMediaType,
     clearFilters
 }) => {
     if (!isOpen) return null;
@@ -69,6 +77,26 @@ export const FiltersPanel: React.FC<FiltersPanelProps> = ({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-12 custom-scrollbar">
+                    {/* Media Type */}
+                    <div className="space-y-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Media Type</h3>
+                        <div className="grid grid-cols-2 gap-2">
+                            {TYPE_OPTIONS.map(opt => (
+                                <button
+                                    key={opt.value}
+                                    onClick={() => setMediaType(mediaType === opt.value ? null : opt.value)}
+                                    className={`px-4 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all text-left ${
+                                        mediaType === opt.value
+                                            ? 'bg-primary text-background shadow-lg shadow-primary/20'
+                                            : 'bg-muted/20 text-muted-foreground hover:bg-muted/40'
+                                    }`}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* Genres */}
                     <div className="space-y-6">
                         <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Genres</h3>

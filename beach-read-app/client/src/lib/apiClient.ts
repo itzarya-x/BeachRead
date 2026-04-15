@@ -1,5 +1,22 @@
-const PROXY_API_BASE_URL = '/api';
-const DIRECT_API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || 'http://localhost:3001/api';
+import { supabase } from './supabaseClient';
+
+const PROXY_API_BASE_URL = '/api/v1';
+const DIRECT_API_BASE_URL = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:3001/api') + '/v1';
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+    
+    if (supabase) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.access_token) {
+            headers['Authorization'] = `Bearer ${data.session.access_token}`;
+        }
+    }
+    
+    return headers;
+}
 
 function shouldRetryViaDirectBase(initialBase: string, status: number): boolean {
     if (!DIRECT_API_BASE_URL) return false;
@@ -43,7 +60,7 @@ async function safeFetch(input: RequestInfo | URL, init?: RequestInit) {
 export const apiClient = {
     async get<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const headers = {
-            'Content-Type': 'application/json',
+            ...await getAuthHeaders(),
             ...options.headers,
         };
         const response = await safeFetch(`${PROXY_API_BASE_URL}${endpoint}`, {
@@ -64,7 +81,7 @@ export const apiClient = {
 
     async post<T>(endpoint: string, body?: unknown, options: RequestInit = {}): Promise<T> {
         const headers = {
-            'Content-Type': 'application/json',
+            ...await getAuthHeaders(),
             ...options.headers,
         };
         const response = await safeFetch(`${PROXY_API_BASE_URL}${endpoint}`, {
@@ -87,7 +104,7 @@ export const apiClient = {
 
     async patch<T>(endpoint: string, body?: unknown, options: RequestInit = {}): Promise<T> {
         const headers = {
-            'Content-Type': 'application/json',
+            ...await getAuthHeaders(),
             ...options.headers,
         };
         const response = await safeFetch(`${PROXY_API_BASE_URL}${endpoint}`, {
@@ -110,7 +127,7 @@ export const apiClient = {
 
     async delete<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
         const headers = {
-            'Content-Type': 'application/json',
+            ...await getAuthHeaders(),
             ...options.headers,
         };
         const response = await safeFetch(`${PROXY_API_BASE_URL}${endpoint}`, {

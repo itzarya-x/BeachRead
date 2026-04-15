@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
     ArrowRight,
     BookOpen,
@@ -17,12 +17,24 @@ import {
     Activity,
     Layers,
     History,
-    Sparkles
+    Sparkles,
+    UserPlus,
+    MessageSquare,
+    PieChart,
+    BarChart3,
+    MoreHorizontal,
+    Bell
 } from 'lucide-react';
 import { fetchPublicProfile, type PublicProfileRecord } from '../lib/publicProfile';
 import { handleCoverImageError, sanitizeCoverUrl } from '../lib/image';
 import { useAuth } from '../context/auth-context';
 import type { ProfilePrivacyConfig, ProfileSectionsConfig, SectionId, SnapshotCardId } from '../lib/types';
+
+// Management Components
+import Library from './Library';
+import Analytics from './Analytics';
+import Notifications from './Notifications';
+import Collections from './Collections';
 
 const DEFAULT_SECTION_ORDER: SectionId[] = [
     'now_reading',
@@ -59,7 +71,7 @@ const DEFAULT_PROFILE_PRIVACY: ProfilePrivacyConfig = {
     hideAdultContent: false,
 };
 
-type ProfileTab = 'activity' | 'favorites' | 'archive';
+type ProfileTab = 'overview' | 'anime' | 'manga' | 'favorites' | 'stats' | 'social' | 'reviews' | 'notifications';
 
 function resolveSectionsConfig(profile: PublicProfileRecord): ProfileSectionsConfig {
     const incoming = profile.profile_sections;
@@ -122,11 +134,25 @@ function buildSnapshotCards(profile: PublicProfileRecord, cardIds: SnapshotCardI
 
 export default function PublicProfile() {
     const { username = '' } = useParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { user: authUser } = useAuth();
     const [profile, setProfile] = useState<PublicProfileRecord | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<ProfileTab>('favorites');
+    const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+
+    // Handle tab from URL
+    useEffect(() => {
+        const tab = searchParams.get('tab') as ProfileTab;
+        if (tab && ['overview', 'anime', 'manga', 'favorites', 'stats', 'social', 'reviews', 'notifications'].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
+
+    const handleTabChange = (tab: ProfileTab) => {
+        setActiveTab(tab);
+        setSearchParams({ tab }, { replace: true });
+    };
 
     const isOwner = authUser && profile && authUser.id === profile.user_id;
 
@@ -491,20 +517,28 @@ export default function PublicProfile() {
         }
 
         if (section === 'archive') {
+            const list = activeTab === 'anime'
+                ? filteredRecentLibrary.filter(item => item.mediaType === 'ANIME')
+                : activeTab === 'manga'
+                ? filteredRecentLibrary.filter(item => item.mediaType === 'MANGA')
+                : filteredRecentLibrary;
+
             return (
                 <section key={section} className="space-y-6">
                     <div className="flex items-center justify-between border-b border-border/40 pb-4">
                         <div className="flex items-center gap-3">
                             <BookOpen className="h-5 w-5" style={{ color: primaryColor }} />
-                            <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Complete Collection</h2>
+                            <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">
+                                {activeTab === 'anime' ? 'Anime List' : activeTab === 'manga' ? 'Manga List' : 'Complete Collection'}
+                            </h2>
                         </div>
                         <Link to="/discover" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-foreground">
                             Browse More <ArrowRight size={14} />
                         </Link>
                     </div>
-                    {filteredRecentLibrary.length ? (
+                    {list.length ? (
                         <div className="grid gap-6 md:grid-cols-2">
-                            {filteredRecentLibrary.map((item) => (
+                            {list.map((item) => (
                                 <div key={item.id} className="group flex gap-5 rounded-[32px] border border-border/40 bg-muted/5 p-5 hover:bg-muted/10 transition-all">
                                     <div className="h-28 w-20 shrink-0 overflow-hidden rounded-2xl shadow-xl">
                                         <img src={sanitizeCoverUrl(item.coverUrl)} onError={handleCoverImageError} alt={item.title} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
@@ -513,7 +547,11 @@ export default function PublicProfile() {
                                         <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1" style={{ color: primaryColor }}>{formatStatus(item.status)}</p>
                                         <h3 className="line-clamp-1 text-lg font-black uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">{item.title}</h3>
                                         <div className="mt-2 flex flex-wrap gap-3">
-                                            {privacy.showProgress ? <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ch. {item.progress}</span> : null}
+                                            {privacy.showProgress ? (
+                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                                                    {item.mediaType === 'ANIME' ? `Ep. ${item.progress}` : `Ch. ${item.progress}`}
+                                                </span>
+                                            ) : null}
                                             {privacy.showScores && typeof item.score === 'number' && item.score > 0 ? (
                                                 <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Score: {item.score}/10</span>
                                             ) : null}
@@ -524,7 +562,7 @@ export default function PublicProfile() {
                         </div>
                     ) : (
                         <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-[40px] bg-muted/5">
-                            <p className="text-sm text-muted-foreground italic">Collection is empty.</p>
+                            <p className="text-sm text-muted-foreground italic">List is empty.</p>
                         </div>
                     )}
                 </section>
@@ -561,210 +599,378 @@ export default function PublicProfile() {
     };
 
     const tabSections: Record<ProfileTab, SectionId[]> = {
-        activity: ['now_reading', 'changelog'],
-        favorites: ['favorites', 'characters'],
-        archive: ['archive', 'featured_collections']
+        overview: ['now_reading', 'stats', 'changelog'],
+        anime: ['archive'],
+        manga: ['archive'],
+        favorites: ['favorites', 'characters', 'featured_collections'],
+        stats: ['snapshot', 'stats'],
+        social: [],
+        reviews: [],
+        notifications: []
     };
 
     return (
-        <div className="min-h-screen bg-background pb-[110px]">
-            {/* High Impact Hero Section */}
-            <div className="relative min-h-[100vh] w-full overflow-hidden bg-background">
-                {/* Background Banner */}
-                <div
+        <div className="min-h-screen bg-background">
+            {/* AniList Style Header with Tactical Overlays */}
+            <div className="relative w-full">
+                {/* Banner */}
+                <div 
+                    className="h-[300px] md:h-[450px] w-full bg-muted relative overflow-hidden border-b-4 border-primary/20"
                     style={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: 0,
                         backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : 'none',
-                        backgroundColor: profile.banner_url ? 'transparent' : 'hsl(var(--muted) / 0.3)',
                         backgroundSize: 'cover',
-                        backgroundPosition: 'center center',
-                        backgroundRepeat: 'no-repeat',
-                    }}
-                />
-
-                {/* Cyber-Brutalist Gradient Overlay */}
-                <div
-                    style={{
-                        position: 'absolute',
-                        inset: 0,
-                        zIndex: 1,
-                        background: `linear-gradient(
-                            to right,
-                            hsl(var(--background)) 0%,
-                            hsl(var(--background)) 18%,
-                            hsl(var(--background) / 0.85) 30%,
-                            hsl(var(--background) / 0.55) 42%,
-                            hsl(var(--background) / 0.22) 58%,
-                            hsl(var(--background) / 0.06) 72%,
-                            transparent 82%
-                        )`,
-                    }}
-                />
-
-                {/* Profile Hero Content */}
-                <div
-                    style={{
-                        position: 'relative',
-                        zIndex: 2,
-                        minHeight: '100vh',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        paddingLeft: '88px',
-                        paddingRight: '64px',
-                        paddingTop: '36px',
+                        backgroundPosition: 'center',
                     }}
                 >
-                    <div className="flex flex-col md:flex-row gap-12 items-center md:items-start max-w-[1200px]">
-                        {/* Avatar */}
-                        <div className="relative group shrink-0">
-                            <div className="w-40 h-40 md:w-64 md:h-64 rounded-[48px] bg-muted/30 flex items-center justify-center border-4 border-background shadow-[0_30px_60px_rgba(0,0,0,0.2)] overflow-hidden transition-transform duration-500 group-hover:scale-[1.02]">
-                                {profile.avatar_url ? (
-                                    <img src={profile.avatar_url} alt={profile.display_name} className="h-full w-full object-cover" />
-                                ) : (
-                                    <UserIcon className="w-20 h-20 md:w-32 md:h-32 text-muted-foreground opacity-30" />
-                                )}
+                    {/* Scanlines Overlay */}
+                    <div className="absolute inset-0 z-10 pointer-events-none opacity-[0.03]" 
+                        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06))', backgroundSize: '100% 4px, 3px 100%' }} 
+                    />
+                    
+                    {!profile.banner_url && (
+                        <div className="absolute inset-0 opacity-10 flex items-center justify-center">
+                            <Layers size={200} />
+                        </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-0" />
+
+                    {/* Tactical Metadata Floating Labels */}
+                    <div className="absolute top-10 left-10 z-20 hidden md:flex flex-col gap-2">
+                        <div className="px-3 py-1 bg-primary text-black text-[9px] font-black uppercase tracking-widest">Archive Sector: {profile.username.slice(0,3).toUpperCase()}</div>
+                        <div className="px-3 py-1 bg-black/80 backdrop-blur-md text-white border border-white/20 text-[8px] font-bold uppercase tracking-[0.3em]">Status: Operational</div>
+                    </div>
+                    <div className="absolute top-10 right-10 z-20 hidden md:flex flex-col items-end gap-2">
+                        <div className="px-3 py-1 bg-black/80 backdrop-blur-md text-white border border-white/20 text-[8px] font-bold uppercase tracking-[0.3em]">v.2.0.ARCHIVE</div>
+                        <div className="text-[10px] font-black text-primary uppercase tracking-tighter">BeachRead Terminal</div>
+                    </div>
+                </div>
+
+                {/* Profile Info Row */}
+                <div className="bg-background/90 backdrop-blur-xl border-b-2 border-border/60 sticky top-[72px] z-40">
+                    <div className="mx-auto max-w-[1200px] px-6">
+                        <div className="relative flex flex-col md:flex-row items-center md:items-end gap-10 pb-6 md:pb-0">
+                            {/* Avatar (Overlapping) with Industrial Border */}
+                            <div className="relative -mt-24 md:-mt-32 shrink-0 group">
+                                <div className="w-48 h-48 md:w-64 md:h-64 bg-muted border-[6px] border-background shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
+                                    {/* Corner Accents */}
+                                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary z-10" />
+                                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary z-10" />
+                                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary z-10" />
+                                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary z-10" />
+                                    
+                                    {profile.avatar_url ? (
+                                        <img src={profile.avatar_url} alt={profile.display_name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
+                                            <UserIcon className="w-24 h-24 text-muted-foreground/30" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-primary flex items-center justify-center border-4 border-background shadow-xl">
+                                    <Award size={24} className="text-black" />
+                                </div>
                             </div>
-                            <div className="absolute -bottom-4 -right-4 p-5 bg-primary text-primary-foreground rounded-2xl shadow-xl border-4 border-background">
-                                <Award className="w-8 h-8" />
+
+                            {/* Name & Actions with High Contrast */}
+                            <div className="flex-1 flex flex-col md:flex-row items-center md:items-center justify-between gap-8 py-8">
+                                <div className="text-center md:text-left space-y-1">
+                                    <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+                                        <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground uppercase leading-none">
+                                            {profile.display_name}
+                                        </h1>
+                                        <div className="px-3 py-1 bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest border border-border/40">
+                                            @{profile.username}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-center md:justify-start gap-4">
+                                        <div className="h-1 w-12 bg-primary" />
+                                        <p className="text-xs font-black text-muted-foreground uppercase tracking-[0.4em]">Archival Strategist</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    {isOwner ? (
+                                        <Link
+                                            to="/settings"
+                                            className="h-14 px-8 bg-primary text-black text-[11px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all flex items-center gap-3 shadow-[4px_4px_0px_rgba(247,127,0,0.3)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
+                                        >
+                                            <Settings size={16} />
+                                            Override Settings
+                                        </Link>
+                                    ) : (
+                                        <>
+                                            <button className="h-14 px-8 bg-foreground text-background text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary transition-all flex items-center gap-3">
+                                                <UserPlus size={16} />
+                                                Connect
+                                            </button>
+                                            <button className="h-14 w-14 flex items-center justify-center border-2 border-border/60 hover:border-primary hover:text-primary transition-all">
+                                                <MessageSquare size={20} />
+                                            </button>
+                                        </>
+                                    )}
+                                    <div className="h-14 w-[2px] bg-border/20 mx-2" />
+                                    <button 
+                                        onClick={handleShareProfile}
+                                        className="h-14 w-14 flex items-center justify-center border-2 border-border/60 hover:bg-muted transition-all"
+                                    >
+                                        <Share2 size={20} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Text Info */}
-                        <div className="flex-1 space-y-8 pt-4 text-center md:text-left">
-                            <div>
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-4">
-                                    <h1 className="text-5xl md:text-7xl font-black tracking-[-0.05em] text-foreground uppercase leading-none">
-                                        {profile.display_name}
-                                    </h1>
-                                    <span className="px-5 py-2 bg-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-full border border-primary/20 shrink-0">
-                                        Public Archive
-                                    </span>
-                                </div>
-                                
-                                <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-6 gap-y-3 font-medium tracking-wide text-muted-foreground">
-                                    <span className="text-foreground/40 font-black italic text-lg">@{profile.username}</span>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-border hidden md:block" />
-                                    <span className="flex items-center gap-2">
-                                        <Calendar className="h-5 w-5 text-primary" />
-                                        Joined {joinedDate}
-                                    </span>
-                                    {profile.location && (
-                                        <span className="flex items-center gap-2">
-                                            <MapPin className="h-5 w-5 text-primary" />
-                                            {profile.location}
-                                        </span>
-                                    )}
-                                    {profile.website && (
-                                        <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-primary transition-colors">
-                                            <Globe className="h-5 w-5 text-primary" />
-                                            {profile.website.replace(/^https?:\/\//, '').split('/')[0]}
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="max-w-2xl bg-background/40 backdrop-blur-md border border-border/40 p-10 rounded-[40px] relative overflow-hidden group shadow-xl">
-                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-                                    <BookOpen size={64} className="text-primary" />
-                                </div>
-                                <p className="text-foreground/90 leading-relaxed italic text-lg md:text-xl relative z-10">
-                                    {profile.bio ? profile.bio : `"This reader has not added a public bio yet. Exploring the vast ocean of sequential arts one chapter at a time."`}
-                                </p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-5">
-                                {isOwner && (
-                                    <Link
-                                        to="/settings"
-                                        className="px-10 py-4 bg-primary text-primary-foreground text-xs font-black uppercase tracking-widest rounded-2xl hover:opacity-90 transition-all active:scale-95 flex items-center gap-3 shadow-lg shadow-primary/20"
-                                    >
-                                        <Settings size={16} />
-                                        Edit Partition
-                                    </Link>
-                                )}
+                        {/* Navigation Tabs - Terminal Style */}
+                        <div className="flex overflow-x-auto no-scrollbar gap-2 mt-4">
+                            {(['overview', 'anime', 'manga', 'favorites', 'stats', 'social', 'reviews', 'notifications'] as const)
+                                .filter(tab => tab !== 'notifications' || isOwner)
+                                .map((tab) => (
                                 <button
-                                    onClick={handleShareProfile}
-                                    className="px-10 py-4 border-2 border-foreground/10 bg-background/20 backdrop-blur-sm text-foreground text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-foreground hover:text-background transition-all flex items-center gap-3"
+                                    key={tab}
+                                    onClick={() => handleTabChange(tab)}
+                                    className={`px-8 py-5 text-[11px] font-black uppercase tracking-[0.3em] whitespace-nowrap transition-all border-t-4 ${
+                                        activeTab === tab 
+                                            ? 'text-primary border-primary bg-primary/5' 
+                                            : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/30'
+                                    }`}
                                 >
-                                    <Share2 size={16} />
-                                    {isOwner ? 'Share Profile' : 'Spread Archive'}
+                                    {tab}
                                 </button>
-                                
-                                <div className="flex gap-2">
-                                    <button onClick={() => copyShareKit('link')} className="p-4 rounded-xl border border-border/50 bg-background/40 hover:bg-foreground hover:text-background transition-all" title="Copy Link">
-                                        <Globe size={16} />
-                                    </button>
-                                    <button onClick={() => copyShareKit('intro')} className="p-4 rounded-xl border border-border/50 bg-background/40 hover:bg-foreground hover:text-background transition-all" title="Copy Intro">
-                                        <Share2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Content Grid */}
-            <div className="mx-auto mt-24 w-full max-w-[1280px] px-[28px]">
+            {/* Content Area */}
+            <div className="mx-auto max-w-[1200px] px-6 py-12">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    {/* Left Sidebar: Stats & Intelligence */}
-                    <aside className="lg:col-span-4 space-y-8">
-                        {renderSection('stats')}
-                        {sectionsConfig.visible.snapshot && (
-                            <div className="p-8 rounded-[40px] bg-muted/5 border border-border/40 space-y-6">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground">Quick Snapshots</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    {snapshotCards.map((card) => (
-                                        <div key={card.id} className="p-5 rounded-2xl bg-background/50 border border-border/20">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">{card.label}</p>
-                                            <p className="text-xl font-black text-foreground">{card.value}</p>
+                    {/* Sidebar - only show on Overview and Stats */}
+                    {(activeTab === 'overview' || activeTab === 'stats') && (
+                        <aside className="lg:col-span-3 space-y-10">
+                            {/* Joined Info */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+                                    <Calendar className="h-4 w-4 text-primary" />
+                                    Joined {joinedDate}
+                                </div>
+                                {profile.location && (
+                                    <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+                                        <MapPin className="h-4 w-4 text-primary" />
+                                        {profile.location}
+                                    </div>
+                                )}
+                                {profile.website && (
+                                    <a 
+                                        href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+                                    >
+                                        <Globe className="h-4 w-4 text-primary" />
+                                        {profile.website.replace(/^https?:\/\//, '').split('/')[0]}
+                                    </a>
+                                )}
+                            </div>
+
+                            {/* Mini Stats Component - Tactical Display */}
+                            <div className="p-8 border-2 border-border/60 bg-muted/20 space-y-8 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 -rotate-45 translate-x-8 -translate-y-8" />
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">System Integrity</h3>
+                                <div className="space-y-6">
+                                    <StatusMeter 
+                                        label="Archive Completion" 
+                                        value={snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0%'} 
+                                        percentage={parseInt(snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0')}
+                                        color={primaryColor}
+                                    />
+                                    <StatusMeter 
+                                        label="Favorites Density" 
+                                        value={snapshotCards.find(c => c.id === 'favorites_density')?.value || '0%'} 
+                                        percentage={parseInt(snapshotCards.find(c => c.id === 'favorites_density')?.value || '0')}
+                                        color="#3b82f6"
+                                    />
+                                    <div className="pt-4 border-t border-border/40 flex justify-between items-end">
+                                        <div>
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Total Units</p>
+                                            <p className="text-2xl font-black text-foreground">{profile.total_entries}</p>
                                         </div>
+                                        <div className="text-right">
+                                            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Mean Delta</p>
+                                            <p className="text-2xl font-black text-primary">{profile.mean_score}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Genre Breakdown in Sidebar */}
+                            <div className="space-y-4">
+                                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Top Genres</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {visibleGenreStats.slice(0, 10).map((genre) => (
+                                        <span key={genre.name} className="px-3 py-1 bg-muted rounded-lg text-[10px] font-bold uppercase tracking-wider">
+                                            {genre.name}
+                                        </span>
                                     ))}
                                 </div>
                             </div>
-                        )}
-                    </aside>
 
-                    {/* Right Main Content: Tabbed Interface */}
-                    <main className="lg:col-span-8 space-y-10">
-                        {/* Tab Navigation */}
-                        <div className="flex border-b border-border/40 gap-10">
-                            {(['activity', 'favorites', 'archive'] as const).map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`pb-6 text-[13px] font-black uppercase tracking-[0.2em] border-b-2 transition-all flex items-center gap-3 ${
-                                        activeTab === tab 
-                                            ? 'text-primary border-primary' 
-                                            : 'text-muted-foreground border-transparent hover:text-foreground'
-                                    }`}
-                                >
-                                    {tab === 'activity' && <Activity size={14} />}
-                                    {tab === 'favorites' && <Heart size={14} />}
-                                    {tab === 'archive' && <History size={14} />}
-                                    {tab} Log
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Tab Content */}
-                        <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {sectionsConfig.order
-                                .filter(s => tabSections[activeTab].includes(s))
-                                .map((section) => renderSection(section))}
-                            
-                            {/* Empty State Logic for Tabs */}
-                            {sectionsConfig.order.filter(s => tabSections[activeTab].includes(s) && sectionsConfig.visible[s]).length === 0 && (
-                                <div className="py-24 flex flex-col items-center justify-center text-center border-2 border-dashed border-border/40 rounded-[40px] bg-muted/5">
-                                    <Layers className="w-12 h-12 text-muted-foreground/20 mb-6" />
-                                    <h3 className="text-xl font-black uppercase tracking-tight text-foreground/40">Fragment Missing</h3>
-                                    <p className="text-sm text-muted-foreground italic mt-2">This archive sector is currently empty or private.</p>
+                            {/* Technical Specifications */}
+                            <div className="pt-10 border-t-2 border-border/40 space-y-6">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/60">Technical Specifications</h3>
+                                <div className="space-y-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Archive ID</span>
+                                        <span className="text-[10px] font-bold text-foreground font-mono">{profile.user_id.slice(0, 8)}...{profile.user_id.slice(-4)}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Deployment Date</span>
+                                        <span className="text-[10px] font-bold text-foreground uppercase">{joinedDate}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Security Clearance</span>
+                                        <span className="text-[10px] font-bold text-primary uppercase">{isOwner ? 'Level 5 (Admin)' : 'Level 1 (Guest)'}</span>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        </aside>
+                    )}
+
+                    {/* Main Content */}
+                    <main className={`${(activeTab === 'overview' || activeTab === 'stats' || activeTab === 'social' || activeTab === 'reviews') ? 'lg:col-span-9' : 'lg:col-span-12'} space-y-12`}>
+                        {activeTab === 'overview' && (
+                            <div className="space-y-12">
+                                {/* Tactical Overview Readout */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Total Units</p>
+                                        <p className="text-4xl font-black text-foreground">{profile.total_entries}</p>
+                                    </div>
+                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Chapters Read</p>
+                                        <p className="text-4xl font-black text-foreground">{profile.total_chapters}</p>
+                                    </div>
+                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Mean Score</p>
+                                        <p className="text-4xl font-black text-primary">{profile.mean_score}</p>
+                                    </div>
+                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Completion</p>
+                                        <p className="text-4xl font-black text-foreground">{snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0%'}</p>
+                                    </div>
+                                </div>
+
+                                {/* About Me / Bio */}
+                                <section className="space-y-4">
+                                    <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground border-b border-border/40 pb-4">About Me</h2>
+                                    <div className="prose prose-invert max-w-none">
+                                        <p className="text-lg leading-relaxed text-foreground/80 whitespace-pre-wrap">
+                                            {profile.bio || "This user has not written a bio yet."}
+                                        </p>
+                                    </div>
+                                </section>
+                                
+                                {renderSection('now_reading')}
+                                {renderSection('changelog')}
+                            </div>
+                        )}
+
+                        {(activeTab === 'anime' || activeTab === 'manga') && (
+                            <div className="space-y-8">
+                                {isOwner ? (
+                                    <Library mediaTypeOverride={activeTab.toUpperCase() as 'ANIME' | 'MANGA'} />
+                                ) : (
+                                    renderSection('archive')
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'favorites' && (
+                            <div className="space-y-12">
+                                {isOwner && (
+                                    <div className="border-b border-border/40 pb-12">
+                                        <Collections />
+                                    </div>
+                                )}
+                                {renderSection('favorites')}
+                                {renderSection('characters')}
+                                {renderSection('featured_collections')}
+                            </div>
+                        )}
+
+                        {activeTab === 'stats' && (
+                            <div className="grid gap-8">
+                                {isOwner ? (
+                                    <div>
+                                        <Analytics />
+                                    </div>
+                                ) : (
+                                    <>
+                                        {renderSection('stats')}
+                                        {renderSection('snapshot')}
+                                        
+                                        {/* Placeholder for more detailed stats */}
+                                        <div className="p-10 rounded-3xl border border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center">
+                                            <BarChart3 className="w-12 h-12 text-muted-foreground/20 mb-4" />
+                                            <h3 className="text-lg font-black uppercase">Detailed Analysis</h3>
+                                            <p className="text-sm text-muted-foreground mt-2">Charts and advanced insights are being calibrated for your archive.</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'social' && (
+                            <div className="space-y-12">
+                                <div className="grid grid-cols-2 gap-8">
+                                    <div className="p-10 border-2 border-border/40 bg-muted/10 flex flex-col items-center justify-center text-center group transition-all hover:bg-muted/20">
+                                        <UserPlus size={48} className="text-muted-foreground/20 mb-6 group-hover:text-primary group-hover:scale-110 transition-all" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-1">Followers</p>
+                                        <p className="text-4xl font-black text-foreground">00</p>
+                                    </div>
+                                    <div className="p-10 border-2 border-border/40 bg-muted/10 flex flex-col items-center justify-center text-center group transition-all hover:bg-muted/20">
+                                        <UserIcon size={48} className="text-muted-foreground/20 mb-6 group-hover:text-primary group-hover:scale-110 transition-all" />
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-1">Following</p>
+                                        <p className="text-4xl font-black text-foreground">00</p>
+                                    </div>
+                                </div>
+
+                                <div className="py-24 flex flex-col items-center justify-center text-center border-2 border-dashed border-border/40 bg-muted/5">
+                                    <Layers className="w-16 h-16 text-muted-foreground/20 mb-6 animate-pulse" />
+                                    <h3 className="text-2xl font-black uppercase tracking-tight text-foreground">Social Grid Offline</h3>
+                                    <p className="text-sm text-muted-foreground italic mt-2 max-w-sm">
+                                        The social networking layer is currently being calibrated. Peer connections will be visible in the next deployment.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'reviews' && (
+                            <div className="space-y-12">
+                                <div className="p-10 border-2 border-border/40 bg-primary/5 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-8 opacity-5">
+                                        <MessageSquare size={120} />
+                                    </div>
+                                    <h3 className="text-[12px] font-black uppercase tracking-[0.4em] text-primary mb-2">Critical Analysis Feed</h3>
+                                    <p className="text-sm text-muted-foreground italic">No review transmissions detected for this sector.</p>
+                                </div>
+
+                                <div className="py-32 flex flex-col items-center justify-center text-center border-2 border-dashed border-border/40 bg-muted/5">
+                                    <div className="w-20 h-20 bg-muted flex items-center justify-center mb-8 rotate-45 border border-border/40">
+                                        <MessageSquare size={32} className="-rotate-45 text-muted-foreground/40" />
+                                    </div>
+                                    <h3 className="text-xl font-black uppercase tracking-widest text-foreground">Feed Uninitialized</h3>
+                                    <p className="text-sm text-muted-foreground italic mt-3 max-w-xs">
+                                        This archive owner has not published any critical reviews yet.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'notifications' && isOwner && (
+                            <div>
+                                <Notifications />
+                            </div>
+                        )}
                     </main>
                 </div>
             </div>
@@ -772,13 +978,36 @@ export default function PublicProfile() {
     );
 }
 
+function StatusMeter({ label, value, percentage, color }: { label: string; value: string; percentage: number; color: string }) {
+    return (
+        <div className="space-y-2">
+            <div className="flex justify-between items-end">
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+                <span className="text-[10px] font-black text-foreground">{value}</span>
+            </div>
+            <div className="h-2 w-full bg-muted border border-border/40 rounded-full overflow-hidden relative">
+                <div 
+                    className="h-full transition-all duration-1000 ease-out"
+                    style={{ 
+                        width: `${percentage}%`, 
+                        backgroundColor: color,
+                        boxShadow: `0 0 10px ${color}40`
+                    }} 
+                />
+            </div>
+        </div>
+    );
+}
+
 function StatRow({ label, value, primaryColor }: { label: string; value: string | number, primaryColor: string }) {
     return (
-        <div className="flex justify-between items-end relative z-10">
-            <span className="text-[13px] font-bold opacity-50">{label}</span>
+        <div className="flex justify-between items-end relative z-10 p-6 border-b border-border/20 group hover:bg-primary/5 transition-colors">
+            <span className="text-[12px] font-black uppercase tracking-[0.2em] opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all">{label}</span>
             <div className="flex flex-col items-end">
-                <span className="text-5xl font-black text-foreground leading-none">{value}</span>
-                <div className="w-16 h-1.5 mt-3 rounded-full opacity-50" style={{ backgroundColor: primaryColor }} />
+                <span className="text-6xl font-black text-foreground leading-none tracking-tighter">{value}</span>
+                <div className="w-24 h-2 mt-4 bg-muted relative overflow-hidden">
+                    <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-700 ease-out" style={{ backgroundColor: primaryColor }} />
+                </div>
             </div>
         </div>
     );

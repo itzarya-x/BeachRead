@@ -105,8 +105,10 @@ export interface PublicProfileRecord {
     coverUrl: string;
     progress: number;
     chapters?: number | null;
+    episodes?: number | null;
     score?: number;
     status: string;
+    mediaType: string;
     publicNote?: string | null;
     updatedAt?: string;
     isFavourite?: boolean;
@@ -137,8 +139,10 @@ function mapRecentLibrary(library: LibraryItem[]) {
     coverUrl: item.coverUrl,
     progress: item.progress || 0,
     chapters: item.chapters ?? null,
+    episodes: item.episodes ?? null,
     score: item.score ?? 0,
     status: item.status,
+    mediaType: item.mediaType,
     publicNote: (item.comments || [])[0]?.text || null,
     updatedAt: item.updatedAt,
     isFavourite: item.isFavourite,

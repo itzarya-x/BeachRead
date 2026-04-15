@@ -180,7 +180,10 @@ export function TrackingSyncPanel() {
     try {
       const [state, oauth] = await Promise.all([
         loadSyncState(user.id),
-        publicApiClient.get<OAuthConfig>('/oauth/config').catch(() => ({ anilist: false, mal: false }))
+        publicApiClient.get<OAuthConfig>('/sync/config').catch((err) => {
+          console.error('[SyncPanel] Failed to fetch OAuth config:', err);
+          return { anilist: false, mal: false };
+        })
       ]);
       setIntegrations(state.integrations);
       setJobs(state.jobs);
@@ -237,6 +240,7 @@ export function TrackingSyncPanel() {
       const identity = await verifyProviderAccessToken(provider, draft.accessToken.trim());
       await saveIntegration(user.id, provider, {
         ...draft,
+        id: identity.id,
         username: identity.username,
         accessToken: draft.accessToken.trim(),
       });
@@ -264,115 +268,27 @@ export function TrackingSyncPanel() {
     setBusy(`sync:${provider}:${direction}`);
     setMessage(null);
     setError(null);
-    let jobId: string | null = null;
 
     const actualDirection: SyncDirection = direction === 'refresh' ? 'pull' : direction;
-    const conflictMode: ConflictMode = direction === 'refresh' ? 'provider_wins' : integration.conflict_mode;
+    const jobTypeMap: Record<string, string> = {
+        'import': 'INITIAL_IMPORT',
+        'pull': 'INCREMENTAL_PULL',
+        'push': 'INCREMENTAL_PUSH'
+    };
 
     try {
-      const job = await createSyncJob(user.id, provider, actualDirection, integration.sync_mode);
-      jobId = job.id;
-      const runWithAccessToken = async (accessToken: string) => (
-        actualDirection === 'import' || actualDirection === 'pull'
-          ? syncProviderToLocal({ userId: user.id, provider, accessToken, conflictMode, direction: actualDirection })
-          : syncLocalToProvider({ userId: user.id, provider, accessToken, conflictMode, direction: actualDirection })
-      );
-
-      let activeIntegration = integration;
-      let activeToken = integration.access_token;
-
-      if (activeToken && shouldAttemptMalRefresh(activeIntegration)) {
-        const refreshed = await publicApiClient.post<MalRefreshResponse>('/oauth/mal/refresh', {
-          refreshToken: activeIntegration.refresh_token,
-        });
-
-        activeToken = refreshed.accessToken;
-        activeIntegration = {
-          ...activeIntegration,
-          access_token: refreshed.accessToken,
-          refresh_token: refreshed.refreshToken || activeIntegration.refresh_token,
-          token_expires_at: refreshed.tokenExpiresAt || null,
-        };
-
-        await touchIntegration(user.id, 'mal', {
-          access_token: activeIntegration.access_token,
-          refresh_token: activeIntegration.refresh_token,
-          token_expires_at: activeIntegration.token_expires_at,
-          last_error: null,
-        });
-      }
-
-      if (!activeToken) {
-        throw new Error(`${provider.toUpperCase()} access token is missing.`);
-      }
-
-      let summary;
-      try {
-        summary = await runWithAccessToken(activeToken);
-      } catch (syncError) {
-        if (provider !== 'mal' || !activeIntegration.refresh_token || !looksLikeAuthError(syncError)) {
-          throw syncError;
-        }
-
-        const refreshed = await publicApiClient.post<MalRefreshResponse>('/oauth/mal/refresh', {
-          refreshToken: activeIntegration.refresh_token,
-        });
-
-        activeToken = refreshed.accessToken;
-        activeIntegration = {
-          ...activeIntegration,
-          access_token: refreshed.accessToken,
-          refresh_token: refreshed.refreshToken || activeIntegration.refresh_token,
-          token_expires_at: refreshed.tokenExpiresAt || null,
-        };
-
-        await touchIntegration(user.id, 'mal', {
-          access_token: activeIntegration.access_token,
-          refresh_token: activeIntegration.refresh_token,
-          token_expires_at: activeIntegration.token_expires_at,
-          last_error: null,
-        });
-
-        summary = await runWithAccessToken(activeToken);
-      }
-
-      const now = new Date().toISOString();
-      await finalizeSyncJob(job.id, { status: 'completed', items_total: summary.total, items_processed: summary.processed, finished_at: now });
-      await touchIntegration(user.id, provider, {
-        last_sync_at: now,
-        last_error: null,
-        ...(direction === 'import' || direction === 'pull' ? { last_pull_at: now } : { last_push_at: now }),
+      await publicApiClient.post(`/sync/${provider}/trigger`, {
+        jobType: jobTypeMap[actualDirection] || 'INCREMENTAL_PULL',
+        forceRefresh: direction === 'refresh'
       });
 
-      // Keep AniList favorite characters in sync on every successful provider pull/import.
-      if (provider === 'anilist' && (actualDirection === 'import' || actualDirection === 'pull')) {
-        try {
-          const identity = await verifyProviderAccessToken('anilist', activeToken);
-          if (Array.isArray(identity.favoriteCharacters)) {
-            await updateUser({
-              favoriteCharacters: identity.favoriteCharacters,
-            });
-          }
-        } catch (_err) {
-          // Non-fatal: library sync succeeded, character refresh can retry next sync.
-        }
-      }
-
-      await refreshLibrary();
-      await hydrate();
-      setMessage(`${provider.toUpperCase()} sync successful: ${summary.processed} items updated.`);
+      setMessage(`${provider.toUpperCase()} sync job queued. This will run in the background.`);
+      
+      // Auto-refresh state after a short delay to show the queued job
+      setTimeout(() => { void hydrate(); }, 1500);
     } catch (err) {
-      const message = toErrorMessage(err, 'Sync failed');
+      const message = toErrorMessage(err, 'Failed to trigger sync');
       setError(message);
-      const now = new Date().toISOString();
-      try {
-        if (jobId) {
-          await finalizeSyncJob(jobId, { status: 'failed', error_message: message, finished_at: now });
-        }
-        await touchIntegration(user.id, provider, { last_error: message });
-      } catch {
-        // Best-effort failure bookkeeping only.
-      }
     } finally {
       setBusy(null);
     }
@@ -498,27 +414,39 @@ export function TrackingSyncPanel() {
                       <div className="flex flex-col items-center justify-center py-8 px-4 rounded-xl bg-muted/20 border border-dashed border-border/60 text-center">
                         <Info size={24} className="text-muted-foreground mb-3 opacity-50" />
                         <p className="text-xs text-muted-foreground mb-6 max-w-[280px]">Link your external account to enable automated library synchronization.</p>
-                        <div className="flex gap-3">
+                        
+                        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
                           {oauthConfig[provider.id] ? (
                             <button
                               onClick={() => handleOAuthConnect(provider.id)}
-                              className="px-6 py-2.5 bg-primary text-primary-foreground text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                              className="flex-1 px-6 py-3 bg-[#02A9FF] text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:opacity-90 transition-all shadow-lg shadow-[#02A9FF]/20 flex items-center justify-center gap-2"
                             >
                               <Link2 size={14} />
-                              Connect via OAuth
+                              Login with {provider.label}
                             </button>
                           ) : (
-                            <div className="px-4 py-2 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-[10px] font-bold uppercase tracking-wider">
-                              OAuth Server Unavailable
+                            <div className="flex-1 px-4 py-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center">
+                              OAuth Unavailable
                             </div>
                           )}
+                          
                           <button
                             onClick={() => setShowAdvanced(prev => ({ ...prev, [provider.id]: !prev[provider.id] }))}
-                            className="px-6 py-2.5 bg-muted text-foreground text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-muted/80 transition-all"
+                            className={`flex-1 px-6 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all border ${
+                              showAdvanced[provider.id] 
+                                ? 'bg-primary/10 border-primary text-primary' 
+                                : 'bg-muted/50 border-border/60 text-foreground hover:bg-muted'
+                            }`}
                           >
-                            Manual Token
+                            {showAdvanced[provider.id] ? 'Hide Manual' : 'Manual Token'}
                           </button>
                         </div>
+                        
+                        {!oauthConfig[provider.id] && (
+                          <p className="text-[9px] text-muted-foreground mt-4 italic max-w-[250px]">
+                            Server OAuth is not configured. Use a personal access token from {provider.label} settings.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

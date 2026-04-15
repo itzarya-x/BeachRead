@@ -35,7 +35,7 @@ const Analytics: React.FC = () => {
     if (!stats) return null;
 
     return (
-        <div className="w-full min-h-screen bg-background pt-[120px] pb-20 px-6 md:px-[64px]">
+        <div className="w-full min-h-screen bg-background pb-20 px-6 md:px-[64px]">
             <div className="max-w-[1400px] mx-auto space-y-20">
                 
                 {/* Header */}

@@ -24,11 +24,11 @@ function toTimestamp(value?: string | null): number {
     return Number.isNaN(timestamp) ? 0 : timestamp;
 }
 
-const Library: React.FC = () => {
+const Library: React.FC<{ mediaTypeOverride?: 'ANIME' | 'MANGA' | 'NOVEL' }> = ({ mediaTypeOverride }) => {
     const { library, loading, removeFromLibrary } = useLibrary();
     const location = useLocation();
     const [filter, setFilter] = useState<string>('ALL');
-    const [mediaFilter, setMediaFilter] = useState<'ALL' | 'ANIME' | 'MANGA' | 'NOVEL'>('ALL');
+    const [mediaFilter, setMediaFilter] = useState<'ALL' | 'ANIME' | 'MANGA' | 'NOVEL'>(mediaTypeOverride || 'ALL');
     const [sortBy, setSortBy] = useState<SortOption>('RECENT');
     const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
     const [searchQuery, setSearchQuery] = useState('');
@@ -45,12 +45,16 @@ const Library: React.FC = () => {
     }, [library]);
 
     useEffect(() => {
+        if (mediaTypeOverride) {
+            setMediaFilter(mediaTypeOverride);
+            return;
+        }
         const params = new URLSearchParams(location.search);
         const f = params.get('filter');
         const mf = params.get('type') as any;
         if (f) setFilter(f);
         if (mf && ['ALL', 'ANIME', 'MANGA', 'NOVEL'].includes(mf)) setMediaFilter(mf);
-    }, [location.search]);
+    }, [location.search, mediaTypeOverride]);
 
     const filteredLibrary = library.filter(item => {
         const safeTitle = toTitle(item.title);
@@ -92,7 +96,7 @@ const Library: React.FC = () => {
     }
 
     return (
-        <div className="w-full min-h-screen bg-background pt-[120px] pb-20 px-6 md:px-[64px]">
+        <div className="w-full min-h-screen bg-background pb-20 px-6 md:px-[64px]">
             <div className="max-w-[1400px] mx-auto">
                 <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-10 mb-16">
                     <div>

@@ -85,3 +85,5 @@ Google sign-in setup:
 * **Component-Based Architecture**: Separation of concerns matching the UX flow (`HeroFeature`, `LatestUpdateCard`, `RankingTable`, `MangaCard`).
 * **Express Integration**: Uses a custom `useFetch` hook to connect to the Node.js backend.
 * **React Router**: Routing functionality covering Home (`/`), Library (`/discover`), and specific Manga profiles (`/manga/:id`).
+# Beachread
+# BeachRead

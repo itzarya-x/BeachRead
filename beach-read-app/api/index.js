@@ -643,7 +643,8 @@ app.get('/api/image', async (req, res) => {
   }
 });
 
-app.get('/api/oauth/config', (_req, res) => {
+app.get('/api/v1/sync/config', (_req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Allow anyone to check capability
   res.json({
     anilist: Boolean(ANILIST_CLIENT_ID && ANILIST_CLIENT_SECRET),
     mal: Boolean(MAL_CLIENT_ID),
@@ -813,7 +814,7 @@ app.get('/api/oauth/mal/callback', async (req, res) => {
   }
 });
 
-app.post('/api/anilist/graphql', async (req, res) => {
+app.post(['/api/v1/anilist/graphql', '/api/anilist/graphql'], async (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query : '';
   const variables = req.body?.variables && typeof req.body.variables === 'object' ? req.body.variables : {};
   const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken.trim() : '';
@@ -952,15 +953,23 @@ app.post('/api/recommendations/finish-quickly', authMiddleware, async (req, res)
   res.json(data);
 });
 
-app.post('/api/sync/trigger', authMiddleware, async (req, res) => {
-  const { provider = 'ANILIST' } = req.body;
-  const { data, error } = await supabase.from('sync_jobs').insert({ user_id: req.user.id, provider, type: 'INCREMENTAL' }).select('id').single();
+app.post(['/api/v1/sync/:provider/trigger', '/api/sync/trigger'], authMiddleware, async (req, res) => {
+  const provider = (req.params.provider || req.body.provider || 'ANILIST').toUpperCase();
+  const { jobType = 'INCREMENTAL', forceRefresh = false } = req.body;
+  const { data, error } = await supabase.from('sync_jobs').insert({ 
+      user_id: req.user.id, 
+      provider, 
+      type: jobType.includes('INITIAL') ? 'FULL' : 'INCREMENTAL',
+      status: 'QUEUED'
+  }).select('id').single();
+  
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
 
-app.get('/api/search', async (req, res) => {
-  const { query: search, genre, demographic, status, format, year, score, chapters, mature, sort, page = 1, mediaType = 'MANGA' } = req.query;
+app.get('/api/v1/search', async (req, res) => {
+  const { query: search, genre, demographic, status, format, year, score, chapters, mature, sort, page = 1, mediaType: queryMediaType, type: queryType } = req.query;
+  const mediaType = queryType || queryMediaType || 'MANGA';
   const cacheKey = `search:${JSON.stringify({ search, genre, demographic, status, format, year, score, chapters, mature, sort, page, mediaType })}`;
   const state = getSearchState(cacheKey);
   await hydrateStateFromStorage(cacheKey, state);
@@ -1075,6 +1084,7 @@ app.get('/api/search', async (req, res) => {
   const results = media.map(m => ({
     id: m.id.toString(),
     type: m.type,
+    mediaType: m.type,
     title: m.title.romaji || m.title.english || m.title.native,
     nativeTitle: m.title.native,
     description: m.description,
@@ -1100,7 +1110,7 @@ app.get('/api/search', async (req, res) => {
   res.json(payload);
 });
 
-app.get('/api/trending', async (req, res) => {
+app.get('/api/v1/trending', async (req, res) => {
   await hydrateStateFromStorage('trending', trendingState);
   const now = Date.now();
   if (hasUsableCache(trendingState, ENDPOINT_CACHE_TTL_MS)) {
@@ -1174,7 +1184,7 @@ app.get('/api/trending', async (req, res) => {
   res.json(payload);
 });
 
-app.get('/api/home-feed', async (req, res) => {
+app.get('/api/v1/home-feed', async (req, res) => {
   await hydrateStateFromStorage('home-feed', homeFeedState);
   homeFeedState.data = normalizeHomeFeedData(homeFeedState.data);
   if (homeFeedState.data && homeFeedState.data.latestNews.length === 0) {
@@ -1328,6 +1338,7 @@ app.get('/api/home-feed', async (req, res) => {
       score: m.averageScore || 0,
       genres: m.genres || [],
       status: m.status || '',
+      mediaType: 'ANIME',
       popularity: typeof m.popularity === 'number' ? m.popularity.toLocaleString() : 'N/A',
       nextEpisode: m.nextAiringEpisode?.episode || null,
       countdown: formatCountdown(m.nextAiringEpisode?.timeUntilAiring),
@@ -1345,6 +1356,7 @@ app.get('/api/home-feed', async (req, res) => {
       titleJp: m.title.native,
       description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
       genres: m.genres,
+      mediaType: 'MANGA',
       coverUrl: m.bannerImage || m.coverImage.extraLarge,
     })),
     rankings: {
@@ -1362,6 +1374,7 @@ app.get('/api/home-feed', async (req, res) => {
       author: m.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
       genres: m.genres,
       updatedAt: 'Updated recently',
+      mediaType: 'MANGA',
       coverUrl: m.coverImage.large,
       chapters: [{ num: `Chapter ${m.chapters || '?'}`, title: 'Latest' }],
     })),
@@ -1369,6 +1382,7 @@ app.get('/api/home-feed', async (req, res) => {
       id: m.id.toString(),
       title: m.title.romaji || m.title.english || m.title.native,
       genres: m.genres,
+      mediaType: 'MANGA',
       coverUrl: m.coverImage.large,
     })),
     latestNews: (Array.isArray(latestNewsMedia) ? latestNewsMedia : []).map((m) => ({
@@ -1389,7 +1403,7 @@ app.get('/api/home-feed', async (req, res) => {
   res.json(payload);
 });
 
-app.get('/api/home-rankings', async (req, res) => {
+app.get('/api/v1/home-rankings', async (req, res) => {
   await hydrateStateFromStorage('home-rankings', homeRankingsState);
   const now = Date.now();
   if (hasUsableCache(homeRankingsState, HOME_RANKINGS_CACHE_TTL_MS)) {
@@ -1545,7 +1559,7 @@ app.get('/api/home-rankings', async (req, res) => {
   res.json(responsePayload);
 });
 
-app.get('/api/updates', async (req, res) => {
+app.get('/api/v1/updates', async (req, res) => {
   await hydrateStateFromStorage('updates', updatesState);
   const now = Date.now();
   if (hasUsableCache(updatesState, ENDPOINT_CACHE_TTL_MS)) {
@@ -1611,7 +1625,7 @@ app.get('/api/updates', async (req, res) => {
   res.json(updates);
 });
 
-app.get('/api/recently-added', async (req, res) => {
+app.get('/api/v1/recently-added', async (req, res) => {
   await hydrateStateFromStorage('recently-added', recentlyAddedState);
   const now = Date.now();
   if (hasUsableCache(recentlyAddedState, ENDPOINT_CACHE_TTL_MS)) {
@@ -1665,7 +1679,7 @@ app.get('/api/recently-added', async (req, res) => {
   res.json(recentlyAdded);
 });
 
-app.get('/api/latest-news', async (req, res) => {
+app.get('/api/v1/latest-news', async (req, res) => {
   await hydrateStateFromStorage('latest-news', latestNewsState);
   const now = Date.now();
   if (hasUsableCache(latestNewsState, ENDPOINT_CACHE_TTL_MS)) {
@@ -1724,7 +1738,7 @@ app.get('/api/latest-news', async (req, res) => {
   res.json(latestNews);
 });
 
-app.get(['/api/manga/:id', '/api/media/:id'], async (req, res) => {
+app.get(['/api/v1/manga/:id', '/api/v1/media/:id', '/api/manga/:id', '/api/media/:id'], async (req, res) => {
   const id = String(parseInt(req.params.id, 10));
   if (!id || id === 'NaN') {
     return res.status(400).json({ error: 'Invalid media id' });

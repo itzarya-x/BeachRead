@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, User, LogOut, BarChart3, Bell, Layers, Loader2, Moon, Sun } from 'lucide-react';
+import { Search, User, LogOut, Bell, Loader2, Moon, Sun, Settings } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useSearch } from '../../hooks/useSearch';
@@ -234,14 +234,9 @@ export default function Navbar() {
                         </Link>
                         {user && (
                             <>
-                                <Link to="/library" className={`text-[12.5px] font-bold tracking-tight transition-colors ${
-                                    (isScrolled || !isHeroPage) ? 'text-foreground/75 hover:text-foreground' : 'text-white/80 hover:text-white'
-                                } ${location.pathname === '/library' ? 'text-primary' : ''}`}>
-                                    Library
-                                </Link>
                                 <Link to="/profile" className={`text-[12.5px] font-bold tracking-tight transition-colors ${
                                     (isScrolled || !isHeroPage) ? 'text-foreground/75 hover:text-foreground' : 'text-white/80 hover:text-white'
-                                } ${location.pathname.startsWith('/u/') ? 'text-primary' : ''}`}>
+                                } ${location.pathname.startsWith('/u/') || location.pathname === '/profile' ? 'text-primary' : ''}`}>
                                     Profile
                                 </Link>
                                 <Link to="/settings" className={`text-[12.5px] font-bold tracking-tight transition-colors ${
@@ -283,7 +278,15 @@ export default function Navbar() {
                                             <p className="text-[9px] text-muted-foreground truncate mt-0.5">{user.email}</p>
                                         </div>
                                         <Link 
-                                            to="/notifications" 
+                                            to="/profile" 
+                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-foreground/5 text-[12px] font-medium transition-colors"
+                                            onClick={() => setShowUserMenu(false)}
+                                        >
+                                            <User size={14} className="opacity-50" />
+                                            View Profile
+                                        </Link>
+                                        <Link 
+                                            to="/profile?tab=notifications" 
                                             className="flex items-center justify-between px-4 py-2.5 hover:bg-foreground/5 text-[12px] font-medium transition-colors"
                                             onClick={() => setShowUserMenu(false)}
                                         >
@@ -298,20 +301,12 @@ export default function Navbar() {
                                             )}
                                         </Link>
                                         <Link 
-                                            to="/collections" 
+                                            to="/settings" 
                                             className="flex items-center gap-3 px-4 py-2.5 hover:bg-foreground/5 text-[12px] font-medium transition-colors"
                                             onClick={() => setShowUserMenu(false)}
                                         >
-                                            <Layers size={14} className="opacity-50" />
-                                            Collections
-                                        </Link>
-                                        <Link 
-                                            to="/analytics" 
-                                            className="flex items-center gap-3 px-4 py-2.5 hover:bg-foreground/5 text-[12px] font-medium transition-colors"
-                                            onClick={() => setShowUserMenu(false)}
-                                        >
-                                            <BarChart3 size={14} className="opacity-50" />
-                                            Analytics
+                                            <Settings size={14} className="opacity-50" />
+                                            Settings
                                         </Link>
                                         <button 
                                             onClick={handleLogout}

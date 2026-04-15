@@ -62,7 +62,13 @@ export function DiscoverCarousel({ title, mangaList, loading, onViewAll }: Disco
         if (isInLibrary) {
             await removeFromLibrary(manga.id);
         } else {
-            await addToLibrary({ id: manga.id, title: manga.title, coverUrl: manga.coverUrl, genres: manga.genres });
+            await addToLibrary({ 
+                id: manga.id, 
+                title: manga.title, 
+                coverUrl: manga.coverUrl, 
+                genres: manga.genres,
+                mediaType: manga.mediaType
+            });
         }
     };
 

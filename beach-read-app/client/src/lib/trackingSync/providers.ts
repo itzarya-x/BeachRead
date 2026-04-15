@@ -101,6 +101,7 @@ async function fetchAniList<T>(query: string, variables: Record<string, unknown>
 }
 
 type ProviderIdentity = {
+  id: string;
   username: string;
   favoriteCharacters?: Array<{ id: string; name: string; image: string }>;
 };
@@ -274,10 +275,11 @@ export async function fetchAniListMangaEntries(accessToken: string): Promise<Pro
 }
 
 export async function verifyAniListAccessToken(accessToken: string): Promise<ProviderIdentity & { favoriteCharacters?: any[] }> {
-  const data = await fetchAniList<{ Viewer: { name?: string | null; favourites?: { characters?: { nodes?: Array<{ id: number; name: { full: string }; image: { large: string } }> } | null } | null } }>(
+  const data = await fetchAniList<{ Viewer: { id: number; name?: string | null; favourites?: { characters?: { nodes?: Array<{ id: number; name: { full: string }; image: { large: string } }> } | null } | null } }>(
     `
       query {
         Viewer {
+          id
           name
           favourites {
             characters {
@@ -300,13 +302,15 @@ export async function verifyAniListAccessToken(accessToken: string): Promise<Pro
     throw new Error('AniList token is valid, but the viewer identity could not be resolved.');
   }
 
+  const id = String(data?.Viewer?.id);
+
   const favoriteCharacters = data?.Viewer?.favourites?.characters?.nodes?.map(node => ({
     id: String(node.id),
     name: node.name.full,
     image: node.image.large,
   })) || [];
 
-  return { username, favoriteCharacters };
+  return { id, username, favoriteCharacters };
 }
 
 export async function searchAniListManga(title: string): Promise<any[]> {
@@ -432,13 +436,108 @@ export async function verifyMalAccessToken(accessToken: string): Promise<Provide
     throw new Error('MAL token is valid, but the account name could not be resolved.');
   }
 
-  return { username };
+  const id = String(json?.id);
+
+  return { id, username };
+}
+
+export async function fetchAniListAnimeEntries(accessToken: string): Promise<ProviderMediaEntry[]> {
+  const viewerData = await fetchAniList<{ Viewer: { id?: number | null; favourites?: { anime?: { nodes?: Array<{ id: number }> } | null } | null } }>(
+    `
+      query {
+        Viewer {
+          id
+          favourites {
+            anime {
+              nodes {
+                id
+              }
+            }
+          }
+        }
+      }
+    `,
+    {},
+    accessToken
+  );
+
+  const viewerId = Number(viewerData?.Viewer?.id);
+  if (!Number.isFinite(viewerId) || viewerId <= 0) {
+    throw new Error('AniList token is valid, but the viewer ID could not be resolved.');
+  }
+
+  const favoriteIds = new Set(viewerData?.Viewer?.favourites?.anime?.nodes?.map(n => n.id) || []);
+
+  const data = await fetchAniList<{
+    anime: { lists: Array<{ name?: string | null; isCustomList?: boolean | null; entries: any[] }> | null };
+  }>(
+    `
+      query ($userId: Int) {
+        anime: MediaListCollection(userId: $userId, type: ANIME) {
+          lists {
+            name
+            isCustomList
+            entries {
+              status
+              score(format: POINT_100)
+              progress
+              repeat
+              priority
+              private
+              notes
+              customLists(asArray: true)
+              updatedAt
+              startedAt { year month day }
+              completedAt { year month day }
+              media {
+                id
+                type
+                format
+                isFavourite
+                episodes
+                description(asHtml: false)
+                countryOfOrigin
+                genres
+                coverImage { large medium }
+                bannerImage
+                tags { name }
+                title { romaji english native }
+              }
+            }
+          }
+        }
+      }
+    `,
+    { userId: viewerId },
+    accessToken
+  );
+
+  return (data.anime?.lists || []).flatMap((list) => 
+    (list.entries || []).map(entry => {
+      const normalized = normalizeAniListEntry(entry);
+      normalized.isFavourite = Boolean(normalized.rawMedia?.isFavourite) || favoriteIds.has(Number(normalized.providerMediaId));
+      if (normalized.customLists.length === 0 && list?.isCustomList && typeof list?.name === 'string' && list.name.trim()) {
+        normalized.customLists = [list.name.trim()];
+      }
+      normalized.rawMedia = {
+        ...normalized.rawMedia,
+        isFavourite: normalized.isFavourite,
+      };
+      return normalized;
+    })
+  );
 }
 
 export async function fetchProviderEntries(provider: ProviderId, accessToken: string): Promise<ProviderMediaEntry[]> {
-  return provider === 'anilist'
-    ? fetchAniListMangaEntries(accessToken)
-    : fetchMalMangaEntries(accessToken);
+  if (provider === 'anilist') {
+    const [manga, anime] = await Promise.all([
+      fetchAniListMangaEntries(accessToken),
+      fetchAniListAnimeEntries(accessToken),
+    ]);
+    return [...manga, ...anime];
+  }
+  
+  return fetchMalMangaEntries(accessToken);
 }
 
 export async function verifyProviderAccessToken(provider: ProviderId, accessToken: string): Promise<ProviderIdentity> {

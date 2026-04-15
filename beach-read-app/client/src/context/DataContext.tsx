@@ -66,7 +66,7 @@ function deriveStatus(status: string | undefined, progress?: number | null, tota
 }
 
 function normalizeLibraryItem(item: Partial<LibraryItem> & { id: string }): LibraryItem {
-  const mediaType = item.mediaType || 'MANGA';
+  const mediaType = (item.mediaType || (item as any).type || 'MANGA') as MediaType;
   const chapters = item.chapters ?? null;
   const episodes = item.episodes ?? null;
   const volumes = item.volumes ?? null;
@@ -184,14 +184,22 @@ function getFallbackRowStatus(row: Record<string, unknown>): string | undefined 
 function mapRowToLibraryItem(row: any): LibraryItem {
   const title = row.titles || row.title || {};
   const mediaType = (title.media_type || row.media_type || 'MANGA') as MediaType;
-  const chapters = typeof title.total_chapters === 'number' ? title.total_chapters : null;
+  const chapters = typeof title.total_chapters === 'number' 
+    ? title.total_chapters 
+    : typeof title.chapter_count === 'number'
+      ? title.chapter_count
+      : null;
   const episodes = typeof title.total_episodes === 'number' ? title.total_episodes : null;
-  const progress = row.progress || 0;
+  const progress = typeof row.progress === 'number' 
+    ? row.progress 
+    : typeof row.progress_chapters === 'number'
+      ? row.progress_chapters
+      : 0;
   return {
-    id: String(title.external_id),
+    id: String(title.external_id || row.series_id || row.anilist_media_id || row.id),
     dbId: row.id,
-    seriesId: title.external_id ? parseInt(title.external_id) : undefined,
-    title: title.title_romaji || title.title_english || 'Unknown Series',
+    seriesId: title.external_id ? parseInt(title.external_id) : (row.series_id || row.anilist_media_id),
+    title: title.title_romaji || title.title_english || row.title || 'Unknown Series',
     status: row.status,
     progress,
     progressVolumes: 0,
@@ -233,16 +241,22 @@ function mapLegacyRowToLibraryItem(row: Record<string, unknown>): LibraryItem {
       : [];
   const commentsRaw = Array.isArray(rawMedia.comments) ? rawMedia.comments : [];
   
-  const mediaType = (row.media_type || rawMedia.type || 'MANGA') as MediaType;
+  // Prefer AniList raw data for type as it's more reliable for legacy entries
+  const mediaType = (rawMedia.type || row.media_type || 'MANGA') as MediaType;
 
   const chapters =
     typeof rawMedia.chapters === 'number'
       ? rawMedia.chapters
-      : typeof row.progress_total === 'number'
+      : typeof row.progress_total === 'number' && mediaType === 'MANGA'
         ? row.progress_total
         : null;
         
-  const episodes = typeof rawMedia.episodes === 'number' ? rawMedia.episodes : null;
+  const episodes = 
+    typeof rawMedia.episodes === 'number' 
+      ? rawMedia.episodes 
+      : typeof row.progress_total === 'number' && mediaType === 'ANIME'
+        ? row.progress_total
+        : null;
 
   return normalizeLibraryItem({
     id: String(seriesId),
@@ -295,6 +309,7 @@ async function loadLegacyLibrary(userId: string): Promise<LibraryItem[]> {
       completed_at,
       updated_at,
       genres,
+      media_type,
       raw_media,
       raw_list_entry,
       is_favourite,
@@ -504,7 +519,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
               title_english,
               cover_url,
               total_chapters,
-              genres
+              total_episodes,
+              genres,
+              media_type
             )
           `)
           .eq('user_id', user.id)
@@ -573,8 +590,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
             genres: optimistic.genres,
             media_type: optimistic.mediaType,
             total_chapters: optimistic.chapters,
+            chapter_count: optimistic.chapters,
             total_episodes: optimistic.episodes,
             total_volumes: optimistic.volumes,
+            volume_count: optimistic.volumes,
             format: optimistic.format,
           }, { onConflict: 'external_provider,external_id' })
           .select('id')
@@ -591,6 +610,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
               status: toDbStatus(optimistic.status),
               score: optimistic.score,
               progress: optimistic.progress,
+              progress_chapters: optimistic.progress,
               started_at: optimistic.startedAt || null,
               completed_at: optimistic.completedAt || null,
             },
@@ -659,6 +679,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             status: toDbStatus(derivedStatus) as any, // Cast to any to avoid enum type issues in TS
             score: merged.score ?? 0,
             progress: merged.progress ?? 0,
+            progress_chapters: merged.progress ?? 0,
             started_at: merged.startedAt ?? null,
             completed_at: merged.completedAt ?? null,
             updated_at: new Date().toISOString(),

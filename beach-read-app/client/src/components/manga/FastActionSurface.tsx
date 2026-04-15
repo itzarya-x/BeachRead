@@ -50,7 +50,7 @@ export function FastActionSurface({ id, title, coverUrl, genres, mediaType = 'MA
 
     const handleStart = () => handleAction(async () => {
         if (!isInLibrary) {
-            await addToLibrary({ id, title, coverUrl, genres, status: 'READING', progress: 0 });
+            await addToLibrary({ id, title, coverUrl, genres, mediaType, status: 'READING', progress: 0 });
         } else {
             await updateLibraryItem(id, { status: 'READING' });
         }
@@ -131,7 +131,7 @@ export function FastActionSurface({ id, title, coverUrl, genres, mediaType = 'MA
 
             {!isInLibrary ? (
                 <button 
-                    onClick={() => handleAction(async () => { await addToLibrary({ id, title, coverUrl, genres }); })}
+                    onClick={() => handleAction(async () => { await addToLibrary({ id, title, coverUrl, genres, mediaType }); })}
                     disabled={loading}
                     className="w-full h-10 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-xl border border-white/10 transition-all active:scale-95 flex items-center justify-center gap-2"
                 >

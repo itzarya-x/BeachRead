@@ -49,7 +49,7 @@ export function MangaCard({ id, title, coverUrl, genres, mediaType = 'MANGA' }: 
             if (isInLibrary) {
                 await removeFromLibrary(id);
             } else {
-                await addToLibrary({ id, title, coverUrl, genres });
+                await addToLibrary({ id, title, coverUrl, genres, mediaType });
             }
         } finally {
             setActionLoading(false);

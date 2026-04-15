@@ -16,6 +16,7 @@ const SearchResults: React.FC = () => {
     const [status, setStatus] = useState<string | null>(null);
     const [format, setFormat] = useState<string | null>(null);
     const [year, setYear] = useState<string | null>(null);
+    const [mediaType, setMediaType] = useState<string | null>(null);
 
     const { results, loading, error, search, pageInfo } = useSearch();
 
@@ -24,9 +25,10 @@ const SearchResults: React.FC = () => {
             genre: activeGenres,
             status: status || undefined,
             format: format || undefined,
-            year: year || undefined
+            year: year || undefined,
+            type: mediaType || undefined
         });
-    }, [query, page, activeGenres, status, format, year, search]);
+    }, [query, page, activeGenres, status, format, year, mediaType, search]);
 
     useEffect(() => {
         executeSearch();
@@ -44,6 +46,7 @@ const SearchResults: React.FC = () => {
         setStatus(null);
         setFormat(null);
         setYear(null);
+        setMediaType(null);
         setPage(1);
     };
 
@@ -65,13 +68,13 @@ const SearchResults: React.FC = () => {
                         <button 
                             onClick={() => setIsFiltersOpen(true)}
                             className={`flex items-center gap-3 px-6 py-3 border rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                                activeGenres.length > 0 || status || format || year
+                                activeGenres.length > 0 || status || format || year || mediaType
                                 ? 'bg-primary border-primary text-background'
                                 : 'border-border/60 text-foreground hover:bg-foreground/5'
                             }`}
                         >
                             <Filter size={14} />
-                            Filters {(activeGenres.length > 0 || status || format || year) && '• Active'}
+                            Filters {(activeGenres.length > 0 || status || format || year || mediaType) && '• Active'}
                         </button>
                     </div>
                 </div>
@@ -175,6 +178,8 @@ const SearchResults: React.FC = () => {
                 setFormat={(f) => { setFormat(f); setPage(1); }}
                 year={year}
                 setYear={(y) => { setYear(y); setPage(1); }}
+                mediaType={mediaType}
+                setMediaType={(t) => { setMediaType(t); setPage(1); }}
                 clearFilters={clearFilters}
             />
         </div>

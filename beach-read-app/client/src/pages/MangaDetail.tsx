@@ -101,6 +101,7 @@ export default function MediaDetailView() {
                 title: manga.title,
                 coverUrl: manga.coverUrl,
                 genres: manga.genres,
+                mediaType: manga.type,
                 isFavourite: true
             });
         } else {
@@ -126,7 +127,8 @@ export default function MediaDetailView() {
                 id: manga.id,
                 title: manga.title,
                 coverUrl: manga.coverUrl,
-                genres: manga.genres
+                genres: manga.genres,
+                mediaType: manga.type
             });
         }
     };

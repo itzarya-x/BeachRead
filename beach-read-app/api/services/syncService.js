@@ -166,6 +166,7 @@ class SyncService {
           user_id: job.user_id,
           title_id: title.id,
           status: normalizeRemoteStatus(remote.status),
+          progress: remote.progress,
           progress_chapters: remote.progress,
           progress_volumes: remote.progressVolumes || 0,
           score: remote.score,
@@ -183,6 +184,7 @@ class SyncService {
           .from('library_entries')
           .update({
             status: normalizeRemoteStatus(remote.status),
+            progress: remote.progress,
             progress_chapters: remote.progress,
             progress_volumes: remote.progressVolumes || 0,
             score: remote.score,
@@ -284,9 +286,34 @@ class SyncService {
   }
 
   async fetchAniList(token) {
+    // 1. Fetch Viewer to get the username if not known, although we can just use the Viewer query to get the list directly if we use the right structure.
+    // However, MediaListCollection is powerful. Let's get the username first.
+    const viewerResponse = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: `query { Viewer { name } }`
+      }),
+    });
+
+    if (!viewerResponse.ok) {
+      if (viewerResponse.status === 401) throw this.buildError('TOKEN_EXPIRED', 'AniList token expired', false);
+      throw this.buildError('PROVIDER_5XX', 'Failed to fetch AniList viewer', true);
+    }
+
+    const viewerResult = await viewerResponse.json();
+    const userName = viewerResult.data?.Viewer?.name;
+
+    if (!userName) {
+      throw this.buildError('VALIDATION_ERROR', 'Could not identify AniList user', false);
+    }
+
     const query = `
-      query {
-        anime: MediaListCollection(type: ANIME, userName: null) {
+      query ($userName: String) {
+        anime: MediaListCollection(type: ANIME, userName: $userName) {
           lists {
             entries {
               id status progress score(format: POINT_10_DECIMAL) updatedAt
@@ -299,7 +326,7 @@ class SyncService {
             }
           }
         }
-        manga: MediaListCollection(type: MANGA, userName: null) {
+        manga: MediaListCollection(type: MANGA, userName: $userName) {
           lists {
             entries {
               id status progress progressVolumes score(format: POINT_10_DECIMAL) updatedAt
@@ -321,7 +348,7 @@ class SyncService {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, variables: { userName } }),
     });
 
     if (response.status === 401) {
@@ -456,7 +483,9 @@ class SyncService {
       cover_image_url: remote.coverImageUrl,
       banner_image_url: remote.bannerImageUrl,
       chapter_count: remote.chapterCount,
+      total_chapters: remote.chapterCount,
       volume_count: remote.volumeCount,
+      total_volumes: remote.volumeCount,
       total_episodes: remote.episodeCount,
       genres: remote.genres || [],
       source_updated_at: remote.updatedAt || nowIso(),

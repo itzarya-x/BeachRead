@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { publicApiClient } from '../apiClient';
 import { isMissingTableError, MissingSupabaseFeatureError } from '../supabaseSchema';
 import type {
   ExternalMediaMappingRow,
@@ -12,7 +13,7 @@ import type {
 } from './types';
 import { DEFAULT_CONFLICT_MODE, DEFAULT_SYNC_MODE, PROVIDERS } from './constants';
 
-const SYNC_IDENTITIES_TABLE = 'sync_identities';
+const SYNC_IDENTITIES_TABLE = 'sync_connections';
 const SYNC_JOBS_TABLE = 'sync_jobs';
 const TITLES_TABLE = 'titles';
 const LIBRARY_ENTRIES_TABLE = 'library_entries';
@@ -140,7 +141,7 @@ export async function loadSyncState(userId: string): Promise<SyncState> {
   const [{ data: integrationsData, error: integrationsError }, { data: jobsData, error: jobsError }] = await Promise.all([
     client
       .from(SYNC_IDENTITIES_TABLE)
-      .select('provider,access_token,refresh_token,last_synced_at')
+      .select('provider,provider_username,access_token,refresh_token,last_sync_at')
       .eq('user_id', userId),
     client
       .from(SYNC_JOBS_TABLE)
@@ -155,39 +156,45 @@ export async function loadSyncState(userId: string): Promise<SyncState> {
 
   const integrationMap = new Map<ProviderId, IntegrationRow>();
   (integrationsData || []).forEach((row: any) => {
-    integrationMap.set(row.provider, {
-        provider: row.provider,
+    integrationMap.set(row.provider.toLowerCase() as ProviderId, {
+        provider: row.provider.toLowerCase() as ProviderId,
         status: 'connected',
+        username: row.provider_username || '', // Use provider_username
         access_token: row.access_token,
         refresh_token: row.refresh_token,
-        last_sync_at: row.last_synced_at,
+        last_sync_at: row.last_sync_at,
+        sync_mode: row.sync_mode || 'manual',
+        conflict_mode: row.conflict_mode || 'newest_wins',
     } as any);
   });
 
   return {
-    integrations: PROVIDERS.map((provider) => integrationMap.get(provider.id.toUpperCase() as any) || defaultIntegration(provider.id)),
+    integrations: PROVIDERS.map((provider) => integrationMap.get(provider.id as any) || defaultIntegration(provider.id)),
     jobs: (jobsData || []).map(j => ({
         id: j.id,
         provider: j.provider.toLowerCase(),
-        direction: j.type === 'FULL' ? 'import' : 'pull',
+        direction: j.type, // Map 'type' to 'direction'
         status: j.status.toLowerCase(),
         created_at: j.created_at
     })) as any,
   };
 }
 
-export async function saveIntegration(userId: string, provider: ProviderId, draft: SyncDraft) {
-  const client = ensureClient();
-  const { error } = await client.from(SYNC_IDENTITIES_TABLE).upsert({
-    user_id: userId,
-    provider: provider.toUpperCase() as any,
-    provider_account_id: draft.username.trim(),
-    access_token: draft.accessToken.trim() || null,
-    refresh_token: draft.refreshToken || null,
-    last_synced_at: new Date().toISOString(),
-  }, { onConflict: 'user_id,provider' });
-
-  if (error) rethrowSchemaError(error);
+export async function saveIntegration(userId: string, provider: ProviderId, draft: SyncDraft & { id: string }) {
+  if (!draft.id) {
+    throw new Error(`Cannot connect to ${provider}: Provider user ID is missing.`);
+  }
+  // Save via backend to ensure sync_connections table is populated correctly
+  await publicApiClient.post(`/sync/${provider}/connect`, {
+    providerUserId: String(draft.id).trim(),
+    providerUsername: draft.username.trim(),
+    accessToken: draft.accessToken.trim(),
+    refreshToken: draft.refreshToken,
+    tokenExpiresAt: draft.tokenExpiresAt,
+    syncMode: draft.syncMode === 'bidirectional' ? 'BIDIRECTIONAL' : 'IMPORT_ONLY',
+    defaultConflictPolicy: draft.conflictMode === 'local_wins' ? 'LOCAL_WINS' : 
+                           draft.conflictMode === 'provider_wins' ? 'REMOTE_WINS' : 'ASK'
+  });
 }
 
 export async function disconnectIntegration(userId: string, provider: ProviderId) {
@@ -196,23 +203,23 @@ export async function disconnectIntegration(userId: string, provider: ProviderId
     .from(SYNC_IDENTITIES_TABLE)
     .delete()
     .eq('user_id', userId)
-    .eq('provider', provider.toUpperCase());
+    .eq('provider', provider.toLowerCase());
 
   if (error) rethrowSchemaError(error);
 }
 
-export async function createSyncJob(userId: string, provider: ProviderId, direction: SyncDirection, _syncMode: SyncMode) {
+export async function createSyncJob(userId: string, provider: ProviderId, direction: SyncDirection, syncMode: SyncMode) {
   const client = ensureClient();
   const { data, error } = await client
     .from(SYNC_JOBS_TABLE)
     .insert({
       user_id: userId,
-      provider: provider.toUpperCase() as any,
-      type: direction === 'import' ? 'FULL' : 'INCREMENTAL',
-      status: 'QUEUED',
-      started_at: new Date().toISOString(),
+      provider: provider.toLowerCase() as any,
+      direction: direction,
+      sync_mode: syncMode,
+      status: 'pending',
     })
-    .select('id,provider,type,status,created_at')
+    .select('id,provider,direction,status,created_at')
     .single();
 
   if (error) rethrowSchemaError(error);
@@ -221,7 +228,7 @@ export async function createSyncJob(userId: string, provider: ProviderId, direct
   return {
       id: data.id,
       provider: data.provider.toLowerCase(),
-      direction: data.type === 'FULL' ? 'import' : 'pull',
+      direction: data.direction,
       status: data.status.toLowerCase(),
       created_at: data.created_at
   } as any;
@@ -232,24 +239,26 @@ export async function finalizeSyncJob(jobId: string, patch: Record<string, unkno
   const { error } = await client
     .from(SYNC_JOBS_TABLE)
     .update({
-        status: patch.status === 'completed' ? 'COMPLETED' : 'FAILED',
-        completed_at: new Date().toISOString(),
-        error_log: patch.error_message as string || null
+        status: patch.status === 'completed' ? 'completed' : 'failed',
+        error_message: patch.error_message as string || null
     })
     .eq('id', jobId);
 
   if (error) rethrowSchemaError(error);
 }
 
-export async function touchIntegration(userId: string, provider: ProviderId, _patch: Partial<IntegrationRow>) {
+export async function touchIntegration(userId: string, provider: ProviderId, patch: Partial<IntegrationRow>) {
   const client = ensureClient();
   const { error } = await client
     .from(SYNC_IDENTITIES_TABLE)
     .update({
-        last_synced_at: new Date().toISOString()
+        last_sync_at: patch.last_sync_at || new Date().toISOString(),
+        last_pull_at: patch.last_pull_at,
+        last_push_at: patch.last_push_at,
+        last_error: patch.last_error
     })
     .eq('user_id', userId)
-    .eq('provider', provider.toUpperCase());
+    .eq('provider', provider.toLowerCase());
 
   if (error) rethrowSchemaError(error);
 }
@@ -267,32 +276,73 @@ export async function loadLocalMediaRows(userId: string): Promise<LocalMediaRow[
         completed_at,
         updated_at,
         titles (
-            external_id,
+            id,
             title_romaji,
             cover_url,
-            genres,
-            total_chapters
+            total_chapters,
+            mappings:sync_identities (
+                provider,
+                provider_account_id
+            )
         )
     `)
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+      // Fallback for different schema versions
+      const { data: fallbackData, error: fallbackError } = await client
+        .from(LIBRARY_ENTRIES_TABLE)
+        .select(`
+            user_id,
+            status,
+            score,
+            progress:progress_chapters,
+            started_at,
+            completed_at,
+            updated_at,
+            titles (
+                id,
+                title_romaji,
+                cover_image_url,
+                chapter_count,
+                mappings:title_provider_mappings (
+                    provider,
+                    provider_title_id
+                )
+            )
+        `)
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+        
+      if (fallbackError) throw fallbackError;
+      return processRows(fallbackData);
+  }
   
-  return (data || []).map(row => ({
-      user_id: row.user_id,
-      series_id: parseInt((row.titles as any).external_id),
-      status: row.status,
-      score: row.score,
-      progress: row.progress,
-      updated_at: row.updated_at,
-      raw_media: {
-          title: (row.titles as any).title_romaji,
-          coverUrl: (row.titles as any).cover_url,
-          genres: (row.titles as any).genres,
-          chapters: (row.titles as any).total_chapters
-      }
-  })) as any;
+  return processRows(data);
+}
+
+function processRows(data: any[] | null): LocalMediaRow[] {
+    return (data || []).map(row => {
+        const titles = row.titles as any;
+        const mappings = titles?.mappings || [];
+        const anilistMapping = mappings.find((m: any) => m.provider === 'ANILIST');
+        
+        return {
+            user_id: row.user_id,
+            series_id: anilistMapping ? parseInt(anilistMapping.provider_title_id || anilistMapping.provider_account_id) : 0,
+            status: row.status,
+            score: row.score,
+            progress: row.progress,
+            updated_at: row.updated_at,
+            raw_media: {
+                title: titles?.title_romaji,
+                coverUrl: titles?.cover_url || titles?.cover_image_url,
+                genres: [], // Omit to avoid schema errors
+                chapters: titles?.total_chapters || titles?.chapter_count
+            }
+        };
+    }) as any;
 }
 
 export async function upsertLocalMediaRows(rows: Record<string, unknown>[]) {
@@ -305,19 +355,26 @@ export async function upsertLocalMediaRows(rows: Record<string, unknown>[]) {
       const { data: title } = await client
         .from(TITLES_TABLE)
         .upsert({
-            external_provider: 'ANILIST',
-            external_id: String(row.series_id),
+            canonical_slug: String(row.series_id), // Fallback slug
+            primary_title: (row.raw_media as any)?.title || 'Unknown Title',
             title_romaji: (row.raw_media as any)?.title
-        }, { onConflict: 'external_provider,external_id' })
+        }, { onConflict: 'canonical_slug' })
         .select('id')
         .single();
 
       if (title) {
+          // Create mapping first
+          await client.from('title_provider_mappings').upsert({
+              title_id: title.id,
+              provider: 'ANILIST',
+              provider_title_id: String(row.series_id)
+          }, { onConflict: 'provider,provider_title_id' });
+
           await client.from(LIBRARY_ENTRIES_TABLE).upsert({
               user_id: row.user_id,
               title_id: title.id,
               status: row.status,
-              progress: row.progress,
+              progress_chapters: row.progress,
               score: row.score,
               updated_at: new Date().toISOString()
           }, { onConflict: 'user_id,title_id' });

@@ -47,7 +47,7 @@ const Collections: React.FC = () => {
     const heartsSaved = library.filter(l => l.isFavourite).length;
 
     return (
-        <div className="flex w-full flex-col items-center bg-background min-h-screen pt-[120px] pb-[110px]">
+        <div className="flex w-full flex-col items-center bg-background min-h-screen pb-[110px]">
             <div className="w-full max-w-[1280px] px-[28px]">
                 
                 {/* Header Section */}

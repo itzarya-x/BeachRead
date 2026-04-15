@@ -74,14 +74,15 @@ function AppContent() {
           <Route path="/search" element={<SearchResults />} />
           <Route path="/u/:username" element={<PublicProfile />} />
           
-          {/* Protected Routes */}
+          {/* Protected Routes - Redirections to Profile for consolidation */}
+          <Route path="/library" element={<Navigate to="/profile?tab=manga" replace />} />
+          <Route path="/stats" element={<Navigate to="/profile?tab=stats" replace />} />
+          <Route path="/analytics" element={<Navigate to="/profile?tab=stats" replace />} />
+          <Route path="/notifications" element={<Navigate to="/profile?tab=notifications" replace />} />
+          <Route path="/collections" element={<Navigate to="/profile?tab=favorites" replace />} />
+
           <Route path="/settings" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
-          <Route path="/library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfileRedirect /></ProtectedRoute>} />
-          <Route path="/stats" element={<Navigate to="/analytics" replace />} />
-          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="/collections" element={<ProtectedRoute><Collections /></ProtectedRoute>} />
 
           {/* Fallback */}
           <Route path="*" element={<NotFound />} />

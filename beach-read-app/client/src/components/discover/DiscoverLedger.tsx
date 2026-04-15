@@ -48,7 +48,8 @@ export function DiscoverLedger({ mangaList, loading }: DiscoverLedgerProps) {
                 id: manga.id,
                 title: manga.title,
                 coverUrl: manga.coverUrl,
-                genres: manga.genres
+                genres: manga.genres,
+                mediaType: manga.mediaType
             });
         }
     };

@@ -35,6 +35,7 @@ export default function Discover() {
     const initialStatus = parseOptionalParam(searchParams.get('status'));
     const initialFormat = parseOptionalParam(searchParams.get('format'));
     const initialYear = parseOptionalParam(searchParams.get('year'));
+    const initialMediaType = parseOptionalParam(searchParams.get('type'));
     const initialSort = parseOptionalParam(searchParams.get('sort')) || 'TRENDING_DESC';
 
     const [search, setSearch] = useState(initialSearch);
@@ -44,7 +45,7 @@ export default function Discover() {
     const [activeGenres, setActiveGenres] = useState<string[]>(initialGenres);
     const [status, setStatus] = useState<string | null>(initialStatus);
     const [format, setFormat] = useState<string | null>(initialFormat);
-    const [mediaType, setMediaType] = useState<string | null>(searchParams.get('type'));
+    const [mediaType, setMediaType] = useState<string | null>(initialMediaType);
     const [year, setYear] = useState<string | null>(initialYear);
     const [sortBy, setSortBy] = useState(initialSort);
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -120,7 +121,11 @@ export default function Discover() {
                     publicApiClient.get<any>(`/search?sort=SCORE_DESC&page=1&perPage=50`)
                 ]);
 
-                const sanitize = (list: any[]) => (list || []).map(item => ({ ...item, coverUrl: sanitizeCoverUrl(item.coverUrl) }));
+                const sanitize = (list: any[]) => (list || []).map(item => ({ 
+                    ...item, 
+                    mediaType: item.mediaType || item.type,
+                    coverUrl: sanitizeCoverUrl(item.coverUrl) 
+                }));
                 setHubTrending(sanitize(trendingRes.results));
                 setHubPopular(sanitize(popularRes.results));
                 setHubHighestRated(sanitize(ratedRes.results));
@@ -143,16 +148,25 @@ export default function Discover() {
 
     // Keep URL query parameters aligned with Discover filter state.
     useEffect(() => {
-        const next = new URLSearchParams();
+        const next = new URLSearchParams(searchParams);
         const normalizedSearch = search.trim();
 
-        if (normalizedSearch) next.set('q', normalizedSearch);
-        if (activeGenres.length > 0) next.set('genres', activeGenres.join(','));
-        if (status) next.set('status', status);
-        if (format) next.set('format', format);
-        if (mediaType) next.set('type', mediaType);
-        if (year) next.set('year', year);
-        if (sortBy) next.set('sort', sortBy);
+        const updateParam = (key: string, value: string | null | string[]) => {
+            const nextVal = Array.isArray(value) ? (value.length > 0 ? value.join(',') : null) : value;
+            if (nextVal) {
+                if (next.get(key) !== nextVal) next.set(key, nextVal);
+            } else {
+                if (next.has(key)) next.delete(key);
+            }
+        };
+
+        updateParam('q', normalizedSearch);
+        updateParam('genres', activeGenres);
+        updateParam('status', status);
+        updateParam('format', format);
+        updateParam('type', mediaType);
+        updateParam('year', year);
+        updateParam('sort', sortBy);
 
         const current = searchParams.toString();
         const upcoming = next.toString();
@@ -196,7 +210,7 @@ export default function Discover() {
             setPage(1);
             setMangaList([]);
         }
-    }, [searchParams, search, debouncedSearch, activeGenres, status, format, mediaType, year, sortBy]);
+    }, [searchParams]);
 
     // 2. Fetch Filtered Data
     useEffect(() => {
@@ -224,7 +238,11 @@ export default function Discover() {
             params.append('page', page.toString());
 
             const data = await publicApiClient.get<any>(`/search?${params.toString()}`);
-            const sanitizedResults = (data.results || []).map((item: MangaResult) => ({ ...item, coverUrl: sanitizeCoverUrl(item.coverUrl) }));
+            const sanitizedResults = (data.results || []).map((item: MangaResult) => ({ 
+                ...item, 
+                mediaType: item.mediaType || (item as any).type,
+                coverUrl: sanitizeCoverUrl(item.coverUrl) 
+            }));
 
             if (isLoadMore) {
                 setMangaList(prev => [...prev, ...sanitizedResults]);
@@ -242,14 +260,14 @@ export default function Discover() {
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, activeGenres, sortBy, status, format, year, page, isFiltering]);
+    }, [debouncedSearch, activeGenres, sortBy, status, format, mediaType, year, page, isFiltering]);
 
     useEffect(() => {
         // If sorting or filtering changed (and it's page 1), fetch and replace
         if (page === 1) {
             fetchManga(false);
         }
-    }, [debouncedSearch, activeGenres, sortBy, status, format, year, fetchManga]);
+    }, [debouncedSearch, activeGenres, sortBy, status, format, mediaType, year, fetchManga]);
 
     useEffect(() => {
         // If simply paginating forward, fetch and append
@@ -275,6 +293,15 @@ export default function Discover() {
 
     const handleYearChange = (value: string | null) => {
         setYear(value);
+        setPage(1);
+    };
+
+    const handleMediaTypeChange = (value: string | null) => {
+        setMediaType(value);
+        // If switching to Anime, clear format since our formats are currently Manga-centric
+        if (value === 'ANIME') {
+            setFormat(null);
+        }
         setPage(1);
     };
 
@@ -311,7 +338,7 @@ export default function Discover() {
                 format={format}
                 setFormat={handleFormatChange}
                 mediaType={mediaType}
-                setMediaType={setMediaType}
+                setMediaType={handleMediaTypeChange}
                 year={year}
                 setYear={handleYearChange}
                 clearFilters={clearFilters}
