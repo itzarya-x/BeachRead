@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/auth-context';
+import { useAuth } from '../features/auth/context/auth-context';
 import { Mail, Lock, Loader2, AlertCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
-import heroImage from '../assets/hero.png';
+import heroImage from "../shared/assets/hero.png";
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -79,7 +79,7 @@ export default function Login() {
 
             {/* Right Side: Form */}
             <div className="flex-1 flex items-center justify-center relative z-10 p-6">
-                <div className="w-full max-w-[440px] bg-background/40 backdrop-blur-2xl border border-white/10 p-10 md:p-12 rounded-[48px] shadow-2xl relative">
+                <div className="w-full max-w-[440px] bg-background/40 backdrop-blur-2xl border border-white/10 p-10 md:p-12 rounded-3xl shadow-2xl relative">
                     <Link to="/" className="absolute top-8 left-8 p-2 hover:bg-white/5 rounded-full transition-colors text-muted-foreground hover:text-foreground">
                         <ArrowLeft size={20} />
                     </Link>

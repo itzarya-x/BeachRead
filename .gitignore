@@ -6,3 +6,5 @@ dist/
 build/
 .gemini/
 .cache/
+
+gha-creds-*.json

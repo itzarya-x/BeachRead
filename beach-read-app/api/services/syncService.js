@@ -31,8 +31,17 @@ function normalizeRemoteStatus(rawStatus) {
     DROPPED: 'DROPPED',
     PLAN_TO_READ: 'PLANNING',
     PLANNING: 'PLANNING',
+    REPEATING: 'READING',
   };
   return map[value] || 'PLANNING';
+}
+
+function remoteProgress(remote) {
+  return Number(remote?.progress ?? remote?.progressChapters ?? 0);
+}
+
+function remoteProgressVolumes(remote) {
+  return Number(remote?.progressVolumes ?? 0);
 }
 
 class SyncService {
@@ -156,6 +165,9 @@ class SyncService {
 
     for (const remote of remoteEntries) {
       const title = await this.ensureTitle(remote, job.provider);
+      if (!title) continue;
+
+      console.log(`[SyncService] processing entry for title: ${title.primary_title} (${title.id})`);
       const localEntry = await this.findLocalEntry(job.user_id, title.id);
       const previousSnapshot = await this.findProviderSnapshot(job.user_id, job.provider, title.id);
 
@@ -166,10 +178,10 @@ class SyncService {
           user_id: job.user_id,
           title_id: title.id,
           status: normalizeRemoteStatus(remote.status),
-          progress: remote.progress,
-          progress_chapters: remote.progress,
-          progress_volumes: remote.progressVolumes || 0,
+          progress_chapters: remoteProgress(remote),
+          progress_volumes: remoteProgressVolumes(remote),
           score: remote.score,
+          is_favorite: !!remote.isFavorite,
           last_mutation_source: 'SYNC_PULL',
           started_at: remote.startedAt || null,
           completed_at: normalizeRemoteStatus(remote.status) === 'COMPLETED' ? (remote.completedAt || nowIso()) : null,
@@ -179,26 +191,52 @@ class SyncService {
         continue;
       }
 
-      if (!this.hasConflict(localEntry, remote, previousSnapshot, importMode)) {
-        await supabaseAdmin
-          .from('library_entries')
-          .update({
-            status: normalizeRemoteStatus(remote.status),
-            progress: remote.progress,
-            progress_chapters: remote.progress,
-            progress_volumes: remote.progressVolumes || 0,
-            score: remote.score,
-            last_mutation_source: 'SYNC_PULL',
-            completed_at: normalizeRemoteStatus(remote.status) === 'COMPLETED' ? (remote.completedAt || localEntry.completed_at || nowIso()) : null,
-            last_read_at: remote.updatedAt || localEntry.last_read_at || nowIso(),
-            entry_version: Number(localEntry.entry_version) + 1,
-            updated_at: nowIso(),
-          })
-          .eq('id', localEntry.id);
+      const change = this.calculateChange(localEntry, remote, previousSnapshot, importMode);
+
+      if (!change.hasConflict) {
+        if (change.remoteChanged) {
+          console.log(`[SyncService] updating local entry for ${title.primary_title} from remote change`);
+          await this.updateLocalEntry(localEntry.id, remote);
+          imported += 1;
+        } else {
+          console.log(`[SyncService] no remote change for ${title.primary_title}, skipping local update`);
+        }
+        continue;
+      }
+
+      // Handle Automatic Conflict Resolution Policies
+      const policy = job.connection?.default_conflict_policy || 'ASK';
+
+      if (policy === 'LOCAL_WINS') {
+        console.log(`[SyncService] resolving conflict for ${title.primary_title}: LOCAL_WINS`);
+        // Just update the snapshot so we don't keep seeing this as a new change from provider
+        await this.upsertProviderSnapshot(job.user_id, job.provider, title.id, remote);
         imported += 1;
         continue;
       }
 
+      if (policy === 'REMOTE_WINS') {
+        console.log(`[SyncService] resolving conflict for ${title.primary_title}: REMOTE_WINS`);
+        await this.updateLocalEntry(localEntry.id, remote);
+        imported += 1;
+        continue;
+      }
+
+      if (policy === 'LATEST_WRITE_WINS') {
+        const remoteUpdate = new Date(remote.updatedAt || 0).getTime();
+        const localUpdate = new Date(localEntry.updated_at || 0).getTime();
+
+        if (remoteUpdate > localUpdate) {
+          console.log(`[SyncService] resolving conflict for ${title.primary_title}: REMOTE is newer`);
+          await this.updateLocalEntry(localEntry.id, remote);
+        } else {
+          console.log(`[SyncService] resolving conflict for ${title.primary_title}: LOCAL is newer`);
+        }
+        imported += 1;
+        continue;
+      }
+
+      // Default: Create a conflict record for manual resolution
       await this.createConflict(job, localEntry, title, remote);
       conflicts += 1;
     }
@@ -313,6 +351,12 @@ class SyncService {
 
     const query = `
       query ($userName: String) {
+        User(name: $userName) {
+          favourites {
+            anime { nodes { id } }
+            manga { nodes { id } }
+          }
+        }
         anime: MediaListCollection(type: ANIME, userName: $userName) {
           lists {
             entries {
@@ -366,30 +410,41 @@ class SyncService {
       throw this.buildError('VALIDATION_ERROR', result.errors[0].message || 'AniList returned errors', false);
     }
 
+    const favoritesSet = new Set();
+    const favs = result.data?.User?.favourites;
+    if (favs) {
+      favs.anime?.nodes?.forEach(node => favoritesSet.add(String(node.id)));
+      favs.manga?.nodes?.forEach(node => favoritesSet.add(String(node.id)));
+    }
+
     const entries = [];
-    
+
     // Process Anime
     for (const list of result.data?.anime?.lists || []) {
       for (const entry of list.entries || []) {
-        entries.push(this.normalizeAniListEntry(entry, 'ANIME'));
+        entries.push(this.normalizeAniListEntry(entry, 'ANIME', favoritesSet));
       }
     }
 
     // Process Manga
     for (const list of result.data?.manga?.lists || []) {
       for (const entry of list.entries || []) {
-        entries.push(this.normalizeAniListEntry(entry, 'MANGA'));
+        entries.push(this.normalizeAniListEntry(entry, 'MANGA', favoritesSet));
       }
     }
-    
+
     return entries;
   }
 
-  normalizeAniListEntry(entry, mediaType) {
+  normalizeAniListEntry(entry, mediaType, favoritesSet = new Set()) {
+    const format = entry.media.format;
+    const resolvedMediaType = (format === 'NOVEL' && mediaType === 'MANGA') ? 'NOVEL' : mediaType;
+    const providerTitleId = String(entry.media.id);
+
     return {
       providerEntryId: String(entry.id),
-      providerTitleId: String(entry.media.id),
-      mediaType,
+      providerTitleId,
+      mediaType: resolvedMediaType,
       title: entry.media.title,
       primaryTitle: entry.media.title.romaji || entry.media.title.english || entry.media.title.native,
       coverImageUrl: entry.media.coverImage?.extraLarge || null,
@@ -399,12 +454,13 @@ class SyncService {
       volumeCount: entry.media.volumes ?? null,
       episodeCount: entry.media.episodes ?? null,
       publishingStatus: entry.media.status || 'RELEASING',
-      format: entry.media.format || (mediaType === 'ANIME' ? 'TV' : 'MANGA'),
+      format: format || (mediaType === 'ANIME' ? 'TV' : 'MANGA'),
       genres: entry.media.genres || [],
       status: entry.status,
       progress: Number(entry.progress || 0),
       progressVolumes: Number(entry.progressVolumes || 0),
       score: entry.score ?? null,
+      isFavorite: favoritesSet.has(providerTitleId),
       updatedAt: entry.updatedAt ? new Date(Number(entry.updatedAt) * 1000).toISOString() : nowIso(),
       startedAt: this.normalizeAniListDate(entry.startedAt),
       completedAt: this.normalizeAniListDate(entry.completedAt),
@@ -469,28 +525,26 @@ class SyncService {
   }
 
   async ensureTitle(remote, provider) {
-    const slug = slugify(remote.primaryTitle);
-    const baseTitle = {
-      canonical_slug: slug,
+    console.log(`[SyncService] ensuring title: ${remote.primaryTitle} (${remote.providerTitleId})`);
+
+    // Prepare base data (without slug for now)
+    const baseTitleData = {
       primary_title: remote.primaryTitle,
       title_romaji: remote.title.romaji || null,
       title_english: remote.title.english || null,
       title_native: remote.title.native || null,
       media_type: remote.mediaType || 'MANGA',
-      format: remote.format || (remote.mediaType === 'ANIME' ? 'TV' : 'MANGA'),
+      format: remote.format || (remote.mediaType === 'ANIME' ? 'TV' : remote.mediaType === 'NOVEL' ? 'NOVEL' : 'MANGA'),
       publishing_status: String(remote.publishingStatus || 'RELEASING').toUpperCase(),
       description: remote.description,
       cover_image_url: remote.coverImageUrl,
       banner_image_url: remote.bannerImageUrl,
       chapter_count: remote.chapterCount,
-      total_chapters: remote.chapterCount,
       volume_count: remote.volumeCount,
-      total_volumes: remote.volumeCount,
       total_episodes: remote.episodeCount,
       genres: remote.genres || [],
       source_updated_at: remote.updatedAt || nowIso(),
     };
-
 
     let title;
     const { data: existingByMapping } = await supabaseAdmin
@@ -501,11 +555,12 @@ class SyncService {
       .maybeSingle();
 
     if (existingByMapping?.title_id) {
+      // 1. Found by mapping - Update existing title. 
+      // DO NOT update canonical_slug here to avoid collisions with other titles.
       const { data, error } = await supabaseAdmin
         .from('titles')
         .update({
-          ...baseTitle,
-          metadata_version: 1,
+          ...baseTitleData,
           updated_at: nowIso(),
         })
         .eq('id', existingByMapping.title_id)
@@ -515,14 +570,77 @@ class SyncService {
       if (error) throw error;
       title = data;
     } else {
-      const { data, error } = await supabaseAdmin
-        .from('titles')
-        .upsert(baseTitle, { onConflict: 'canonical_slug' })
-        .select('*')
-        .single();
+      // 2. Not mapped - Find a unique slug or claim an unmapped title
+      const baseSlug = slugify(remote.primaryTitle);
+      let currentSlug = baseSlug;
+      let suffix = 1;
+      let foundTitleId = null;
 
-      if (error) throw error;
-      title = data;
+      while (true) {
+        const { data: existingBySlug } = await supabaseAdmin
+          .from('titles')
+          .select('id')
+          .eq('canonical_slug', currentSlug)
+          .maybeSingle();
+
+        if (!existingBySlug) {
+          // Slug is free!
+          break;
+        }
+
+        // Slug exists. Is it already mapped for THIS provider?
+        const { data: mappingForThisSlug } = await supabaseAdmin
+          .from('title_provider_mappings')
+          .select('provider_title_id')
+          .eq('title_id', existingBySlug.id)
+          .eq('provider', provider)
+          .maybeSingle();
+
+        if (!mappingForThisSlug) {
+          // Title exists but is NOT mapped for this provider. We can claim it.
+          foundTitleId = existingBySlug.id;
+          break;
+        }
+
+        if (mappingForThisSlug.provider_title_id === remote.providerTitleId) {
+          // It's already our title (unlikely if existingByMapping was null, but safe)
+          foundTitleId = existingBySlug.id;
+          break;
+        }
+
+        // Collision! This slug title is "owned" by another ID for this provider.
+        suffix += 1;
+        currentSlug = `${slug}-${suffix}`;
+        console.log(`[SyncService] slug collision for ${remote.primaryTitle}, trying: ${currentSlug}`);
+      }
+
+      if (foundTitleId) {
+        // Update the title we found/claimed
+        const { data, error } = await supabaseAdmin
+          .from('titles')
+          .update({
+            ...baseTitleData,
+            canonical_slug: currentSlug,
+            updated_at: nowIso(),
+          })
+          .eq('id', foundTitleId)
+          .select('*')
+          .single();
+        if (error) throw error;
+        title = data;
+      } else {
+        // Insert new title with unique slug
+        const { data, error } = await supabaseAdmin
+          .from('titles')
+          .insert({
+            ...baseTitleData,
+            canonical_slug: currentSlug,
+          })
+          .select('*')
+          .single();
+        if (error) throw error;
+        title = data;
+      }
     }
 
     const { error: mappingError } = await supabaseAdmin
@@ -535,7 +653,14 @@ class SyncService {
         last_seen_at: nowIso(),
       }, { onConflict: 'provider,provider_title_id' });
 
-    if (mappingError) throw mappingError;
+    if (mappingError) {
+      if (mappingError.code === '23505') {
+        // This title_id is already taken by another ID for this provider.
+        // This shouldn't happen with our while loop, but if it does, it's a critical logic failure.
+        console.error(`[SyncService] COLLISION ABORT: ${remote.primaryTitle} (${remote.providerTitleId}) tried to map to ${title.id} which is taken.`);
+      }
+      throw mappingError;
+    }
 
     return title;
   }
@@ -548,6 +673,32 @@ class SyncService {
       .eq('title_id', titleId)
       .maybeSingle();
     return data;
+  }
+
+  async updateLocalEntry(entryId, remote) {
+    const { data: current } = await supabaseAdmin
+      .from('library_entries')
+      .select('entry_version, completed_at, last_read_at')
+      .eq('id', entryId)
+      .single();
+
+    const status = normalizeRemoteStatus(remote.status);
+
+    await supabaseAdmin
+      .from('library_entries')
+      .update({
+        status,
+        progress_chapters: remoteProgress(remote),
+        progress_volumes: remoteProgressVolumes(remote),
+        score: remote.score,
+        is_favorite: !!remote.isFavorite,
+        last_mutation_source: 'SYNC_PULL',
+        completed_at: status === 'COMPLETED' ? (remote.completedAt || current?.completed_at || nowIso()) : null,
+        last_read_at: remote.updatedAt || current?.last_read_at || nowIso(),
+        entry_version: Number(current?.entry_version || 0) + 1,
+        updated_at: nowIso(),
+      })
+      .eq('id', entryId);
   }
 
   async findProviderSnapshot(userId, provider, titleId) {
@@ -570,10 +721,11 @@ class SyncService {
         title_id: titleId,
         provider_entry_id: remote.providerEntryId,
         provider_status: normalizeRemoteStatus(remote.status),
-        provider_progress_chapters: remote.progress,
-        provider_progress_volumes: remote.progressVolumes || 0,
+        provider_progress_chapters: remoteProgress(remote),
+        provider_progress_volumes: remoteProgressVolumes(remote),
         provider_score: remote.score,
         provider_updated_at: remote.updatedAt || null,
+        is_favorite: !!remote.isFavorite,
         raw_payload: remote.rawPayload || {},
         snapshot_hash: snapshotHash(remote),
         last_pulled_at: nowIso(),
@@ -582,47 +734,66 @@ class SyncService {
     if (error) throw error;
   }
 
-  hasConflict(localEntry, remote, previousSnapshot, importMode) {
-    if (!localEntry) return false;
-    if (importMode) return true;
-    if (!previousSnapshot) return false;
+  calculateChange(localEntry, remote, previousSnapshot, importMode) {
+    if (!localEntry) return { remoteChanged: true, localChanged: false, hasConflict: false };
 
-    const localChangedSinceSnapshot =
+    // Check for actual differences between local and remote
+    const statusMismatch = normalizeRemoteStatus(localEntry.status) !== normalizeRemoteStatus(remote.status);
+    const progressMismatch = Number(localEntry.progress_chapters || 0) !== remoteProgress(remote);
+    const scoreMismatch = Number(localEntry.score || 0) !== Number(remote.score || 0);
+    const favoriteMismatch = !!localEntry.is_favorite !== !!remote.isFavorite;
+
+    const hasActualDifference = statusMismatch || progressMismatch || scoreMismatch || favoriteMismatch;
+
+    if (importMode) {
+      // During initial import, only conflict if data differs from existing local entry
+      return { remoteChanged: hasActualDifference, localChanged: false, hasConflict: hasActualDifference };
+    }
+
+    if (!previousSnapshot) {
+      // No snapshot yet, assume both might have changed or it's a first-time sync
+      // To be safe, we treat differences as conflicts or just skip auto-update
+      return { remoteChanged: hasActualDifference, localChanged: hasActualDifference, hasConflict: hasActualDifference };
+    }
+
+    const localChanged =
       normalizeRemoteStatus(localEntry.status) !== normalizeRemoteStatus(previousSnapshot.provider_status)
       || Number(localEntry.progress_chapters || 0) !== Number(previousSnapshot.provider_progress_chapters || 0)
       || Number(localEntry.progress_volumes || 0) !== Number(previousSnapshot.provider_progress_volumes || 0)
-      || Number(localEntry.score || 0) !== Number(previousSnapshot.provider_score || 0);
+      || Number(localEntry.score || 0) !== Number(previousSnapshot.provider_score || 0)
+      || !!localEntry.is_favorite !== !!previousSnapshot.is_favorite;
 
-    const remoteChangedSinceSnapshot =
+    const remoteChanged =
       normalizeRemoteStatus(remote.status) !== normalizeRemoteStatus(previousSnapshot.provider_status)
-      || Number(remote.progressChapters || 0) !== Number(previousSnapshot.provider_progress_chapters || 0)
-      || Number(remote.progressVolumes || 0) !== Number(previousSnapshot.provider_progress_volumes || 0)
-      || Number(remote.score || 0) !== Number(previousSnapshot.provider_score || 0);
+      || remoteProgress(remote) !== Number(previousSnapshot.provider_progress_chapters || 0)
+      || remoteProgressVolumes(remote) !== Number(previousSnapshot.provider_progress_volumes || 0)
+      || Number(remote.score || 0) !== Number(previousSnapshot.provider_score || 0)
+      || !!remote.isFavorite !== !!previousSnapshot.is_favorite;
 
-    if (!localChangedSinceSnapshot || !remoteChangedSinceSnapshot) {
-      return false;
-    }
+    // Conflict exists ONLY if both changed AND they are different
+    const hasConflict = localChanged && remoteChanged && hasActualDifference;
 
-    return (
-      normalizeRemoteStatus(localEntry.status) !== normalizeRemoteStatus(remote.status)
-      || Number(localEntry.progress_chapters || 0) !== Number(remote.progressChapters || 0)
-      || Number(localEntry.score || 0) !== Number(remote.score || 0)
-    );
+    return { localChanged, remoteChanged, hasConflict };
   }
 
   async createConflict(job, localEntry, title, remote) {
     const conflictType =
       normalizeRemoteStatus(localEntry.status) !== normalizeRemoteStatus(remote.status)
         ? 'STATUS_MISMATCH'
-        : Number(localEntry.progress_chapters || 0) !== Number(remote.progressChapters || 0)
+        : Number(localEntry.progress_chapters || 0) !== remoteProgress(remote)
           ? 'PROGRESS_MISMATCH'
-          : 'SCORE_MISMATCH';
+          : Number(localEntry.score || 0) !== Number(remote.score || 0)
+            ? 'SCORE_MISMATCH'
+            : !!localEntry.is_favorite !== !!remote.isFavorite
+              ? 'DATA_MISMATCH'
+              : 'DATA_MISMATCH';
 
     const localSnapshot = {
       status: localEntry.status,
       progressChapters: localEntry.progress_chapters,
       progressVolumes: localEntry.progress_volumes,
       score: localEntry.score,
+      isFavorite: !!localEntry.is_favorite,
       updatedAt: localEntry.updated_at,
       source: localEntry.last_mutation_source,
       entryVersion: localEntry.entry_version,
@@ -631,9 +802,10 @@ class SyncService {
     const remoteSnapshot = {
       provider: job.provider,
       status: normalizeRemoteStatus(remote.status),
-      progressChapters: remote.progressChapters,
-      progressVolumes: remote.progressVolumes || 0,
+      progressChapters: remoteProgress(remote),
+      progressVolumes: remoteProgressVolumes(remote),
       score: remote.score,
+      isFavorite: !!remote.isFavorite,
       updatedAt: remote.updatedAt,
     };
 
@@ -686,7 +858,8 @@ class SyncService {
   }
 
   async pushAniList(token, mapping, entry) {
-    const mutation = `
+    // 1. Update MediaListEntry (status, progress, score)
+    const mediaListMutation = `
       mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $progressVolumes: Int, $score: Float) {
         SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, progressVolumes: $progressVolumes, scoreRaw: $score) {
           id
@@ -713,7 +886,7 @@ class SyncService {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query: mutation, variables }),
+      body: JSON.stringify({ query: mediaListMutation, variables }),
     });
 
     if (response.status === 401) throw this.buildError('TOKEN_EXPIRED', 'AniList token expired during push', false);
@@ -723,15 +896,59 @@ class SyncService {
     const result = await response.json();
     if (result.errors?.length) throw this.buildError('VALIDATION_ERROR', result.errors[0].message || 'AniList push failed', false);
 
+    const updatedEntry = result.data.SaveMediaListEntry;
+
+    // 2. Update Favorite Status if different
+    // We need to know current remote favorite status. We can check our latest snapshot.
+    const { data: snapshot } = await supabaseAdmin
+      .from('provider_library_snapshots')
+      .select('raw_payload')
+      .eq('user_id', entry.user_id)
+      .eq('provider', 'ANILIST')
+      .eq('title_id', entry.title_id)
+      .maybeSingle();
+
+    const remoteIsFavorite = !!snapshot?.raw_payload?.isFavorite;
+    const localIsFavorite = !!entry.is_favorite;
+
+    if (localIsFavorite !== remoteIsFavorite) {
+      const favMutation = `
+        mutation ($animeId: Int, $mangaId: Int) {
+          ToggleFavourite(animeId: $animeId, mangaId: $mangaId) {
+            anime { nodes { id } }
+            manga { nodes { id } }
+          }
+        }
+      `;
+
+      const isAnime = entry.media_type === 'ANIME';
+      const favVars = {
+        animeId: isAnime ? Number(mapping.provider_title_id) : null,
+        mangaId: !isAnime ? Number(mapping.provider_title_id) : null,
+      };
+
+      await fetch(ANILIST_API, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: favMutation, variables: favVars }),
+      });
+      // We don't strictly fail the whole job if favorite toggle fails, 
+      // but AniList is usually stable if the first call succeeded.
+    }
+
     return {
-      providerEntryId: String(result.data.SaveMediaListEntry.id),
+      providerEntryId: String(updatedEntry.id),
       providerTitleId: mapping.provider_title_id,
-      status: result.data.SaveMediaListEntry.status,
-      progressChapters: Number(result.data.SaveMediaListEntry.progress || 0),
-      progressVolumes: Number(result.data.SaveMediaListEntry.progressVolumes || 0),
-      score: result.data.SaveMediaListEntry.score ?? null,
-      updatedAt: result.data.SaveMediaListEntry.updatedAt ? new Date(Number(result.data.SaveMediaListEntry.updatedAt) * 1000).toISOString() : nowIso(),
-      rawPayload: result.data.SaveMediaListEntry,
+      status: updatedEntry.status,
+      progressChapters: Number(updatedEntry.progress || 0),
+      progressVolumes: Number(updatedEntry.progressVolumes || 0),
+      score: updatedEntry.score ?? null,
+      isFavorite: localIsFavorite,
+      updatedAt: updatedEntry.updatedAt ? new Date(Number(updatedEntry.updatedAt) * 1000).toISOString() : nowIso(),
+      rawPayload: { ...updatedEntry, isFavorite: localIsFavorite },
     };
   }
 

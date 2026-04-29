@@ -143,6 +143,10 @@ router.get('/sync/jobs/:jobId', asyncRoute(async (req, res) => {
   res.json(await backendService.getSyncJob(req.user.id, req.params.jobId));
 }));
 
+router.patch('/sync/jobs/:jobId/cancel', asyncRoute(async (req, res) => {
+  res.json(await backendService.cancelSyncJob(req.user.id, req.params.jobId));
+}));
+
 router.get('/sync/conflicts', asyncRoute(async (req, res) => {
   res.json(await backendService.listSyncConflicts(req.user.id));
 }));

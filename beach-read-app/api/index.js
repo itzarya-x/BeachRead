@@ -24,7 +24,7 @@ function loadApiEnvFile(filename) {
 loadApiEnvFile('.env.local');
 loadApiEnvFile('.env');
 
-const PORT = 3001;
+const PORT = 3005;
 const ANILIST_API = 'https://graphql.anilist.co';
 const CACHE_FILE_PATH = path.join(__dirname, '.cache', 'anilist-cache.json');
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,6 +50,11 @@ const ALLOWED_IMAGE_HOSTS = new Set([
   's4.anilist.co',
   'img.anili.st',
   'anilist.co',
+  'lh3.googleusercontent.com',
+  'lh4.googleusercontent.com',
+  'lh5.googleusercontent.com',
+  'lh6.googleusercontent.com',
+  'googleusercontent.com',
 ]);
 const HOME_RANKINGS_CACHE_TTL_MS = WEEK_MS;
 const HOME_RANKINGS_COOLDOWN_DEFAULT_MS = 60 * 1000;
@@ -191,7 +196,6 @@ app.use(cors({
   },
 }));
 app.use(express.json());
-app.use('/api/v1', require('./routes/v1'));
 
 function resolveFrontendOrigin(req) {
   const requestedOrigin = (req.query.origin || '').toString().trim();
@@ -319,6 +323,12 @@ function normalizeHomeFeedData(payload) {
     topScored: Array.isArray(rankings.topScored) ? rankings.topScored : [],
     seasonal: Array.isArray(rankings.seasonal) ? rankings.seasonal : [],
     airingSchedule: Array.isArray(rankings.airingSchedule) ? rankings.airingSchedule : [],
+    trendingAnime: Array.isArray(rankings.trendingAnime) ? rankings.trendingAnime : [],
+    trendingManga: Array.isArray(rankings.trendingManga) ? rankings.trendingManga : [],
+    popularAnime: Array.isArray(rankings.popularAnime) ? rankings.popularAnime : [],
+    popularManga: Array.isArray(rankings.popularManga) ? rankings.popularManga : [],
+    topScoredAnime: Array.isArray(rankings.topScoredAnime) ? rankings.topScoredAnime : [],
+    topScoredManga: Array.isArray(rankings.topScoredManga) ? rankings.topScoredManga : [],
   };
 
   return {
@@ -327,13 +337,23 @@ function normalizeHomeFeedData(payload) {
     rankings: safeRankings,
     updates: Array.isArray(payload.updates) ? payload.updates : [],
     recentlyAdded: Array.isArray(payload.recentlyAdded) ? payload.recentlyAdded : [],
+    recentlyAddedAnime: Array.isArray(payload.recentlyAddedAnime) ? payload.recentlyAddedAnime : [],
     latestNews: Array.isArray(payload.latestNews) ? payload.latestNews : [],
   };
 }
 
 function hasCompleteHomeFeedData(payload) {
   if (!payload || typeof payload !== 'object') return false;
-  return Array.isArray(payload.latestNews);
+  if (!Array.isArray(payload.latestNews) || payload.latestNews.length === 0) return false;
+
+  const rankings = payload.rankings || {};
+  const hasMangaRankings = Array.isArray(rankings.trendingManga) && rankings.trendingManga.length > 0;
+  const hasAnimeRankings = Array.isArray(rankings.trendingAnime) && rankings.trendingAnime.length > 0;
+
+  // If we have no rankings at all, it's incomplete
+  if (!hasMangaRankings && !hasAnimeRankings) return false;
+
+  return true;
 }
 
 async function persistCacheToDisk() {
@@ -362,31 +382,41 @@ function queuePersistCacheToDisk() {
     .catch(() => null);
 }
 
+let cacheLoadPromise = null;
+
 async function loadCacheFromDisk() {
   if (cacheLoaded) return;
-  cacheLoaded = true;
+  if (cacheLoadPromise) return cacheLoadPromise;
 
-  try {
-    const raw = await fs.readFile(CACHE_FILE_PATH, 'utf8');
-    const parsed = JSON.parse(raw);
-    const endpoints = parsed?.endpoints || {};
+  cacheLoadPromise = (async () => {
+    try {
+      const raw = await fs.readFile(CACHE_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      const endpoints = parsed?.endpoints || {};
 
-    applyPersistedState(homeRankingsState, endpoints.homeRankings);
-    applyPersistedState(homeFeedState, endpoints.homeFeed);
-    applyPersistedState(trendingState, endpoints.trending);
-    applyPersistedState(updatesState, endpoints.updates);
-    applyPersistedState(recentlyAddedState, endpoints.recentlyAdded);
-    applyPersistedState(latestNewsState, endpoints.latestNews);
+      applyPersistedState(homeRankingsState, endpoints.homeRankings);
+      applyPersistedState(homeFeedState, endpoints.homeFeed);
+      applyPersistedState(trendingState, endpoints.trending);
+      applyPersistedState(updatesState, endpoints.updates);
+      applyPersistedState(recentlyAddedState, endpoints.recentlyAdded);
+      applyPersistedState(latestNewsState, endpoints.latestNews);
 
-    const mangaPersisted = endpoints.mangaDetails || {};
-    for (const [id, persisted] of Object.entries(mangaPersisted)) {
-      const state = { data: null, fetchedAt: 0, cooldownUntil: 0, inFlight: null };
-      applyPersistedState(state, persisted);
-      mangaDetailsState.set(id, state);
+      const mangaPersisted = endpoints.mangaDetails || {};
+      for (const [id, persisted] of Object.entries(mangaPersisted)) {
+        const state = { data: null, fetchedAt: 0, cooldownUntil: 0, inFlight: null };
+        applyPersistedState(state, persisted);
+        mangaDetailsState.set(id, state);
+      }
+      cacheLoaded = true;
+    } catch (_err) {
+      // First boot / no cache file / invalid cache.
+      cacheLoaded = true;
+    } finally {
+      cacheLoadPromise = null;
     }
-  } catch (_err) {
-    // First boot / no cache file / invalid cache.
-  }
+  })();
+
+  return cacheLoadPromise;
 }
 
 function getMangaState(id) {
@@ -479,7 +509,11 @@ async function queryAniList(query, variables) {
   try {
     const response = await fetch(ANILIST_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'BeachRead/1.0.0'
+      },
       body: JSON.stringify({ query, variables }),
     });
     let payload = null;
@@ -574,6 +608,19 @@ const MEDIA_FRAGMENT = `
       }
     }
   }
+  relations {
+    edges {
+      relationType(version: 2)
+      node {
+        id
+        title { romaji english native }
+        type
+        format
+        status
+        coverImage { large }
+      }
+    }
+  }
 `;
 
 function getCurrentSeasonInfo(date = new Date()) {
@@ -613,7 +660,7 @@ app.get('/api/image', async (req, res) => {
   }
 
   if (!ALLOWED_IMAGE_HOSTS.has(parsedUrl.hostname)) {
-    return res.status(400).json({ message: 'Image host is not allowed' });
+    return res.status(400).json({ message: `Image host '${parsedUrl.hostname}' is not allowed` });
   }
 
   try {
@@ -777,6 +824,41 @@ app.get('/api/oauth/anilist/callback', async (req, res) => {
   }
 });
 
+app.post('/api/oauth/anilist/exchange', async (req, res) => {
+  const { clientId, clientSecret, redirectUri, code } = req.body;
+
+  if (!clientId || !clientSecret || !code) {
+    return res.status(400).json({ message: 'Missing required parameters for token exchange.' });
+  }
+
+  try {
+    const response = await fetch('https://anilist.co/api/v2/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        grant_type: 'authorization_code',
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        code: code,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      return res.status(response.status).json(data || { message: 'AniList token exchange failed.' });
+    }
+
+    return res.json(data);
+  } catch (error) {
+    console.error('[oauth] Proxy exchange error:', error);
+    return res.status(502).json({ message: 'Failed to proxy token exchange to AniList.' });
+  }
+});
+
 app.get('/api/oauth/mal/callback', async (req, res) => {
   const code = (req.query.code || '').toString();
   const state = (req.query.state || '').toString();
@@ -864,9 +946,9 @@ app.get('/api/library', authMiddleware, async (req, res) => {
     id: entry.titles.external_id,
     title: entry.titles.title_romaji || entry.titles.title_english,
     status: entry.status,
-    progress: entry.progress,
+    progress: entry.progress_chapters,
     score: entry.score,
-    coverUrl: entry.titles.cover_url,
+    coverUrl: entry.titles.cover_image_url,
     genres: [],
     updatedAt: entry.updated_at
   }));
@@ -879,11 +961,11 @@ app.post('/api/library/add', authMiddleware, async (req, res) => {
     external_provider: 'ANILIST',
     external_id: manga.id.toString(),
     title_romaji: manga.title,
-    cover_url: manga.coverUrl
+    cover_image_url: manga.coverUrl
   }, { onConflict: 'external_provider,external_id' }).select().single();
   if (titleErr) return res.status(500).json({ error: titleErr.message });
   const { data: entry, error: entryErr } = await supabase.from('library_entries').insert({
-    user_id: req.user.id, title_id: title.id, status: 'PLANNING', progress: 0, score: 0
+    user_id: req.user.id, title_id: title.id, status: 'PLANNING', progress_chapters: 0, score: 0
   }).select('*, titles(*)').single();
   if (entryErr) return res.status(500).json({ error: entryErr.message });
   res.json(entry);
@@ -896,7 +978,7 @@ app.patch('/api/library/:id', authMiddleware, async (req, res) => {
   if (!title) return res.status(404).json({ error: 'Title not found' });
   const updates = { updated_at: new Date().toISOString() };
   if (status) updates.status = status;
-  if (progress !== undefined) updates.progress = progress;
+  if (progress !== undefined) updates.progress_chapters = progress;
   if (score !== undefined) updates.score = score;
   const { data, error } = await supabase.from('library_entries').update(updates).eq('user_id', req.user.id).eq('title_id', title.id).select('*, titles(*)').single();
   if (error) return res.status(500).json({ error: error.message });
@@ -913,11 +995,11 @@ app.delete('/api/library/:id', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/user/stats', authMiddleware, async (req, res) => {
-  const { data, error } = await supabase.from('library_entries').select('status, progress, score').eq('user_id', req.user.id);
+  const { data, error } = await supabase.from('library_entries').select('status, progress_chapters, score').eq('user_id', req.user.id);
   if (error) return res.status(500).json({ error: error.message });
   const completed = data.filter(m => m.status === 'COMPLETED').length;
   const reading = data.filter(m => m.status === 'READING').length;
-  const totalChapters = data.reduce((acc, m) => acc + (m.progress || 0), 0);
+  const totalChapters = data.reduce((acc, m) => acc + (m.progress_chapters || 0), 0);
   const scoredItems = data.filter(m => m.score > 0);
   const meanScore = scoredItems.length > 0 ? scoredItems.reduce((acc, m) => acc + m.score, 0) / scoredItems.length : 0;
   res.json({ completed, reading, totalChapters, meanScore: parseFloat(meanScore.toFixed(1)), genreStats: [] });
@@ -953,72 +1035,59 @@ app.post('/api/recommendations/finish-quickly', authMiddleware, async (req, res)
   res.json(data);
 });
 
-app.post(['/api/v1/sync/:provider/trigger', '/api/sync/trigger'], authMiddleware, async (req, res) => {
-  const provider = (req.params.provider || req.body.provider || 'ANILIST').toUpperCase();
-  const { jobType = 'INCREMENTAL', forceRefresh = false } = req.body;
-  const { data, error } = await supabase.from('sync_jobs').insert({ 
-      user_id: req.user.id, 
-      provider, 
-      type: jobType.includes('INITIAL') ? 'FULL' : 'INCREMENTAL',
-      status: 'QUEUED'
-  }).select('id').single();
-  
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
-
 app.get('/api/v1/search', async (req, res) => {
-  const { query: search, genre, demographic, status, format, year, score, chapters, mature, sort, page = 1, mediaType: queryMediaType, type: queryType } = req.query;
-  const mediaType = queryType || queryMediaType || 'MANGA';
-  const cacheKey = `search:${JSON.stringify({ search, genre, demographic, status, format, year, score, chapters, mature, sort, page, mediaType })}`;
-  const state = getSearchState(cacheKey);
-  await hydrateStateFromStorage(cacheKey, state);
-  const now = Date.now();
-  if (hasUsableCache(state, ENDPOINT_CACHE_TTL_MS)) {
-    return res.json(state.data);
-  }
-  if (state.cooldownUntil > now) {
-    if (state.data) return res.json(state.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+  try {
+    const { query: search, genre, demographic, status, format, year, score, chapters, mature, sort, page = 1, mediaType: queryMediaType, type: queryType } = req.query;
+    const mediaType = queryType || queryMediaType || 'MANGA';
+    const cacheKey = `search:${JSON.stringify({ search, genre, demographic, status, format, year, score, chapters, mature, sort, page, mediaType })}`;
+    const state = getSearchState(cacheKey);
+    await hydrateStateFromStorage(cacheKey, state);
+    const now = Date.now();
+    if (hasUsableCache(state, ENDPOINT_CACHE_TTL_MS)) {
+      return res.json(state.data);
+    }
+    if (state.cooldownUntil > now) {
+      if (state.data) return res.json(state.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  // Parse ranges
-  let startDate_greater = undefined;
-  let startDate_lesser = undefined;
-  if (year) {
-    const [start, end] = year.split('-');
-    if (start && start !== 'undefined') startDate_greater = parseInt(start) * 10000;
-    if (end && end !== 'undefined') startDate_lesser = parseInt(end) * 10000 + 1231;
-  }
+    // Parse ranges
+    let startDate_greater = undefined;
+    let startDate_lesser = undefined;
+    if (year) {
+      const [start, end] = year.split('-');
+      if (start && start !== 'undefined') startDate_greater = parseInt(start) * 10000;
+      if (end && end !== 'undefined') startDate_lesser = parseInt(end) * 10000 + 1231;
+    }
 
-  let chapters_greater = undefined;
-  let chapters_lesser = undefined;
-  if (chapters) {
-    const [min, max] = chapters.split('-');
-    if (min && min !== 'undefined') chapters_greater = parseInt(min);
-    if (max && max !== 'undefined') chapters_lesser = parseInt(max);
-  }
+    let chapters_greater = undefined;
+    let chapters_lesser = undefined;
+    if (chapters) {
+      const [min, max] = chapters.split('-');
+      if (min && min !== 'undefined') chapters_greater = parseInt(min);
+      if (max && max !== 'undefined') chapters_lesser = parseInt(max);
+    }
 
-  // Adult content logic: if mature=true, we don't pass isAdult so it can include both. 
-  // If mature=false or undefined, we pass isAdult: false to exclude adult content.
-  const isAdult = mature === 'true' ? undefined : false;
-  let mediaFormat = format || undefined;
-  let countryOfOrigin = undefined;
+    // Adult content logic: if mature=true, we don't pass isAdult so it can include both. 
+    // If mature=false or undefined, we pass isAdult: false to exclude adult content.
+    const isAdult = mature === 'true' ? undefined : false;
+    let mediaFormat = format || undefined;
+    let countryOfOrigin = undefined;
 
-  if (format === 'MANHWA') {
-    mediaFormat = 'MANGA';
-    countryOfOrigin = 'KR';
-  } else if (format === 'MANHUA') {
-    mediaFormat = 'MANGA';
-    countryOfOrigin = 'CN';
-  } else if (format === 'MANGA' && mediaType === 'MANGA') {
-    mediaFormat = 'MANGA';
-    countryOfOrigin = 'JP';
-  } else if (format === 'NOVEL') {
-    mediaFormat = 'NOVEL';
-  }
+    if (format === 'MANHWA') {
+      mediaFormat = 'MANGA';
+      countryOfOrigin = 'KR';
+    } else if (format === 'MANHUA') {
+      mediaFormat = 'MANGA';
+      countryOfOrigin = 'CN';
+    } else if (format === 'MANGA' && mediaType === 'MANGA') {
+      mediaFormat = 'MANGA';
+      countryOfOrigin = 'JP';
+    } else if (format === 'NOVEL') {
+      mediaFormat = 'NOVEL';
+    }
 
-  const gqlQuery = `
+    const gqlQuery = `
       query ($search: String, $type: MediaType, $genre_in: [String], $tag_in: [String], $status: MediaStatus, $format: MediaFormat, $countryOfOrigin: CountryCode, $startDate_greater: FuzzyDateInt, $startDate_lesser: FuzzyDateInt, $averageScore_greater: Int, $chapters_greater: Int, $chapters_lesser: Int, $isAdult: Boolean, $sort: [MediaSort], $page: Int) {
         Page(page: $page, perPage: 21) {
           pageInfo { total perPage currentPage lastPage hasNextPage }
@@ -1043,71 +1112,75 @@ app.get('/api/v1/search', async (req, res) => {
       }
     `;
 
-  const variables = {
-    search: search || undefined,
-    type: mediaType,
-    genre_in: genre ? genre.split(',') : undefined,
-    tag_in: demographic ? demographic.split(',') : undefined,
-    status: status || undefined,
-    format: mediaFormat,
-    countryOfOrigin,
-    startDate_greater,
-    startDate_lesser,
-    averageScore_greater: score ? parseInt(score) : undefined,
-    chapters_greater,
-    chapters_lesser,
-    isAdult,
-    sort: sort ? [sort] : ['POPULARITY_DESC'],
-    page: parseInt(page)
-  };
+    const variables = {
+      search: search || undefined,
+      type: mediaType,
+      genre_in: genre ? genre.split(',') : undefined,
+      tag_in: demographic ? demographic.split(',') : undefined,
+      status: status || undefined,
+      format: mediaFormat,
+      countryOfOrigin,
+      startDate_greater,
+      startDate_lesser,
+      averageScore_greater: score ? parseInt(score) : undefined,
+      chapters_greater,
+      chapters_lesser,
+      isAdult,
+      sort: sort ? [sort] : ['POPULARITY_DESC'],
+      page: parseInt(page)
+    };
 
-  if (!state.inFlight) {
-    state.inFlight = queryAniList(gqlQuery, variables);
-  }
-  const result = await state.inFlight;
-  state.inFlight = null;
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      state.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
-      if (state.data) return res.json(state.data);
+    if (!state.inFlight) {
+      state.inFlight = queryAniList(gqlQuery, variables);
     }
-    if (state.data) return res.json(state.data);
-    const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
-    return res.status(result?.status || 502).json({ message: 'AniList search fetch failed', upstreamErrors });
+    const result = await state.inFlight;
+    state.inFlight = null;
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        state.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
+        if (state.data) return res.json(state.data);
+      }
+      if (state.data) return res.json(state.data);
+      const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
+      return res.status(result?.status || 502).json({ message: 'AniList search fetch failed', upstreamErrors });
+    }
+    const pageInfo = result?.data?.Page?.pageInfo;
+    const media = result?.data?.Page?.media || [];
+
+    const results = media.map(m => ({
+      id: m?.id?.toString() || '0',
+      type: m?.type || 'MANGA',
+      mediaType: m?.type || 'MANGA',
+      title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+      nativeTitle: m?.title?.native || '',
+      description: m?.description || '',
+      genres: m?.genres || [],
+      demographics: (m?.tags || []).map(t => t?.name).filter(n => n && ['Shounen', 'Shoujo', 'Seinen', 'Josei'].includes(n)),
+      coverUrl: m?.coverImage?.extraLarge || m?.coverImage?.large || '',
+      score: m?.averageScore || 0,
+      popularity: m?.popularity || 0,
+      status: m?.status || '',
+      chapters: m?.chapters || null,
+      episodes: m?.episodes || null,
+      total_episodes: m?.episodes || null,
+      format: m?.countryOfOrigin === 'KR' ? 'MANHWA' : m?.countryOfOrigin === 'CN' ? 'MANHUA' : m?.format,
+      year: m?.startDate?.year
+    }));
+
+    const payload = { results, pageInfo };
+    state.data = payload;
+    state.fetchedAt = Date.now();
+    state.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
+    res.json(payload);
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ message: 'Internal server error in search', error: err.message });
   }
-  const pageInfo = result?.data?.Page?.pageInfo;
-  const media = result?.data?.Page?.media || [];
-
-  const results = media.map(m => ({
-    id: m.id.toString(),
-    type: m.type,
-    mediaType: m.type,
-    title: m.title.romaji || m.title.english || m.title.native,
-    nativeTitle: m.title.native,
-    description: m.description,
-    genres: m.genres,
-    demographics: m.tags?.map(t => t.name).filter(n => ['Shounen', 'Shoujo', 'Seinen', 'Josei'].includes(n)),
-    coverUrl: m.coverImage.extraLarge || m.coverImage.large,
-    score: m.averageScore,
-    popularity: m.popularity,
-    status: m.status,
-    chapters: m.chapters,
-    episodes: m.episodes,
-    total_episodes: m.episodes,
-    format: m.countryOfOrigin === 'KR' ? 'MANHWA' : m.countryOfOrigin === 'CN' ? 'MANHUA' : m.format,
-    year: m.startDate?.year
-  }));
-
-  const payload = { results, pageInfo };
-  state.data = payload;
-  state.fetchedAt = Date.now();
-  state.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry(cacheKey, state, ENDPOINT_CACHE_TTL_MS);
-  res.json(payload);
 });
 
 app.get('/api/v1/trending', async (req, res) => {
@@ -1185,27 +1258,28 @@ app.get('/api/v1/trending', async (req, res) => {
 });
 
 app.get('/api/v1/home-feed', async (req, res) => {
-  await hydrateStateFromStorage('home-feed', homeFeedState);
-  homeFeedState.data = normalizeHomeFeedData(homeFeedState.data);
-  if (homeFeedState.data && homeFeedState.data.latestNews.length === 0) {
-    await hydrateStateFromStorage('latest-news', latestNewsState);
-    if (Array.isArray(latestNewsState.data) && latestNewsState.data.length > 0) {
-      homeFeedState.data.latestNews = latestNewsState.data;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+  try {
+    await hydrateStateFromStorage('home-feed', homeFeedState);
+    homeFeedState.data = normalizeHomeFeedData(homeFeedState.data);
+    if (homeFeedState.data && homeFeedState.data.latestNews.length === 0) {
+      await hydrateStateFromStorage('latest-news', latestNewsState);
+      if (Array.isArray(latestNewsState.data) && latestNewsState.data.length > 0) {
+        homeFeedState.data.latestNews = latestNewsState.data;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+      }
     }
-  }
-  const now = Date.now();
-  if (hasUsableCache(homeFeedState, ENDPOINT_CACHE_TTL_MS) && hasCompleteHomeFeedData(homeFeedState.data)) {
-    return res.json(homeFeedState.data);
-  }
-  if (homeFeedState.cooldownUntil > now) {
-    if (homeFeedState.data && hasCompleteHomeFeedData(homeFeedState.data)) return res.json(homeFeedState.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+    const now = Date.now();
+    if (hasUsableCache(homeFeedState, ENDPOINT_CACHE_TTL_MS) && hasCompleteHomeFeedData(homeFeedState.data)) {
+      return res.json(homeFeedState.data);
+    }
+    if (homeFeedState.cooldownUntil > now) {
+      if (homeFeedState.data && hasCompleteHomeFeedData(homeFeedState.data)) return res.json(homeFeedState.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  const { season, year } = getCurrentSeasonInfo();
-  const query = `
+    const { season, year } = getCurrentSeasonInfo();
+    const query = `
       query ($season: MediaSeason!, $seasonYear: Int!) {
         hero: Page(page: 1, perPage: 5) {
           media(type: MANGA, sort: TRENDING_DESC, isAdult: false) {
@@ -1225,6 +1299,18 @@ app.get('/api/v1/home-feed', async (req, res) => {
             nextAiringEpisode { episode airingAt timeUntilAiring }
           }
         }
+        rankingTrendingManga: Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: TRENDING_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            chapters
+          }
+        }
         rankingPopular: Page(page: 1, perPage: 10) {
           media(type: ANIME, sort: POPULARITY_DESC, isAdult: false) {
             id
@@ -1238,6 +1324,18 @@ app.get('/api/v1/home-feed', async (req, res) => {
             nextAiringEpisode { episode airingAt timeUntilAiring }
           }
         }
+        rankingPopularManga: Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: POPULARITY_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            chapters
+          }
+        }
         rankingTopScored: Page(page: 1, perPage: 10) {
           media(type: ANIME, sort: SCORE_DESC, isAdult: false) {
             id
@@ -1249,6 +1347,18 @@ app.get('/api/v1/home-feed', async (req, res) => {
             status
             episodes
             nextAiringEpisode { episode airingAt timeUntilAiring }
+          }
+        }
+        rankingTopScoredManga: Page(page: 1, perPage: 10) {
+          media(type: MANGA, sort: SCORE_DESC, isAdult: false) {
+            id
+            title { romaji english native }
+            coverImage { large extraLarge }
+            averageScore
+            popularity
+            genres
+            status
+            chapters
           }
         }
         rankingSeasonal: Page(page: 1, perPage: 10) {
@@ -1294,6 +1404,11 @@ app.get('/api/v1/home-feed', async (req, res) => {
             ${MEDIA_FRAGMENT}
           }
         }
+        recentlyAddedAnime: Page(page: 1, perPage: 10) {
+          media(type: ANIME, sort: ID_DESC, isAdult: false) {
+            ${MEDIA_FRAGMENT}
+          }
+        }
         latestNews: Page(page: 1, perPage: 10) {
           media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
             id
@@ -1307,100 +1422,121 @@ app.get('/api/v1/home-feed', async (req, res) => {
       }
     `;
 
-  if (!homeFeedState.inFlight) {
-    homeFeedState.inFlight = queryAniList(query, { season, seasonYear: year });
-  }
-  const result = await homeFeedState.inFlight;
-  homeFeedState.inFlight = null;
-
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      homeFeedState.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
-      if (homeFeedState.data) return res.json(homeFeedState.data);
+    if (!homeFeedState.inFlight) {
+      homeFeedState.inFlight = queryAniList(query, { season, seasonYear: year });
     }
-    if (homeFeedState.data) return res.json(homeFeedState.data);
-    const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
-    return res.status(result?.status || 502).json({ message: 'AniList home feed fetch failed', upstreamErrors });
+    const result = await homeFeedState.inFlight;
+    homeFeedState.inFlight = null;
+
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        homeFeedState.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+        if (homeFeedState.data) return res.json(homeFeedState.data);
+      }
+      if (homeFeedState.data) return res.json(homeFeedState.data);
+      const upstreamErrors = result?.errors || result?.error?.payload?.errors || null;
+      return res.status(result?.status || 502).json({ message: 'AniList home feed fetch failed', upstreamErrors });
+    }
+
+    const mapRanking = (list = [], mediaType = 'ANIME') =>
+      list.map((m, index) => ({
+        rank: index + 1,
+        id: m?.id?.toString() || '',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        titleJp: m?.title?.native || '',
+        coverUrl: m?.coverImage?.extraLarge || m?.coverImage?.large || m?.bannerImage || '',
+        episodes: m?.episodes || '?',
+        total_episodes: m?.episodes || '?',
+        chapters: m?.chapters || '?',
+        score: m?.averageScore || 0,
+        genres: m?.genres || [],
+        status: m?.status || '',
+        mediaType,
+        popularity: typeof m?.popularity === 'number' ? m.popularity.toLocaleString() : 'N/A',
+        nextEpisode: m?.nextAiringEpisode?.episode || null,
+        countdown: formatCountdown(m?.nextAiringEpisode?.timeUntilAiring),
+      }));
+
+    const heroMedias = result?.data?.hero?.media || [];
+    const latestNewsMedia = result?.data?.latestNews?.media || [];
+    const updatesMedia = result?.data?.updates?.media || [];
+    const recentlyAddedMedia = result?.data?.recentlyAdded?.media || [];
+
+    const recentlyAddedAnimeMedia = result?.data?.recentlyAddedAnime?.media || [];
+
+    const payload = {
+      hero: heroMedias.map((m) => ({
+        id: m?.id?.toString() || '0',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        titleJp: m?.title?.native || '',
+        description: (m?.description || '').replace(/<[^>]*>?/gm, '') || 'No description available.',
+        genres: m?.genres || [],
+        mediaType: 'MANGA',
+        coverUrl: m?.bannerImage || m?.coverImage?.extraLarge || '',
+      })),
+      rankings: {
+        season,
+        seasonYear: year,
+        trendingAnime: mapRanking(result?.data?.rankingTrending?.media, 'ANIME'),
+        trendingManga: mapRanking(result?.data?.rankingTrendingManga?.media, 'MANGA'),
+        popularAnime: mapRanking(result?.data?.rankingPopular?.media, 'ANIME'),
+        popularManga: mapRanking(result?.data?.rankingPopularManga?.media, 'MANGA'),
+        topScoredAnime: mapRanking(result?.data?.rankingTopScored?.media, 'ANIME'),
+        topScoredManga: mapRanking(result?.data?.rankingTopScoredManga?.media, 'MANGA'),
+        seasonal: mapRanking(result?.data?.rankingSeasonal?.media, 'ANIME'),
+        airingSchedule: mapRanking(result?.data?.rankingAiring?.media, 'ANIME'),
+      },
+      updates: updatesMedia.map((m) => ({
+        id: m?.id?.toString() || '0',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        author: m?.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
+        genres: m?.genres || [],
+        updatedAt: 'Updated recently',
+        mediaType: 'MANGA',
+        coverUrl: m?.coverImage?.large || '',
+        chapters: [{ num: `Chapter ${m?.chapters || '?'}`, title: 'Latest' }],
+      })),
+      recentlyAdded: recentlyAddedMedia.map((m) => ({
+        id: m?.id?.toString() || '0',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        genres: m?.genres || [],
+        status: m?.status || '',
+        score: m?.averageScore || 0,
+        mediaType: 'MANGA',
+        coverUrl: m?.coverImage?.large || m?.coverImage?.extraLarge || m?.bannerImage || '',
+      })),
+      recentlyAddedAnime: recentlyAddedAnimeMedia.map((m) => ({
+        id: m?.id?.toString() || '0',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        genres: m?.genres || [],
+        status: m?.status || '',
+        score: m?.averageScore || 0,
+        mediaType: 'ANIME',
+        coverUrl: m?.coverImage?.large || m?.coverImage?.extraLarge || m?.bannerImage || '',
+      })),
+      latestNews: (Array.isArray(latestNewsMedia) ? latestNewsMedia : []).map((m) => ({
+        id: m?.id?.toString() || '0',
+        title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+        description: (m?.description || '').replace(/<[^>]*>?/gm, '') || 'No description available.',
+        coverUrl: m?.bannerImage || m?.coverImage?.extraLarge || m?.coverImage?.large || '',
+        url: m?.siteUrl || null,
+      })),
+    };
+
+    homeFeedState.data = payload;
+    homeFeedState.fetchedAt = Date.now();
+    homeFeedState.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
+
+    res.json(payload);
+  } catch (err) {
+    console.error('Home feed error:', err);
+    res.status(500).json({ message: 'Internal server error in home feed', error: err.message });
   }
-
-  const mapRanking = (list = []) =>
-    list.map((m, index) => ({
-      rank: index + 1,
-      id: m.id?.toString() || '',
-      title: m.title?.romaji || m.title?.english || m.title?.native || 'Untitled',
-      titleJp: m.title?.native || '',
-      coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || '',
-      episodes: m.episodes || '?',
-      total_episodes: m.episodes || '?',
-      score: m.averageScore || 0,
-      genres: m.genres || [],
-      status: m.status || '',
-      mediaType: 'ANIME',
-      popularity: typeof m.popularity === 'number' ? m.popularity.toLocaleString() : 'N/A',
-      nextEpisode: m.nextAiringEpisode?.episode || null,
-      countdown: formatCountdown(m.nextAiringEpisode?.timeUntilAiring),
-    }));
-
-  const heroMedias = result?.data?.hero?.media || [];
-  const latestNewsMedia = result?.data?.latestNews?.media || [];
-  const updatesMedia = result?.data?.updates?.media || [];
-  const recentlyAddedMedia = result?.data?.recentlyAdded?.media || [];
-
-  const payload = {
-    hero: heroMedias.map((m) => ({
-      id: m.id.toString(),
-      title: m.title.romaji || m.title.english || m.title.native,
-      titleJp: m.title.native,
-      description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
-      genres: m.genres,
-      mediaType: 'MANGA',
-      coverUrl: m.bannerImage || m.coverImage.extraLarge,
-    })),
-    rankings: {
-      season,
-      seasonYear: year,
-      trending: mapRanking(result?.data?.rankingTrending?.media),
-      popular: mapRanking(result?.data?.rankingPopular?.media),
-      topScored: mapRanking(result?.data?.rankingTopScored?.media),
-      seasonal: mapRanking(result?.data?.rankingSeasonal?.media),
-      airingSchedule: mapRanking(result?.data?.rankingAiring?.media),
-    },
-    updates: updatesMedia.map((m) => ({
-      id: m.id.toString(),
-      title: m.title.romaji || m.title.english || m.title.native,
-      author: m.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
-      genres: m.genres,
-      updatedAt: 'Updated recently',
-      mediaType: 'MANGA',
-      coverUrl: m.coverImage.large,
-      chapters: [{ num: `Chapter ${m.chapters || '?'}`, title: 'Latest' }],
-    })),
-    recentlyAdded: recentlyAddedMedia.map((m) => ({
-      id: m.id.toString(),
-      title: m.title.romaji || m.title.english || m.title.native,
-      genres: m.genres,
-      mediaType: 'MANGA',
-      coverUrl: m.coverImage.large,
-    })),
-    latestNews: (Array.isArray(latestNewsMedia) ? latestNewsMedia : []).map((m) => ({
-      id: m.id.toString(),
-      title: m.title.romaji || m.title.english || m.title.native,
-      description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
-      coverUrl: m.bannerImage || m.coverImage?.extraLarge || m.coverImage?.large || '',
-      url: m.siteUrl || null,
-    })),
-  };
-
-  homeFeedState.data = payload;
-  homeFeedState.fetchedAt = Date.now();
-  homeFeedState.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry('home-feed', homeFeedState, ENDPOINT_CACHE_TTL_MS);
-
-  res.json(payload);
 });
 
 app.get('/api/v1/home-rankings', async (req, res) => {
@@ -1560,17 +1696,18 @@ app.get('/api/v1/home-rankings', async (req, res) => {
 });
 
 app.get('/api/v1/updates', async (req, res) => {
-  await hydrateStateFromStorage('updates', updatesState);
-  const now = Date.now();
-  if (hasUsableCache(updatesState, ENDPOINT_CACHE_TTL_MS)) {
-    return res.json(updatesState.data);
-  }
-  if (updatesState.cooldownUntil > now) {
-    if (updatesState.data) return res.json(updatesState.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+  try {
+    await hydrateStateFromStorage('updates', updatesState);
+    const now = Date.now();
+    if (hasUsableCache(updatesState, ENDPOINT_CACHE_TTL_MS)) {
+      return res.json(updatesState.data);
+    }
+    if (updatesState.cooldownUntil > now) {
+      if (updatesState.data) return res.json(updatesState.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  const query = `
+    const query = `
       query ($page: Int, $perPage: Int) {
         Page(page: 1, perPage: 6) {
           media(type: MANGA, sort: UPDATED_AT_DESC) {
@@ -1587,56 +1724,61 @@ app.get('/api/v1/updates', async (req, res) => {
       }
     `;
 
-  if (!updatesState.inFlight) {
-    updatesState.inFlight = queryAniList(query);
-  }
-  const result = await updatesState.inFlight;
-  updatesState.inFlight = null;
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      updatesState.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
-      if (updatesState.data) return res.json(updatesState.data);
+    if (!updatesState.inFlight) {
+      updatesState.inFlight = queryAniList(query);
     }
-    if (updatesState.data) return res.json(updatesState.data);
-    return res.status(result?.status || 502).json({ message: 'AniList updates fetch failed' });
+    const result = await updatesState.inFlight;
+    updatesState.inFlight = null;
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        updatesState.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
+        if (updatesState.data) return res.json(updatesState.data);
+      }
+      if (updatesState.data) return res.json(updatesState.data);
+      return res.status(result?.status || 502).json({ message: 'AniList updates fetch failed' });
+    }
+    const media = result?.data?.Page?.media || [];
+
+    const updates = media.map(m => ({
+      id: m?.id?.toString() || '0',
+      title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+      author: m?.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
+      genres: m?.genres || [],
+      updatedAt: 'Updated recently',
+      coverUrl: m?.coverImage?.large || '',
+      chapters: [
+        { num: `Chapter ${m?.chapters || '?'}`, title: 'Latest' }
+      ]
+    }));
+
+    updatesState.data = updates;
+    updatesState.fetchedAt = Date.now();
+    updatesState.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
+    res.json(updates);
+  } catch (err) {
+    console.error('Updates error:', err);
+    res.status(500).json({ message: 'Internal server error in updates', error: err.message });
   }
-  const media = result?.data?.Page?.media || [];
-
-  const updates = media.map(m => ({
-    id: m.id.toString(),
-    title: m.title.romaji || m.title.english || m.title.native,
-    author: m.staff?.edges?.[0]?.node?.name?.full || 'Unknown Author',
-    genres: m.genres,
-    updatedAt: 'Updated recently',
-    coverUrl: m.coverImage.large,
-    chapters: [
-      { num: `Chapter ${m.chapters || '?'}`, title: 'Latest' }
-    ]
-  }));
-
-  updatesState.data = updates;
-  updatesState.fetchedAt = Date.now();
-  updatesState.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry('updates', updatesState, ENDPOINT_CACHE_TTL_MS);
-  res.json(updates);
 });
 
 app.get('/api/v1/recently-added', async (req, res) => {
-  await hydrateStateFromStorage('recently-added', recentlyAddedState);
-  const now = Date.now();
-  if (hasUsableCache(recentlyAddedState, ENDPOINT_CACHE_TTL_MS)) {
-    return res.json(recentlyAddedState.data);
-  }
-  if (recentlyAddedState.cooldownUntil > now) {
-    if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+  try {
+    await hydrateStateFromStorage('recently-added', recentlyAddedState);
+    const now = Date.now();
+    if (hasUsableCache(recentlyAddedState, ENDPOINT_CACHE_TTL_MS)) {
+      return res.json(recentlyAddedState.data);
+    }
+    if (recentlyAddedState.cooldownUntil > now) {
+      if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  const query = `
+    const query = `
       query ($page: Int, $perPage: Int) {
         Page(page: 1, perPage: 10) {
           media(type: MANGA, sort: ID_DESC) {
@@ -1646,51 +1788,56 @@ app.get('/api/v1/recently-added', async (req, res) => {
       }
     `;
 
-  if (!recentlyAddedState.inFlight) {
-    recentlyAddedState.inFlight = queryAniList(query);
-  }
-  const result = await recentlyAddedState.inFlight;
-  recentlyAddedState.inFlight = null;
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      recentlyAddedState.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
-      if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+    if (!recentlyAddedState.inFlight) {
+      recentlyAddedState.inFlight = queryAniList(query);
     }
-    if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
-    return res.status(result?.status || 502).json({ message: 'AniList recently-added fetch failed' });
+    const result = await recentlyAddedState.inFlight;
+    recentlyAddedState.inFlight = null;
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        recentlyAddedState.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
+        if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+      }
+      if (recentlyAddedState.data) return res.json(recentlyAddedState.data);
+      return res.status(result?.status || 502).json({ message: 'AniList recently-added fetch failed' });
+    }
+    const media = result?.data?.Page?.media || [];
+
+    const recentlyAdded = media.map(m => ({
+      id: m?.id?.toString() || '0',
+      title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+      genres: m?.genres || [],
+      coverUrl: m?.coverImage?.large || ''
+    }));
+
+    recentlyAddedState.data = recentlyAdded;
+    recentlyAddedState.fetchedAt = Date.now();
+    recentlyAddedState.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
+    res.json(recentlyAdded);
+  } catch (err) {
+    console.error('Recently added error:', err);
+    res.status(500).json({ message: 'Internal server error in recently-added', error: err.message });
   }
-  const media = result?.data?.Page?.media || [];
-
-  const recentlyAdded = media.map(m => ({
-    id: m.id.toString(),
-    title: m.title.romaji || m.title.english || m.title.native,
-    genres: m.genres,
-    coverUrl: m.coverImage.large
-  }));
-
-  recentlyAddedState.data = recentlyAdded;
-  recentlyAddedState.fetchedAt = Date.now();
-  recentlyAddedState.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry('recently-added', recentlyAddedState, ENDPOINT_CACHE_TTL_MS);
-  res.json(recentlyAdded);
 });
 
 app.get('/api/v1/latest-news', async (req, res) => {
-  await hydrateStateFromStorage('latest-news', latestNewsState);
-  const now = Date.now();
-  if (hasUsableCache(latestNewsState, ENDPOINT_CACHE_TTL_MS)) {
-    return res.json(latestNewsState.data);
-  }
-  if (latestNewsState.cooldownUntil > now) {
-    if (latestNewsState.data) return res.json(latestNewsState.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+  try {
+    await hydrateStateFromStorage('latest-news', latestNewsState);
+    const now = Date.now();
+    if (hasUsableCache(latestNewsState, ENDPOINT_CACHE_TTL_MS)) {
+      return res.json(latestNewsState.data);
+    }
+    if (latestNewsState.cooldownUntil > now) {
+      if (latestNewsState.data) return res.json(latestNewsState.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  const query = `
+    const query = `
       query {
         Page(page: 1, perPage: 20) {
           media(type: ANIME, sort: TRENDING_DESC, isAdult: false) {
@@ -1705,58 +1852,168 @@ app.get('/api/v1/latest-news', async (req, res) => {
       }
     `;
 
-  if (!latestNewsState.inFlight) {
-    latestNewsState.inFlight = queryAniList(query);
-  }
-  const result = await latestNewsState.inFlight;
-  latestNewsState.inFlight = null;
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      latestNewsState.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
-      if (latestNewsState.data) return res.json(latestNewsState.data);
+    if (!latestNewsState.inFlight) {
+      latestNewsState.inFlight = queryAniList(query);
     }
-    if (latestNewsState.data) return res.json(latestNewsState.data);
-    return res.status(result?.status || 502).json({ message: 'AniList latest-news fetch failed' });
+    const result = await latestNewsState.inFlight;
+    latestNewsState.inFlight = null;
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        latestNewsState.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
+        if (latestNewsState.data) return res.json(latestNewsState.data);
+      }
+      if (latestNewsState.data) return res.json(latestNewsState.data);
+      return res.status(result?.status || 502).json({ message: 'AniList latest-news fetch failed' });
+    }
+
+    const latestNews = (result?.data?.Page?.media || []).map((m) => ({
+      id: m?.id?.toString() || '0',
+      title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+      description: (m?.description || '').replace(/<[^>]*>?/gm, '') || 'No description available.',
+      coverUrl: m?.bannerImage || m?.coverImage?.extraLarge || m?.coverImage?.large || '',
+      url: m?.siteUrl || null,
+    }));
+
+    latestNewsState.data = latestNews;
+    latestNewsState.fetchedAt = Date.now();
+    latestNewsState.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
+    res.json(latestNews);
+  } catch (err) {
+    console.error('Latest news error:', err);
+    res.status(500).json({ message: 'Internal server error in latest-news', error: err.message });
   }
+});
 
-  const latestNews = (result?.data?.Page?.media || []).map((m) => ({
-    id: m.id.toString(),
-    title: m.title.romaji || m.title.english || m.title.native,
-    description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
-    coverUrl: m.bannerImage || m.coverImage?.extraLarge || m.coverImage?.large || '',
-    url: m.siteUrl || null,
-  }));
+app.get(['/api/v1/anime/schedule', '/api/anime/schedule'], async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    if (ids.length === 0) return res.json([]);
 
-  latestNewsState.data = latestNews;
-  latestNewsState.fetchedAt = Date.now();
-  latestNewsState.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry('latest-news', latestNewsState, ENDPOINT_CACHE_TTL_MS);
-  res.json(latestNews);
+    const now = Math.floor(Date.now() / 1000);
+    const weekLater = now + (7 * 24 * 60 * 60);
+
+    const query = `
+      query ($ids: [Int], $now: Int, $later: Int) {
+        Page(perPage: 50) {
+          airingSchedules(mediaId_in: $ids, airingAt_greater: $now, airingAt_lesser: $later, sort: TIME) {
+            id
+            airingAt
+            episode
+            media {
+              id
+              title { romaji english native }
+              coverImage { large }
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await queryAniList(query, { ids, now, later: weekLater });
+    res.json(result?.data?.Page?.airingSchedules || []);
+  } catch (err) {
+    console.error('Schedule error:', err);
+    res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+});
+
+app.get(['/api/v1/character/:id', '/api/character/:id'], async (req, res) => {
+  try {
+    const id = String(parseInt(req.params.id, 10));
+    if (!id || id === 'NaN') {
+      return res.status(400).json({ error: 'Invalid character id' });
+    }
+
+    const query = `
+      query ($id: Int) {
+        Character(id: $id) {
+          id
+          name { full native alternative alternativeSpoiler }
+          image { large }
+          description
+          gender
+          dateOfBirth { year month day }
+          age
+          bloodType
+          siteUrl
+          media(page: 1, perPage: 25, sort: POPULARITY_DESC) {
+            edges {
+              characterRole
+              node {
+                id
+                type
+                title { romaji english native }
+                coverImage { large }
+                bannerImage
+                status
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await queryAniList(query, { id: parseInt(id, 10) });
+
+    if (!result?.data?.Character) {
+      return res.status(result?.status || 404).json({ error: 'Character not found' });
+    }
+
+    const c = result.data.Character;
+    const payload = {
+      id: c.id.toString(),
+      name: c.name.full,
+      nameNative: c.name.native,
+      nameAlt: c.name.alternative,
+      description: c.description || '',
+      image: c.image.large,
+      gender: c.gender,
+      age: c.age,
+      bloodType: c.bloodType,
+      siteUrl: c.siteUrl,
+      media: (c.media?.edges || []).map(edge => ({
+        id: edge.node.id.toString(),
+        type: edge.node.type,
+        role: edge.characterRole,
+        title: edge.node.title.romaji || edge.node.title.english || edge.node.title.native,
+        coverUrl: edge.node.coverImage.large,
+        bannerUrl: edge.node.bannerImage,
+        status: edge.node.status
+      }))
+    };
+
+    res.json(payload);
+  } catch (err) {
+    console.error('Character detail error:', err);
+    res.status(500).json({ error: 'Failed to fetch character detail' });
+  }
 });
 
 app.get(['/api/v1/manga/:id', '/api/v1/media/:id', '/api/manga/:id', '/api/media/:id'], async (req, res) => {
-  const id = String(parseInt(req.params.id, 10));
-  if (!id || id === 'NaN') {
-    return res.status(400).json({ error: 'Invalid media id' });
-  }
+  try {
+    const id = String(parseInt(req.params.id, 10));
+    if (!id || id === 'NaN') {
+      return res.status(400).json({ error: 'Invalid media id' });
+    }
 
-  const mediaState = getMangaState(id);
-  await hydrateStateFromStorage(`media:${id}`, mediaState);
+    const mediaState = getMangaState(id);
+    await hydrateStateFromStorage(`media:${id}`, mediaState);
 
-  const now = Date.now();
-  if (hasUsableCache(mediaState, CACHE_FILE_TTL_FALLBACK_MS)) {
-    return res.json(mediaState.data);
-  }
-  if (mediaState.cooldownUntil > now) {
-    if (mediaState.data) return res.json(mediaState.data);
-    return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
-  }
+    const now = Date.now();
+    if (hasUsableCache(mediaState, CACHE_FILE_TTL_FALLBACK_MS)) {
+      return res.json(mediaState.data);
+    }
+    if (mediaState.cooldownUntil > now) {
+      if (mediaState.data) return res.json(mediaState.data);
+      return res.status(429).json({ message: 'AniList rate-limited. Retry shortly.' });
+    }
 
-  const query = `
+    const query = `
       query ($id: Int) {
         Media(id: $id) {
           ${MEDIA_FRAGMENT}
@@ -1764,59 +2021,73 @@ app.get(['/api/v1/manga/:id', '/api/v1/media/:id', '/api/manga/:id', '/api/media
       }
     `;
 
-  if (!mediaState.inFlight) {
-    mediaState.inFlight = queryAniList(query, { id: parseInt(id, 10) });
-  }
-  const result = await mediaState.inFlight;
-  mediaState.inFlight = null;
-
-  if (!result?.data) {
-    if (result?.status === 429) {
-      const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
-      mediaState.cooldownUntil = Date.now() + retryAfterMs;
-      queuePersistCacheToDisk();
-      void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
-      if (mediaState.data) return res.json(mediaState.data);
+    if (!mediaState.inFlight) {
+      mediaState.inFlight = queryAniList(query, { id: parseInt(id, 10) });
     }
-    if (mediaState.data) return res.json(mediaState.data);
-    return res.status(result?.status || 502).json({ error: 'Media fetch failed' });
+    const result = await mediaState.inFlight;
+    mediaState.inFlight = null;
+
+    if (!result?.data) {
+      if (result?.status === 429) {
+        const retryAfterMs = result?.retryAfterSec ? result.retryAfterSec * 1000 : ENDPOINT_COOLDOWN_DEFAULT_MS;
+        mediaState.cooldownUntil = Date.now() + retryAfterMs;
+        queuePersistCacheToDisk();
+        void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
+        if (mediaState.data) return res.json(mediaState.data);
+      }
+      if (mediaState.data) return res.json(mediaState.data);
+      return res.status(result?.status || 502).json({ error: 'Media fetch failed' });
+    }
+
+    const m = result?.data?.Media;
+
+    if (!m) {
+      return res.status(404).json({ error: 'Media not found' });
+    }
+
+    const payload = {
+      id: m?.id?.toString() || '0',
+      type: m?.type || 'MANGA',
+      title: m?.title?.romaji || m?.title?.english || m?.title?.native || 'Untitled',
+      titleJp: m?.title?.native || '',
+      description: (m?.description || '').replace(/<[^>]*>?/gm, '') || 'No description available.',
+      genres: m?.genres || [],
+      coverUrl: m?.coverImage?.extraLarge || '',
+      bannerUrl: m?.bannerImage || '',
+      chapters: m?.chapters || null,
+      episodes: m?.episodes || null,
+      total_episodes: m?.episodes || null,
+      characters: (m?.characters?.edges || []).map(edge => ({
+        id: edge?.node?.id?.toString() || '0',
+        name: edge?.node?.name?.full || 'Unknown',
+        image: edge?.node?.image?.large || '',
+        role: edge?.role || ''
+      })),
+      relations: (m?.relations?.edges || []).map(edge => ({
+        id: edge?.node?.id?.toString() || '0',
+        title: edge?.node?.title?.romaji || edge?.node?.title?.english || edge?.node?.title?.native || 'Unknown',
+        type: edge?.node?.type || 'MANGA',
+        format: edge?.node?.format || '',
+        status: edge?.node?.status || '',
+        coverUrl: edge?.node?.coverImage?.large || '',
+        relationType: edge?.relationType || ''
+      })),
+      stats: { score: (m?.averageScore || 0) / 10, status: m?.status || '', popularity: `#${(m?.popularity || 0).toLocaleString()}` }
+    };
+
+    mediaState.data = payload;
+    mediaState.fetchedAt = Date.now();
+    mediaState.cooldownUntil = 0;
+    queuePersistCacheToDisk();
+    void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
+    res.json(payload);
+  } catch (err) {
+    console.error('Media detail error:', err);
+    res.status(500).json({ message: 'Internal server error in media detail', error: err.message });
   }
-
-  const m = result?.data?.Media;
-
-  if (!m) {
-    return res.status(404).json({ error: 'Media not found' });
-  }
-
-  const payload = {
-    id: m.id.toString(),
-    type: m.type,
-    title: m.title.romaji || m.title.english || m.title.native,
-    titleJp: m.title.native,
-    description: m.description?.replace(/<[^>]*>?/gm, '') || 'No description available.',
-    genres: m.genres,
-    coverUrl: m.coverImage.extraLarge,
-    bannerUrl: m.bannerImage,
-    chapters: m.chapters,
-    episodes: m.episodes,
-    total_episodes: m.episodes,
-    characters: (m.characters?.edges || []).map(edge => ({
-      id: edge.node.id.toString(),
-      name: edge.node.name.full,
-      image: edge.node.image.large,
-      role: edge.role
-    })),
-    stats: { score: m.averageScore / 10, status: m.status, popularity: `#${m.popularity.toLocaleString()}` }
-  };
-
-  mediaState.data = payload;
-  mediaState.fetchedAt = Date.now();
-  mediaState.cooldownUntil = 0;
-  queuePersistCacheToDisk();
-  void pushCloudCacheEntry(`media:${id}`, mediaState, CACHE_FILE_TTL_FALLBACK_MS);
-  res.json(payload);
 });
 
+app.use('/api/v1', require('./routes/v1'));
 
 app.listen(PORT, () => {
   console.log(`Backend API running on http://localhost:${PORT}`);

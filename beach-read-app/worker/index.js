@@ -1,4 +1,17 @@
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+
+// Load .env from api directory relative to this file
+const apiDir = path.resolve(__dirname, '../api');
+const envFiles = ['.env.local', '.env'];
+
+for (const file of envFiles) {
+  const envPath = path.join(apiDir, file);
+  if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+  }
+}
+
 const cron = require('node-cron');
 const { createClient } = require('@supabase/supabase-js');
 const syncService = require('../api/services/syncService');
@@ -120,7 +133,7 @@ async function pollReleases() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query,
-            variables: { 
+            variables: {
               id: Number(mapping.provider_title_id),
               type: mapping.title?.media_type || 'MANGA'
             },
@@ -129,17 +142,17 @@ async function pollReleases() {
 
         if (!response.ok) continue;
         const result = await response.json();
-        const latestCount = isAnime 
+        const latestCount = isAnime
           ? Number(result.data?.Media?.episodes || 0)
           : Number(result.data?.Media?.chapters || 0);
-        
+
         const currentCount = isAnime
           ? Number(mapping.title?.total_episodes || 0)
           : Number(mapping.title?.chapter_count || 0);
 
         if (!latestCount || latestCount <= currentCount) continue;
 
-        const updateData = isAnime 
+        const updateData = isAnime
           ? { total_episodes: latestCount, updated_at: new Date().toISOString() }
           : { chapter_count: latestCount, updated_at: new Date().toISOString() };
 

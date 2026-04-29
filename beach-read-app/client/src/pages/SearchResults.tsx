@@ -1,15 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useSearch } from '../hooks/useSearch';
-import { MangaCard } from '../components/home/MangaCard';
-import { Loader2, Search as SearchIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FiltersPanel } from '../components/search/FiltersPanel';
+import { useSearch } from '../features/manga/hooks/useSearch';
+import { MangaCard } from '../features/manga/components/MangaCard';
+import type { MediaType } from '../shared/types/types';
+import { Search as SearchIcon, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FiltersPanel } from '../features/manga/components/FiltersPanel';
+import { GridSkeleton } from '../shared/ui/PageSkeletons';
 
 const SearchResults: React.FC = () => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
     const [page, setPage] = useState(1);
-    
+
     // Filter State
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [activeGenres, setActiveGenres] = useState<string[]>([]);
@@ -26,7 +28,7 @@ const SearchResults: React.FC = () => {
             status: status || undefined,
             format: format || undefined,
             year: year || undefined,
-            type: mediaType || undefined
+            type: (mediaType as MediaType) || undefined
         });
     }, [query, page, activeGenres, status, format, year, mediaType, search]);
 
@@ -35,7 +37,7 @@ const SearchResults: React.FC = () => {
     }, [executeSearch]);
 
     const toggleGenre = (genre: string) => {
-        setActiveGenres(prev => 
+        setActiveGenres(prev =>
             prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
         );
         setPage(1);
@@ -53,39 +55,76 @@ const SearchResults: React.FC = () => {
     return (
         <div className="flex w-full flex-col items-center bg-background min-h-screen pt-[120px] pb-[110px]">
             <div className="w-full max-w-[1280px] px-[28px]">
-                <div className="mb-[48px] flex flex-col md:flex-row md:items-end justify-between border-b border-border/70 pb-[24px] gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-[8px]">
-                            <SearchIcon className="w-5 h-5 text-primary" />
-                            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Search Results</p>
+                <div className="mb-[48px] flex flex-col gap-4 border-b border-border/70 pb-[24px]">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div>
+                            <div className="flex items-center gap-3 mb-[8px]">
+                                <SearchIcon className="w-5 h-5 text-primary" />
+                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Search Results</p>
+                            </div>
+                            <h1 className="text-[42px] font-black tracking-[-0.03em] text-foreground uppercase">
+                                Results for <span className="text-primary italic">"{query}"</span>
+                            </h1>
                         </div>
-                        <h1 className="text-[42px] font-black tracking-[-0.03em] text-foreground uppercase">
-                            Results for <span className="text-primary italic">"{query}"</span>
-                        </h1>
+
+                        <div className="flex items-center gap-4">
+                            {pageInfo && pageInfo.lastPage > 1 && (
+                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                    Page {page} of {pageInfo.lastPage}
+                                </span>
+                            )}
+                            <button
+                                onClick={() => setIsFiltersOpen(true)}
+                                className={`flex items-center gap-3 px-6 py-3 border rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${activeGenres.length > 0 || status || format || year || mediaType
+                                    ? 'bg-primary border-primary text-background'
+                                    : 'border-border/60 text-foreground hover:bg-foreground/5'
+                                    }`}
+                            >
+                                <Filter size={14} />
+                                Filters {(activeGenres.length > 0 || status || format || year || mediaType) && '• Active'}
+                            </button>
+                        </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={() => setIsFiltersOpen(true)}
-                            className={`flex items-center gap-3 px-6 py-3 border rounded-full text-[11px] font-black uppercase tracking-widest transition-all ${
-                                activeGenres.length > 0 || status || format || year || mediaType
-                                ? 'bg-primary border-primary text-background'
-                                : 'border-border/60 text-foreground hover:bg-foreground/5'
-                            }`}
-                        >
-                            <Filter size={14} />
-                            Filters {(activeGenres.length > 0 || status || format || year || mediaType) && '• Active'}
-                        </button>
-                    </div>
+
+                    {/* Active filter badges */}
+                    {(activeGenres.length > 0 || status || format || year || mediaType) && (
+                        <div className="flex flex-wrap gap-2">
+                            {activeGenres.map(g => (
+                                <span key={g} className="inline-flex items-center gap-1.5 px-3 py-1 border border-border/50 text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-muted/10 rounded-full">
+                                    {g} <button onClick={() => toggleGenre(g)} className="opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                                </span>
+                            ))}
+                            {status && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-border/50 text-[9px] font-black uppercase tracking-widest text-primary bg-primary/5 rounded-full">
+                                    {status} <button onClick={() => { setStatus(null); setPage(1); }} className="opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                                </span>
+                            )}
+                            {format && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-border/50 text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-muted/10 rounded-full">
+                                    {format} <button onClick={() => { setFormat(null); setPage(1); }} className="opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                                </span>
+                            )}
+                            {year && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-border/50 text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-muted/10 rounded-full">
+                                    {year} <button onClick={() => { setYear(null); setPage(1); }} className="opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                                </span>
+                            )}
+                            {mediaType && (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-border/50 text-[9px] font-black uppercase tracking-widest text-muted-foreground bg-muted/10 rounded-full">
+                                    {mediaType} <button onClick={() => { setMediaType(null); setPage(1); }} className="opacity-40 hover:opacity-100 transition-opacity">✕</button>
+                                </span>
+                            )}
+                            <button onClick={clearFilters} className="px-3 py-1 text-[9px] font-black uppercase tracking-widest text-destructive hover:underline transition-colors">
+                                Clear all
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-32">
-                        <Loader2 className="w-12 h-12 text-primary animate-spin mb-6" />
-                        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Searching Database...</p>
-                    </div>
+                    <GridSkeleton />
                 ) : error ? (
-                    <div className="py-24 text-center border-2 border-dashed border-destructive/20 rounded-[40px] bg-destructive/5 px-6">
+                    <div className="py-24 text-center border-2 border-dashed border-destructive/20 rounded-3xl bg-destructive/5 px-6">
                         <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
                             <SearchIcon className="text-destructive w-8 h-8" />
                         </div>
@@ -109,7 +148,7 @@ const SearchResults: React.FC = () => {
 
                         {/* Pagination */}
                         {pageInfo && pageInfo.lastPage > 1 && (
-                            <div className="mt-32 pt-12 border-t border-border/40 flex items-center justify-between">
+                            <div className="mt-16 pt-12 border-t border-border/40 flex items-center justify-between">
                                 <button
                                     disabled={page === 1}
                                     onClick={() => {
@@ -141,7 +180,7 @@ const SearchResults: React.FC = () => {
                         )}
                     </>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-40 text-center border-2 border-dashed border-border/50 rounded-[48px] bg-muted/5 group">
+                    <div className="flex flex-col items-center justify-center py-40 text-center border-2 border-dashed border-border/50 rounded-3xl bg-muted/5 group">
                         <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-8 transition-transform duration-500 group-hover:scale-110">
                             <SearchIcon className="w-10 h-10 text-muted-foreground opacity-30" />
                         </div>
@@ -150,13 +189,13 @@ const SearchResults: React.FC = () => {
                             We couldn't find any results for this search. Try refining your filters or explore trending titles.
                         </p>
                         <div className="flex gap-4">
-                            <button 
+                            <button
                                 onClick={clearFilters}
                                 className="px-10 py-4 border border-border text-foreground text-[11px] font-black uppercase tracking-widest rounded-2xl hover:bg-muted/30 transition-all"
                             >
                                 Clear Filters
                             </button>
-                            <button 
+                            <button
                                 onClick={() => window.location.href = '/discover'}
                                 className="px-10 py-4 bg-foreground text-background text-[11px] font-black uppercase tracking-widest rounded-2xl hover:opacity-90 transition-all"
                             >
@@ -167,7 +206,7 @@ const SearchResults: React.FC = () => {
                 )}
             </div>
 
-            <FiltersPanel 
+            <FiltersPanel
                 isOpen={isFiltersOpen}
                 onClose={() => setIsFiltersOpen(false)}
                 activeGenres={activeGenres}

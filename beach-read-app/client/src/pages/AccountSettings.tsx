@@ -1,818 +1,614 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
-import { useAuth } from '../context/auth-context';
-import { User, Settings, Lock, Bell, Shield, LogOut, Save, Loader2, CloudDownload, Upload, Plus } from 'lucide-react';
-import { normalizeUsername } from '../lib/profileUsername';
-import { sanitizeCoverUrl } from '../lib/image';
-import { PasswordForm } from '../components/account/PasswordForm';
-import { NotificationsPanel } from '../components/account/NotificationsPanel';
-import { PrivacyPanel } from '../components/account/PrivacyPanel';
-import { TrackingSyncPanel } from '../components/account/TrackingSyncPanel';
-import { useLibrary } from '../hooks/useLibrary';
-import { useCollections } from '../hooks/useCollections';
-import type { ProfilePrivacyConfig, ProfileSectionsConfig, SectionId, SnapshotCardId, Character } from '../lib/types';
+import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../features/auth/context/auth-context';
+import {
+    User, Lock, Shield, LogOut, Save, Loader2,
+    Upload, Wind, Palette, ChevronRight,
+    Check, Eye, EyeOff, Mail, MapPin, Link as LinkIcon
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useToast } from '../app/providers/ToastContext';
+import type { SectionId } from '../shared/types/types';
+import { TrackingSyncPanel } from '../features/library/components/TrackingSyncPanel';
+import { SettingRow, FieldInput, Toggle } from '../shared/ui/Form';
+import { Button } from '../shared/ui/Button';
+import { Surface } from '../shared/ui/Surface';
+import { sanitizeCoverUrl } from '../shared/utils/image';
 
-type SettingsTab = 'Profile' | 'Security' | 'Sync' | 'Notifications' | 'Privacy';
+type TabId = 'profile' | 'preferences' | 'security' | 'integrations';
 
-const DEFAULT_SECTION_ORDER: SectionId[] = [
-    'now_reading',
-    'snapshot',
-    'stats',
-    'featured_collections',
-    'favorites',
-    'starter_pack',
-    'changelog',
-    'archive',
-    'characters',
-];
+/* ─── Shared sub-components ──────────────────────────────────────── */
 
-const DEFAULT_PROFILE_SECTIONS: ProfileSectionsConfig = {
-    visible: {
-        stats: true,
-        snapshot: true,
-        now_reading: true,
-        featured_collections: true,
-        favorites: true,
-        starter_pack: true,
-        changelog: true,
-        archive: true,
-        characters: true,
-    },
-    order: DEFAULT_SECTION_ORDER,
-};
-
-const DEFAULT_PROFILE_PRIVACY: ProfilePrivacyConfig = {
-    showScores: true,
-    showProgress: true,
-    showDroppedPaused: true,
-    hideAdultContent: false,
-};
-
-const SNAPSHOT_OPTIONS: Array<{ id: SnapshotCardId; label: string }> = [
-    { id: 'archive_overview', label: 'Library Size' },
-    { id: 'completion_ratio', label: 'Completion Rate' },
-    { id: 'top_genre', label: 'Top Genre' },
-    { id: 'reading_depth', label: 'Reading Depth' },
-];
-
-const THEME_PRESETS = [
-    { name: 'Beach Classic', primary: '#F77F00', background: '#000000' },
-    { name: 'Sakura', primary: '#FFB7C5', background: '#1A0F12' },
-    { name: 'Nordic', primary: '#88C0D0', background: '#2E3440' },
-    { name: 'Cyberpunk', primary: '#00FF9F', background: '#0D0221' },
-    { name: 'Deep Sea', primary: '#00D1FF', background: '#001219' },
-];
-
-const SECTION_LABELS: Record<SectionId, string> = {
-    now_reading: 'Now Reading Spotlight',
-    snapshot: 'Snapshot Cards',
-    stats: 'Statistics',
-    featured_collections: 'Featured Collections',
-    favorites: 'Favorites',
-    starter_pack: 'Starter Pack',
-    changelog: 'Public Changelog',
-    archive: 'Archive Grid',
-    characters: 'Favorite Characters',
-};
-
-export default function AccountSettings() {
-    const { user, updateUser, uploadAvatar, logout } = useAuth();
-    const { library } = useLibrary();
-    const { collections } = useCollections();
-    const [activeTab, setActiveTab] = useState<SettingsTab>('Profile');
-    const [displayName, setDisplayName] = useState(user?.displayName || '');
-    const [username, setUsername] = useState(user?.username || '');
-    const [bio, setBio] = useState(user?.bio || '');
-    const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
-    const [bannerUrl, setBannerUrl] = useState(user?.bannerUrl || '');
-    const [location, setLocation] = useState(user?.location || '');
-    const [website, setWebsite] = useState(user?.website || '');
-    const [twitterHandle, setTwitterHandle] = useState(user?.twitterHandle || '');
-    const [isPrivate, setIsPrivate] = useState(user?.isPrivate || false);
-    const [showStats, setShowStats] = useState(user?.showStats ?? true);
-    const [primaryColor, setPrimaryColor] = useState(user?.customColors?.primary || '#F77F00');
-    const [backgroundColor, setBackgroundColor] = useState(user?.customColors?.background || '#000000');
-    const [profileSections, setProfileSections] = useState<ProfileSectionsConfig>(user?.profileSections || DEFAULT_PROFILE_SECTIONS);
-    const [profilePrivacy, setProfilePrivacy] = useState<ProfilePrivacyConfig>(user?.profilePrivacy || DEFAULT_PROFILE_PRIVACY);
-    const [featuredCollections, setFeaturedCollections] = useState<string[]>(user?.featuredCollections || []);
-    const [snapshotCards, setSnapshotCards] = useState<SnapshotCardId[]>(user?.snapshotCards || ['archive_overview', 'completion_ratio', 'top_genre']);
-    const [nowReadingId, setNowReadingId] = useState<string | null>(user?.nowReadingId || null);
-    
-    // Favorites & Pinned Management
-    const [favoriteCharacters, setFavoriteCharacters] = useState<Character[]>(user?.favoriteCharacters || []);
-    const [favoriteMangaOrder, setFavoriteMangaOrder] = useState<string[]>(user?.favoriteMangaOrder || []);
-    const [pinnedMangaIds, setPinnedMangaIds] = useState<string[]>(user?.pinnedMangaIds || []);
-    
-    const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const importInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        setDisplayName(user?.displayName || '');
-        setUsername(user?.username || '');
-        setBio(user?.bio || '');
-        setAvatarUrl(user?.avatarUrl || '');
-        setBannerUrl(user?.bannerUrl || '');
-        setLocation(user?.location || '');
-        setWebsite(user?.website || '');
-        setTwitterHandle(user?.twitterHandle || '');
-        setIsPrivate(user?.isPrivate || false);
-        setShowStats(user?.showStats ?? true);
-        setPrimaryColor(user?.customColors?.primary || '#F77F00');
-        setBackgroundColor(user?.customColors?.background || '#000000');
-        setProfileSections(user?.profileSections || DEFAULT_PROFILE_SECTIONS);
-        setProfilePrivacy(user?.profilePrivacy || DEFAULT_PROFILE_PRIVACY);
-        setFeaturedCollections(user?.featuredCollections || []);
-        setSnapshotCards(user?.snapshotCards || ['archive_overview', 'completion_ratio', 'top_genre']);
-        setNowReadingId(user?.nowReadingId || null);
-        setFavoriteCharacters(user?.favoriteCharacters || []);
-        setFavoriteMangaOrder(user?.favoriteMangaOrder || []);
-        setPinnedMangaIds(user?.pinnedMangaIds || []);
-    }, [user]);
-
-    const curatedCollectionNames = useMemo(() => Array.from(
-        new Set(
-            [...collections.map((collection) => collection.name), ...library.flatMap((item) => item.customLists || [])]
-                .map((name) => name.trim())
-                .filter(Boolean)
-        )
-    ), [collections, library]);
-
-    const readingCandidates = useMemo(() => library.filter((item) => item.status === 'READING'), [library]);
-    const favoriteCandidates = useMemo(() => library.filter((item) => item.isFavourite), [library]);
-
-    const togglePinnedManga = (id: string) => {
-        setPinnedMangaIds((prev) => {
-            if (prev.includes(id)) return prev.filter((pid) => pid !== id);
-            if (prev.length >= 4) return prev;
-            return [...prev, id];
-        });
-    };
-
-    const applyThemePreset = (preset: typeof THEME_PRESETS[0]) => {
-        setPrimaryColor(preset.primary);
-        setBackgroundColor(preset.background);
-    };
-
-    const handleExportArchive = () => {
-        const data = {
-            version: '1.0',
-            exportedAt: new Date().toISOString(),
-            user: {
-                displayName,
-                username,
-                bio,
-                customColors: { primary: primaryColor, background: backgroundColor }
-            },
-            library: library.map(item => ({
-                title: item.title,
-                status: item.status,
-                progress: item.progress,
-                score: item.score,
-                isFavourite: item.isFavourite,
-                genres: item.genres,
-                chapters: item.chapters
-            }))
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `beachread-archive-${username || 'export'}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const handleImportArchive = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setLoading(true);
-        try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            if (!data.library) throw new Error('Invalid archive format');
-            // Simplified import logic for prototype
-            alert(`Detected ${data.library.length} titles. Ready to sync with cloud.`);
-        } catch (err) {
-            setError('Failed to parse archive file');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const toggleSectionVisibility = (section: SectionId) => {
-        setProfileSections((prev) => ({
-            ...prev,
-            visible: {
-                ...prev.visible,
-                [section]: !prev.visible[section],
-            },
-        }));
-    };
-
-    const moveSection = (section: SectionId, direction: 'up' | 'down') => {
-        setProfileSections((prev) => {
-            const order = [...prev.order];
-            const index = order.indexOf(section);
-            if (index === -1) return prev;
-            const target = direction === 'up' ? index - 1 : index + 1;
-            if (target < 0 || target >= order.length) return prev;
-            [order[index], order[target]] = [order[target], order[index]];
-            return { ...prev, order };
-        });
-    };
-
-    const toggleFeaturedCollection = (name: string) => {
-        setFeaturedCollections((prev) => {
-            if (prev.includes(name)) return prev.filter((entry) => entry !== name);
-            if (prev.length >= 6) return prev;
-            return [...prev, name];
-        });
-    };
-
-    const toggleSnapshotCard = (cardId: SnapshotCardId) => {
-        setSnapshotCards((prev) => {
-            if (prev.includes(cardId)) {
-                if (prev.length === 1) return prev;
-                return prev.filter((id) => id !== cardId);
-            }
-            if (prev.length >= 4) return prev;
-            return [...prev, cardId];
-        });
-    };
-
-    const handleUpdateProfile = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        setLoading(true);
-        setSuccess(false);
-        setError(null);
-
-        try {
-            await updateUser({
-                displayName: displayName.trim(),
-                username: normalizeUsername(username, user?.email || 'beachreader'),
-                bio: bio.trim(),
-                avatarUrl: avatarUrl.trim(),
-                bannerUrl: bannerUrl.trim(),
-                location: location.trim(),
-                website: website.trim(),
-                twitterHandle: twitterHandle.trim(),
-                isPrivate,
-                showStats,
-                customColors: {
-                    primary: primaryColor,
-                    background: backgroundColor,
-                },
-                profileSections,
-                profilePrivacy,
-                featuredCollections,
-                snapshotCards,
-                nowReadingId,
-                favoriteCharacters,
-                favoriteMangaOrder,
-                pinnedMangaIds,
-            });
-            setSuccess(true);
-        } catch (err) {
-            console.error('Failed to update profile:', err);
-            setError(err instanceof Error ? err.message : 'Failed to update profile');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-    const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        setUploadingAvatar(true);
-        setSuccess(false);
-        setError(null);
-
-        try {
-            const nextAvatarUrl = await uploadAvatar(file);
-            setAvatarUrl(nextAvatarUrl);
-            setSuccess(true);
-        } catch (err) {
-            console.error('Failed to upload avatar:', err);
-            setError(err instanceof Error ? err.message : 'Failed to upload avatar');
-        } finally {
-            setUploadingAvatar(false);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-        }
-    };
-
-    if (!user) return null;
-
+function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <div className="w-full max-w-[1000px] mx-auto pt-[120px] px-6 pb-20">
-            <div className="flex items-center gap-4 mb-12">
-                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                    <Settings size={32} />
-                </div>
-                <div>
-                    <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">Settings</h1>
-                    <p className="text-muted-foreground text-sm font-medium">Manage your archive profile and preferences</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-                <div className="lg:col-span-1 space-y-2">
-                    {[
-                        { icon: User, label: 'Profile' as SettingsTab },
-                        { icon: Lock, label: 'Security' as SettingsTab },
-                        { icon: CloudDownload, label: 'Sync' as SettingsTab },
-                        { icon: Bell, label: 'Notifications' as SettingsTab },
-                        { icon: Shield, label: 'Privacy' as SettingsTab },
-                    ].map((tab) => (
-                        <button
-                            key={tab.label}
-                            onClick={() => setActiveTab(tab.label)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                                activeTab === tab.label
-                                    ? 'bg-foreground text-background shadow-lg'
-                                    : 'text-muted-foreground hover:bg-foreground/5'
-                            }`}
-                        >
-                            <tab.icon size={16} />
-                            {tab.label}
-                        </button>
-                    ))}
-                    <div className="pt-4 mt-4 border-t border-border/50">
-                        <button
-                            onClick={logout}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest text-destructive hover:bg-destructive/5 transition-all"
-                        >
-                            <LogOut size={16} />
-                            Logout
-                        </button>
-                    </div>
-                </div>
-
-                <div className="lg:col-span-3 space-y-8">
-                    {activeTab === 'Profile' && (
-                        <section className="bg-muted/20 border border-border/40 rounded-[24px] p-8">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-8">Public Profile</h2>
-
-                            <form onSubmit={handleUpdateProfile} className="space-y-6">
-                                <div className="flex flex-col gap-5 rounded-[28px] border border-border/50 bg-background/60 p-5 md:flex-row md:items-center">
-                                    <div className="h-24 w-24 overflow-hidden rounded-[28px] border border-border/50 bg-muted/40">
-                                        {avatarUrl ? (
-                                            <img src={avatarUrl} alt={displayName || user.email} className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="flex h-full w-full items-center justify-center text-2xl font-black text-muted-foreground">
-                                                {(displayName || user.email).charAt(0).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 space-y-3">
-                                        <div>
-                                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Profile Photo</p>
-                                            <p className="mt-2 text-sm text-muted-foreground">Upload an avatar or paste an image URL. This photo is used in the navbar and public profile.</p>
-                                        </div>
-                                        <div className="flex flex-wrap gap-3">
-                                            <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept="image/png,image/jpeg,image/webp,image/gif"
-                                                onChange={handleAvatarFileChange}
-                                                className="hidden"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => fileInputRef.current?.click()}
-                                                disabled={uploadingAvatar}
-                                                className="inline-flex h-[44px] items-center justify-center gap-2 rounded-xl border border-border/60 px-5 text-[10px] font-black uppercase tracking-widest transition-all hover:bg-foreground/5 disabled:opacity-60"
-                                            >
-                                                {uploadingAvatar ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
-                                                {uploadingAvatar ? 'Uploading' : 'Upload Photo'}
-                                            </button>
-                                            <input
-                                                type="url"
-                                                value={avatarUrl}
-                                                onChange={(e) => setAvatarUrl(e.target.value)}
-                                                className="h-[44px] min-w-[260px] flex-1 rounded-xl border border-border/60 bg-background px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                                placeholder="Or paste an avatar image URL"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Display Name</label>
-                                    <input
-                                        type="text"
-                                        value={displayName}
-                                        onChange={(e) => setDisplayName(e.target.value)}
-                                        className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                        placeholder="Your Name"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Username</label>
-                                    <input
-                                        type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                        placeholder="your-handle"
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">Public URL: `/u/{normalizeUsername(username || user.email, user.email)}`</p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email (Immutable)</label>
-                                    <input
-                                        type="email"
-                                        value={user.email}
-                                        disabled
-                                        className="w-full h-[52px] bg-muted/50 border border-border/30 rounded-xl px-4 text-sm text-muted-foreground cursor-not-allowed"
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Banner Image URL</label>
-                                    <input
-                                        type="url"
-                                        value={bannerUrl}
-                                        onChange={(e) => setBannerUrl(e.target.value)}
-                                        className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                        placeholder="https://example.com/banner.jpg"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Location</label>
-                                        <input
-                                            type="text"
-                                            value={location}
-                                            onChange={(e) => setLocation(e.target.value)}
-                                            className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                            placeholder="Tokyo, Japan"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Website</label>
-                                        <input
-                                            type="url"
-                                            value={website}
-                                            onChange={(e) => setWebsite(e.target.value)}
-                                            className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                            placeholder="https://yourwebsite.com"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Twitter (X) Handle</label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">@</span>
-                                        <input
-                                            type="text"
-                                            value={twitterHandle}
-                                            onChange={(e) => setTwitterHandle(e.target.value)}
-                                            className="w-full h-[52px] bg-background border border-border/60 rounded-xl pl-8 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                            placeholder="username"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Bio</label>
-                                    <textarea
-                                        value={bio}
-                                        onChange={(e) => setBio(e.target.value)}
-                                        className="w-full min-h-[100px] bg-background border border-border/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-y"
-                                        placeholder="Tell the archive about your reading taste..."
-                                    />
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Theme Presets</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {THEME_PRESETS.map((preset) => (
-                                            <button
-                                                key={preset.name}
-                                                type="button"
-                                                onClick={() => applyThemePreset(preset)}
-                                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/40 bg-background hover:bg-foreground/5 transition-all group"
-                                            >
-                                                <div 
-                                                    className="w-3 h-3 rounded-full border border-white/20" 
-                                                    style={{ backgroundColor: preset.primary }} 
-                                                />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">{preset.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                        <div className="flex items-center gap-4 p-4 bg-background/40 border border-border/40 rounded-2xl">
-                                            <input
-                                                type="color"
-                                                value={primaryColor}
-                                                onChange={(e) => setPrimaryColor(e.target.value)}
-                                                className="h-10 w-10 border-none bg-transparent cursor-pointer"
-                                            />
-                                            <div className="flex-1">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Primary Accent</p>
-                                                <p className="text-[11px] text-muted-foreground">{primaryColor.toUpperCase()}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 p-4 bg-background/40 border border-border/40 rounded-2xl">
-                                            <input
-                                                type="color"
-                                                value={backgroundColor}
-                                                onChange={(e) => setBackgroundColor(e.target.value)}
-                                                className="h-10 w-10 border-none bg-transparent cursor-pointer"
-                                            />
-                                            <div className="flex-1">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-foreground">Snapshot BG</p>
-                                                <p className="text-[11px] text-muted-foreground">{backgroundColor.toUpperCase()}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-
-                                <div className="flex flex-col gap-6 pt-2">
-                                    <div className="flex items-center justify-between p-4 bg-background/40 border border-border/40 rounded-2xl">
-                                        <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-foreground">Private Profile</p>
-                                            <p className="text-[11px] text-muted-foreground mt-1">Hide your profile from public search and non-followers.</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsPrivate(!isPrivate)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isPrivate ? 'bg-primary' : 'bg-muted'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isPrivate ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-
-                                    <div className="flex items-center justify-between p-4 bg-background/40 border border-border/40 rounded-2xl">
-                                        <div>
-                                            <p className="text-xs font-black uppercase tracking-widest text-foreground">Show Statistics</p>
-                                            <p className="text-[11px] text-muted-foreground mt-1">Display your reading stats and genre breakdown on your profile.</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowStats(!showStats)}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showStats ? 'bg-primary' : 'bg-muted'}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showStats ? 'translate-x-6' : 'translate-x-1'}`} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Public Sections Visibility</label>
-                                    <div className="space-y-2 rounded-2xl border border-border/40 bg-background/40 p-4">
-                                        {profileSections.order.filter(section => section !== 'favorites' && section !== 'characters').map((section, index, filteredOrder) => (
-                                            <div key={section} className="flex items-center justify-between gap-3 rounded-xl border border-border/30 bg-background/70 px-3 py-2">
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleSectionVisibility(section)}
-                                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${profileSections.visible[section] ? 'bg-primary' : 'bg-muted'}`}
-                                                    >
-                                                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${profileSections.visible[section] ? 'translate-x-5' : 'translate-x-1'}`} />
-                                                    </button>
-                                                    <span className="text-[11px] font-black uppercase tracking-wider text-foreground">{SECTION_LABELS[section]}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        disabled={index === 0}
-                                                        onClick={() => moveSection(section, 'up')}
-                                                        className="h-7 w-7 rounded-lg border border-border/50 text-xs font-black text-foreground disabled:opacity-30"
-                                                    >
-                                                        ↑
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={index === filteredOrder.length - 1}
-                                                        onClick={() => moveSection(section, 'down')}
-                                                        className="h-7 w-7 rounded-lg border border-border/50 text-xs font-black text-foreground disabled:opacity-30"
-                                                    >
-                                                        ↓
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Pinned Favorites (Starter Pack - up to 4)</label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 rounded-2xl border border-border/40 bg-background/40 p-4">
-                                        {favoriteCandidates.map((manga) => {
-                                            const active = pinnedMangaIds.includes(manga.id);
-                                            const atLimit = !active && pinnedMangaIds.length >= 4;
-                                            return (
-                                                <button
-                                                    key={manga.id}
-                                                    type="button"
-                                                    onClick={() => togglePinnedManga(manga.id)}
-                                                    disabled={atLimit}
-                                                    className={`group relative aspect-[3/4] overflow-hidden rounded-xl border transition-all ${
-                                                        active ? 'border-primary ring-2 ring-primary/20' : 'border-border/40 opacity-60 grayscale hover:opacity-100 hover:grayscale-0'
-                                                    } disabled:opacity-20`}
-                                                >
-                                                    <img src={sanitizeCoverUrl(manga.coverUrl)} className="w-full h-full object-cover" alt="" />
-                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Plus className={`w-6 h-6 text-white ${active ? 'rotate-45' : ''}`} />
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                        {favoriteCandidates.length === 0 && (
-                                            <p className="col-span-full text-center py-4 text-[11px] text-muted-foreground italic">Add some manga to your favorites first.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Data Portability</label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <button
-                                            type="button"
-                                            onClick={handleExportArchive}
-                                            className="flex items-center justify-between p-4 bg-background/40 border border-border/40 rounded-2xl hover:bg-foreground/5 transition-colors text-left"
-                                        >
-                                            <div>
-                                                <p className="text-xs font-black uppercase tracking-widest text-foreground">Export Archive</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1">Download your library as JSON.</p>
-                                            </div>
-                                            <CloudDownload className="text-primary" size={20} />
-                                        </button>
-                                        
-                                        <div className="relative">
-                                            <input
-                                                ref={importInputRef}
-                                                type="file"
-                                                accept=".json"
-                                                onChange={handleImportArchive}
-                                                className="hidden"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => importInputRef.current?.click()}
-                                                className="w-full flex items-center justify-between p-4 bg-background/40 border border-border/40 rounded-2xl hover:bg-foreground/5 transition-colors text-left"
-                                            >
-                                                <div>
-                                                    <p className="text-xs font-black uppercase tracking-widest text-foreground">Import Archive</p>
-                                                    <p className="text-[10px] text-muted-foreground mt-1">Restore from a JSON backup.</p>
-                                                </div>
-                                                <Upload className="text-primary" size={20} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Featured Collections (up to 6)</label>
-                                    <div className="flex flex-wrap gap-2 rounded-2xl border border-border/40 bg-background/40 p-4">
-                                        {curatedCollectionNames.length ? curatedCollectionNames.map((name) => {
-                                            const active = featuredCollections.includes(name);
-                                            const atLimit = !active && featuredCollections.length >= 6;
-                                            return (
-                                                <button
-                                                    key={name}
-                                                    type="button"
-                                                    onClick={() => toggleFeaturedCollection(name)}
-                                                    disabled={atLimit}
-                                                    className={`rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                                                        active
-                                                            ? 'border-primary/40 bg-primary/10 text-primary'
-                                                            : 'border-border/50 bg-background text-muted-foreground hover:text-foreground'
-                                                    } disabled:opacity-40`}
-                                                >
-                                                    {name}
-                                                </button>
-                                            );
-                                        }) : (
-                                            <p className="text-[11px] text-muted-foreground">Create a collection or add custom lists first.</p>
-                                        )}
-                                    </div>
-                                </div>
-
-
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Snapshot Cards (1 to 4)</label>
-                                    <div className="flex flex-wrap gap-2 rounded-2xl border border-border/40 bg-background/40 p-4">
-                                        {SNAPSHOT_OPTIONS.map((option) => {
-                                            const active = snapshotCards.includes(option.id);
-                                            const atLimit = !active && snapshotCards.length >= 4;
-                                            return (
-                                                <button
-                                                    key={option.id}
-                                                    type="button"
-                                                    onClick={() => toggleSnapshotCard(option.id)}
-                                                    disabled={atLimit}
-                                                    className={`rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition-colors ${
-                                                        active
-                                                            ? 'border-primary/40 bg-primary/10 text-primary'
-                                                            : 'border-border/50 bg-background text-muted-foreground hover:text-foreground'
-                                                    } disabled:opacity-40`}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Now Reading Spotlight</label>
-                                    <select
-                                        value={nowReadingId || ''}
-                                        onChange={(e) => setNowReadingId(e.target.value || null)}
-                                        className="w-full h-[52px] bg-background border border-border/60 rounded-xl px-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                                    >
-                                        <option value="">None</option>
-                                        {readingCandidates.map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.title}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-4 pt-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Public Privacy Granularity</label>
-                                    <div className="space-y-3 rounded-2xl border border-border/40 bg-background/40 p-4">
-                                        <ToggleRow
-                                            label="Show Scores"
-                                            value={profilePrivacy.showScores}
-                                            onToggle={() => setProfilePrivacy((prev) => ({ ...prev, showScores: !prev.showScores }))}
-                                        />
-                                        <ToggleRow
-                                            label="Show Progress"
-                                            value={profilePrivacy.showProgress}
-                                            onToggle={() => setProfilePrivacy((prev) => ({ ...prev, showProgress: !prev.showProgress }))}
-                                        />
-                                        <ToggleRow
-                                            label="Show Dropped & Paused"
-                                            value={profilePrivacy.showDroppedPaused}
-                                            onToggle={() => setProfilePrivacy((prev) => ({ ...prev, showDroppedPaused: !prev.showDroppedPaused }))}
-                                        />
-                                        <ToggleRow
-                                            label="Hide Adult Content Tags"
-                                            value={profilePrivacy.hideAdultContent}
-                                            onToggle={() => setProfilePrivacy((prev) => ({ ...prev, hideAdultContent: !prev.hideAdultContent }))}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 flex items-center gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={loading || uploadingAvatar}
-                                        className="px-8 h-[48px] bg-foreground text-background font-black uppercase tracking-widest text-[10px] rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                                    >
-                                        {loading ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                                        Save Changes
-                                    </button>
-                                    {success && (
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary animate-pulse">Updated Successfully</span>
-                                    )}
-                                    {error && (
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-destructive">{error}</span>
-                                    )}
-                                </div>
-                            </form>
-                        </section>
-                    )}
-
-                    {activeTab === 'Security' && <PasswordForm />}
-                    {activeTab === 'Sync' && <TrackingSyncPanel />}
-                    {activeTab === 'Notifications' && <NotificationsPanel />}
-                    {activeTab === 'Privacy' && <PrivacyPanel />}
-                </div>
-            </div>
+        <div className="pb-6 border-b border-border/10 mb-2">
+            <h3 className="text-2xl font-serif italic text-foreground">{title}</h3>
+            {subtitle && <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mt-1">{subtitle}</p>}
         </div>
     );
 }
 
-function ToggleRow({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) {
+function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean }) {
     return (
-        <div className="flex items-center justify-between rounded-xl border border-border/30 bg-background/70 px-3 py-2">
-            <p className="text-[11px] font-black uppercase tracking-wider text-foreground">{label}</p>
-            <button
-                type="button"
-                onClick={onToggle}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${value ? 'bg-primary' : 'bg-muted'}`}
+        <div className="pt-8 flex justify-end">
+            <Button
+                onClick={onClick}
+                disabled={saving}
+                variant="primary"
+                size="lg"
+                className="rounded-full shadow-lg"
             >
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${value ? 'translate-x-5' : 'translate-x-1'}`} />
-            </button>
+                {saving ? <Loader2 size={15} className="animate-spin mr-3" /> : <Save size={15} className="mr-3" />}
+                Preserve Changes
+            </Button>
+        </div>
+    );
+}
+
+/* ─── Main component ─────────────────────────────────────────────── */
+
+export default function AccountSettings() {
+    const { user, updateUser, uploadAvatar, uploadBanner, logout } = useAuth();
+    const { showToast } = useToast();
+    const [activeTab, setActiveTab] = useState<TabId>('profile');
+    const [isSaving, setIsSaving] = useState(false);
+    const [showCurrentPw, setShowCurrentPw] = useState(false);
+    const [showNewPw, setShowNewPw] = useState(false);
+    const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+
+    const [formData, setFormData] = useState({
+        displayName: user?.displayName || '',
+        username: user?.username || '',
+        bio: user?.bio || '',
+        location: user?.location || '',
+        website: user?.website || '',
+        isPrivate: user?.isPrivate || false,
+    });
+
+    const [preferences, setPreferences] = useState<any>(user?.preferences || {
+        theme: 'light',
+        language: 'en',
+        notifications: true,
+        releaseAlerts: true,
+        titleLanguage: 'ROMAJI',
+        globalMediaFilter: 'ALL',
+    });
+
+    const [sections, setSections] = useState(user?.profileSections || {
+        visible: {
+            stats: true, snapshot: true, now_reading: true,
+            featured_collections: true, favorites: true,
+            starter_pack: true, changelog: true, archive: true, characters: true
+        },
+        order: ['now_reading', 'changelog', 'favorites', 'archive'] as SectionId[]
+    });
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const bannerInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                displayName: user.displayName || '',
+                username: user.username || '',
+                bio: user.bio || '',
+                location: user.location || '',
+                website: user.website || '',
+                isPrivate: user.isPrivate || false,
+            });
+            setPreferences(user.preferences || {
+                theme: 'light', language: 'en', notifications: true,
+                releaseAlerts: true, titleLanguage: 'ROMAJI', globalMediaFilter: 'ALL'
+            });
+            if (user.profileSections) setSections(user.profileSections);
+        }
+    }, [user]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await updateUser({ ...formData, profileSections: sections, preferences });
+            showToast('Sanctuary settings updated', 'success');
+        } catch {
+            showToast('Failed to update settings', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setIsSaving(true);
+            await uploadAvatar(file);
+            showToast('Portrait updated', 'success');
+        } catch {
+            showToast('Failed to upload portrait', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setIsSaving(true);
+            await uploadBanner(file);
+            showToast('Sanctuary cover updated', 'success');
+        } catch {
+            showToast('Failed to upload cover', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const SECTION_LABELS: Record<string, string> = {
+        stats: 'Stats Bar', snapshot: 'Snapshot', now_reading: 'Now Reading',
+        featured_collections: 'Collections', favorites: 'Favourites',
+        starter_pack: 'Starter Pack', changelog: 'Changelog',
+        archive: 'Archive', characters: 'Characters'
+    };
+
+    const navItems: { id: TabId; label: string; icon: React.ElementType; hint: string }[] = [
+        { id: 'profile', label: 'Profile', icon: User, hint: 'Identity & portrait' },
+        { id: 'preferences', label: 'Preferences', icon: Palette, hint: 'Display & reading' },
+        { id: 'security', label: 'Security', icon: Lock, hint: 'Password & access' },
+        { id: 'integrations', label: 'Integrations', icon: Shield, hint: 'External sources' },
+    ];
+
+    return (
+        <div className="min-h-screen bg-[#faf9f6] pb-24 selection:bg-[#8b7e74] selection:text-white relative pt-24">
+            {/* Paper texture */}
+            <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03]"
+                style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/natural-paper.png")' }}
+            />
+
+            <div className="max-w-[1400px] mx-auto px-8 md:px-[64px] pt-12 relative z-10">
+
+                {/* Page header */}
+                <div className="mb-12 border-b border-[#e5e1da] pb-10">
+                    <div className="flex items-center gap-3 text-[#8b7e74] mb-4">
+                        <Wind className="w-4 h-4 opacity-60" />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Sanctuary Configuration</span>
+                    </div>
+                    <h1 className="text-6xl md:text-7xl font-serif italic text-[#4a443f] tracking-tight leading-none">
+                        Settings
+                    </h1>
+                </div>
+
+                {/* Layout: sticky sidebar + panel */}
+                <div className="flex flex-col lg:flex-row gap-12">
+
+                    {/* ── Sidebar ── */}
+                    <aside className="lg:w-[260px] shrink-0">
+                        <div className="lg:sticky lg:top-[88px] space-y-1">
+                            {navItems.map(({ id, label, icon: Icon, hint }) => (
+                                <motion.button
+                                    key={id}
+                                    onClick={() => setActiveTab(id)}
+                                    whileHover={{ x: 4 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all text-left group ${activeTab === id
+                                        ? 'bg-white border border-[#e5e1da] shadow-sm text-[#4a443f]'
+                                        : 'text-[#8b7e74] hover:bg-white/60 hover:text-[#4a443f]'
+                                        }`}
+                                >
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all ${activeTab === id ? 'bg-[#f5f2ed]' : 'bg-transparent group-hover:bg-[#f5f2ed]'
+                                        }`}>
+                                        <Icon size={16} className={activeTab === id ? 'text-[#8b7e74]' : 'opacity-50'} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className={`text-[11px] font-bold uppercase tracking-widest leading-none ${activeTab === id ? '' : 'opacity-70'}`}>{label}</p>
+                                        <p className="text-[9px] font-serif italic text-[#8b7e74]/60 mt-0.5 leading-none">{hint}</p>
+                                    </div>
+                                    {activeTab === id && <ChevronRight size={14} className="text-[#8b7e74]/40 shrink-0" />}
+                                </motion.button>
+                            ))}
+
+                            <div className="pt-6 border-t border-[#e5e1da] mt-6">
+                                <button
+                                    onClick={() => logout()}
+                                    className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-400 hover:bg-red-50 hover:text-red-500 transition-all border border-transparent hover:border-red-100"
+                                >
+                                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-red-50">
+                                        <LogOut size={16} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[11px] font-bold uppercase tracking-widest leading-none">Sign Out</p>
+                                        <p className="text-[9px] font-serif italic text-red-300 mt-0.5 leading-none">Dissolve this session</p>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* ── Content panel ── */}
+                    <main className="flex-1 min-w-0">
+                        <Surface variant="paper" className="p-10 md:p-14">
+
+                            {/* ── PROFILE ── */}
+                            {activeTab === 'profile' && (
+                                <div className="space-y-0 animate-in fade-in duration-500">
+                                    <SectionHeading title="Sanctuary Profile" subtitle="Your public identity" />
+
+                                    {/* Avatar */}
+                                    <div className="py-8 border-b border-border/10 flex flex-col sm:flex-row items-start gap-8">
+                                        <div className="relative group shrink-0">
+                                            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-background shadow-lg">
+                                                {user?.avatarUrl ? (
+                                                    <img 
+                                                        src={sanitizeCoverUrl(user.avatarUrl)} 
+                                                        alt="avatar" 
+                                                        referrerPolicy="no-referrer"
+                                                        className="w-full h-full object-cover" 
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full bg-muted/20 flex items-center justify-center">
+                                                        <User size={36} className="text-muted-foreground opacity-40" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                aria-label="Upload Portrait"
+                                                className="absolute bottom-0 right-0 p-2.5 bg-primary text-white rounded-full shadow-lg hover:bg-primary/80 transition-all"
+                                            >
+                                                <Upload size={14} />
+                                            </button>
+                                            <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} className="hidden" accept="image/*" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <p className="text-lg font-serif italic text-foreground">{formData.displayName || 'Your Name'}</p>
+                                            <p className="text-[10px] font-mono text-muted-foreground">@{formData.username || 'username'}</p>
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="mt-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                                            >
+                                                Change Portrait
+                                            </button>
+                                            <p className="text-[8px] font-serif italic text-muted-foreground/60 mt-1">Supports animated GIFs.</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Banner */}
+                                    <div className="py-8 border-b border-border/10">
+                                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground mb-4">Sanctuary Cover</p>
+                                        <div 
+                                            className="relative w-full h-32 rounded-2xl bg-muted/20 overflow-hidden border border-border/40 group shadow-inner"
+                                            style={{
+                                                backgroundImage: user?.bannerUrl ? `url(${sanitizeCoverUrl(user.bannerUrl)})` : 'none',
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center',
+                                            }}
+                                        >
+                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <Button
+                                                    onClick={() => bannerInputRef.current?.click()}
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="rounded-full bg-white/90 backdrop-blur-sm text-foreground hover:bg-white"
+                                                >
+                                                    <Upload size={14} className="mr-2" /> Change Cover
+                                                </Button>
+                                            </div>
+                                            {!user?.bannerUrl && (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Wind size={24} className="text-muted-foreground opacity-20" />
+                                                </div>
+                                            )}
+                                            <input type="file" ref={bannerInputRef} onChange={handleBannerUpload} className="hidden" accept="image/*" />
+                                        </div>
+                                        <p className="text-[9px] font-serif italic text-muted-foreground mt-3">Recommended size: 1200x400px. Supports animated GIFs.</p>
+                                    </div>
+
+                                    <SettingRow label="Display Name" hint="Your visible name across Beach Read">
+                                        <FieldInput value={formData.displayName} onChange={(e) => setFormData({ ...formData, displayName: e.target.value })} placeholder="e.g. Arya" icon={User} />
+                                    </SettingRow>
+
+                                    <SettingRow label="Username" hint="Unique handle for your public profile">
+                                        <FieldInput value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="e.g. itzarya" mono icon={Mail} />
+                                    </SettingRow>
+
+                                    <SettingRow label="Aura · Bio" hint="A brief preface to your archive">
+                                        <textarea
+                                            rows={3}
+                                            value={formData.bio}
+                                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                            placeholder="Write the preface of your journey..."
+                                            className="w-full bg-foreground/[0.02] border border-border/40 rounded-2xl px-5 py-3 text-sm font-serif italic text-foreground focus:border-primary/40 outline-none transition-all resize-none placeholder:text-muted-foreground/40"
+                                        />
+                                        <p className="text-[9px] text-muted-foreground/50 font-mono mt-1 text-right">{formData.bio.length} / 200</p>
+                                    </SettingRow>
+
+                                    <SettingRow label="Location" hint="Optional, shown on public profile">
+                                        <FieldInput value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} placeholder="e.g. Mumbai, India" icon={MapPin} />
+                                    </SettingRow>
+
+                                    <SettingRow label="Website" hint="Personal link or social handle">
+                                        <FieldInput value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://your-site.com" icon={LinkIcon} />
+                                    </SettingRow>
+
+                                    <SettingRow label="Privacy" hint="Control who can view your sanctuary">
+                                        <Toggle
+                                            enabled={formData.isPrivate}
+                                            onChange={() => setFormData({ ...formData, isPrivate: !formData.isPrivate })}
+                                            label="Private Sanctuary"
+                                            hint="Only you can view your full archive"
+                                        />
+                                    </SettingRow>
+
+                                    <SaveButton onClick={handleSave} saving={isSaving} />
+                                </div>
+                            )}
+
+                            {/* ── PREFERENCES ── */}
+                            {activeTab === 'preferences' && (
+                                <div className="space-y-0 animate-in fade-in duration-500">
+                                    <SectionHeading title="Preferences" subtitle="Display, reading & discovery" />
+
+                                    <SettingRow label="Title Language" hint="How manga/anime titles are displayed throughout the app">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'ROMAJI', label: 'Romaji', sub: 'Standard' },
+                                                { value: 'ENGLISH', label: 'English', sub: 'Localised' },
+                                                { value: 'NATIVE', label: 'Native', sub: 'Original' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setPreferences({ ...preferences, titleLanguage: opt.value })}
+                                                    className={`flex flex-col items-center py-3 px-2 rounded-2xl border transition-all ${preferences.titleLanguage === opt.value
+                                                        ? 'bg-foreground border-foreground text-background'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</span>
+                                                    <span className={`text-[8px] font-serif italic mt-0.5 ${preferences.titleLanguage === opt.value ? 'opacity-90' : 'text-muted-foreground/80'}`}>{opt.sub}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Default Viewport" hint="Filter applied globally across Discover and Home">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { value: 'ALL', label: 'All', sub: 'Universal' },
+                                                { value: 'MANGA', label: 'Manga', sub: 'Literature' },
+                                                { value: 'ANIME', label: 'Anime', sub: 'Cinematic' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setPreferences({ ...preferences, globalMediaFilter: opt.value })}
+                                                    className={`flex flex-col items-center py-3 px-2 rounded-2xl border transition-all ${preferences.globalMediaFilter === opt.value
+                                                        ? 'bg-primary border-primary text-white'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</span>
+                                                    <span className={`text-[8px] font-serif italic mt-0.5 ${preferences.globalMediaFilter === opt.value ? 'opacity-100' : 'text-muted-foreground/80'}`}>{opt.sub}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Notifications" hint="Global notification delivery">
+                                        <div className="space-y-3">
+                                            <Toggle enabled={preferences.notifications} onChange={() => setPreferences({ ...preferences, notifications: !preferences.notifications })} label="Push Notifications" hint="Alerts for updates and echoes" />
+                                            <Toggle enabled={preferences.releaseAlerts} onChange={() => setPreferences({ ...preferences, releaseAlerts: !preferences.releaseAlerts })} label="Release Alerts" hint="New chapters from your reading list" />
+                                        </div>
+                                    </SettingRow>
+
+                                    {/* Tactile Customization */}
+                                    <div className="pt-10 pb-6 border-b border-border/10">
+                                        <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-primary">Tactile Atmosphere</h4>
+                                        <p className="text-[10px] text-muted-foreground mt-1 font-serif italic">Personalize the sensory experience of your sanctuary</p>
+                                    </div>
+
+                                    <SettingRow label="Font Choice" hint="The literary voice of your archive">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            {[
+                                                { value: 'serif', label: 'Serif', sub: 'Elegant' },
+                                                { value: 'sans', label: 'Sans', sub: 'Modern' },
+                                                { value: 'mono', label: 'Mono', sub: 'Technical' },
+                                                { value: 'handwritten', label: 'Script', sub: 'Intimate' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setPreferences({ ...preferences, fontStyle: opt.value })}
+                                                    className={`flex flex-col items-center py-4 px-2 rounded-2xl border transition-all ${preferences.fontStyle === opt.value
+                                                        ? 'bg-foreground border-foreground text-background'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    <span className={`text-sm font-bold ${opt.value === 'serif' ? 'font-serif' : opt.value === 'mono' ? 'font-mono' : ''}`}>{opt.label}</span>
+                                                    <span className={`text-[8px] uppercase tracking-widest mt-1 ${preferences.fontStyle === opt.value ? 'opacity-90' : 'text-muted-foreground/80'}`}>{opt.sub}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Paper Texture" hint="The physical feel of your digital pages">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            {[
+                                                { value: 'clean', label: 'Clean', sub: 'Minimal' },
+                                                { value: 'aged', label: 'Aged', sub: 'Vintage' },
+                                                { value: 'dark', label: 'Dark', sub: 'Parchment' },
+                                                { value: 'none', label: 'None', sub: 'Digital' },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setPreferences({ ...preferences, paperTexture: opt.value })}
+                                                    className={`flex flex-col items-center py-4 px-2 rounded-2xl border transition-all ${preferences.paperTexture === opt.value
+                                                        ? 'bg-primary border-primary text-white'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</span>
+                                                    <span className={`text-[8px] font-serif italic mt-0.5 ${preferences.paperTexture === opt.value ? 'opacity-100' : 'text-muted-foreground/80'}`}>{opt.sub}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Atmosphere" hint="Subtle environmental effects">
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            {[
+                                                { value: 'none', label: 'Still', icon: EyeOff },
+                                                { value: 'rain', label: 'Rain', icon: Wind },
+                                                { value: 'petals', label: 'Petals', icon: Wind },
+                                                { value: 'dust', label: 'Dust', icon: Wind },
+                                            ].map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setPreferences({ ...preferences, atmosphere: opt.value })}
+                                                    className={`flex flex-col items-center py-4 px-2 rounded-2xl border transition-all ${preferences.atmosphere === opt.value
+                                                        ? 'bg-foreground border-foreground text-background'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground hover:border-primary/50'
+                                                        }`}
+                                                >
+                                                    <opt.icon size={16} className="mb-2 opacity-60" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">{opt.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </SettingRow>
+
+                                    {/* Profile section visibility */}
+                                    <div className="py-8 border-b border-border/10">
+                                        <div className="mb-6">
+                                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground">Profile Layout</p>
+                                            <p className="text-[10px] font-serif italic text-muted-foreground mt-1">Choose which sections appear on your public profile</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            {Object.entries(sections.visible).map(([id, isVisible]) => (
+                                                <button
+                                                    key={id}
+                                                    onClick={() => setSections({ ...sections, visible: { ...sections.visible, [id]: !isVisible } })}
+                                                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${isVisible
+                                                        ? 'bg-muted/30 border-primary/20 text-foreground'
+                                                        : 'bg-foreground/[0.02] border-border/40 text-muted-foreground/40 hover:border-primary/20'
+                                                        }`}
+                                                >
+                                                    <span className="text-[9px] font-bold uppercase tracking-widest">{SECTION_LABELS[id] || id}</span>
+                                                    {isVisible
+                                                        ? <Check size={12} className="text-primary" />
+                                                        : <div className="w-3 h-3 rounded-full border border-border" />
+                                                    }
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <SaveButton onClick={handleSave} saving={isSaving} />
+                                </div>
+                            )}
+
+                            {/* ── SECURITY ── */}
+                            {activeTab === 'security' && (
+                                <div className="space-y-0 animate-in fade-in duration-500">
+                                    <SectionHeading title="Security & Access" subtitle="Password and session management" />
+
+                                    <SettingRow label="Email" hint="Your account email — contact support to change">
+                                        <div className="flex items-center gap-3 px-5 py-3 bg-muted/20 border border-border/40 rounded-2xl text-sm font-mono text-muted-foreground">
+                                            <Mail size={14} className="shrink-0 opacity-50" />
+                                            {user?.email || 'user@example.com'}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Change Password" hint="Minimum 8 characters">
+                                        <div className="space-y-3">
+                                            <div className="relative">
+                                                <input
+                                                    type={showCurrentPw ? 'text' : 'password'}
+                                                    value={pwForm.current}
+                                                    onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                                                    placeholder="Current password"
+                                                    className="w-full bg-foreground/[0.02] border border-border/40 rounded-2xl pl-5 pr-11 py-3 text-sm font-mono text-foreground focus:border-primary/40 outline-none transition-all placeholder:text-muted-foreground/40"
+                                                />
+                                                <button onClick={() => setShowCurrentPw(!showCurrentPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors">
+                                                    {showCurrentPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                </button>
+                                            </div>
+                                            <div className="relative">
+                                                <input
+                                                    type={showNewPw ? 'text' : 'password'}
+                                                    value={pwForm.next}
+                                                    onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+                                                    placeholder="New password"
+                                                    className="w-full bg-foreground/[0.02] border border-border/40 rounded-2xl pl-5 pr-11 py-3 text-sm font-mono text-foreground focus:border-primary/40 outline-none transition-all placeholder:text-muted-foreground/40"
+                                                />
+                                                <button onClick={() => setShowNewPw(!showNewPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-foreground transition-colors">
+                                                    {showNewPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="password"
+                                                value={pwForm.confirm}
+                                                onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                                                placeholder="Confirm new password"
+                                                className="w-full bg-foreground/[0.02] border border-border/40 rounded-2xl px-5 py-3 text-sm font-mono text-foreground focus:border-primary/40 outline-none transition-all placeholder:text-muted-foreground/40"
+                                            />
+                                            <Button
+                                                onClick={() => {}}
+                                                disabled={!pwForm.current || pwForm.next !== pwForm.confirm || pwForm.next.length < 8}
+                                                variant="archival"
+                                                className="mt-1"
+                                            >
+                                                <Lock size={13} className="mr-3" /> Update Password
+                                            </Button>
+                                            {pwForm.next && pwForm.confirm && pwForm.next !== pwForm.confirm && (
+                                                <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Passwords do not match</p>
+                                            )}
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Active Sessions" hint="Devices currently signed into your account">
+                                        <div className="p-5 rounded-2xl bg-foreground/[0.02] border border-border/40 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-[11px] font-bold uppercase tracking-widest text-foreground">This device</p>
+                                                    <p className="text-[9px] font-serif italic text-muted-foreground mt-0.5">Active now · Web Browser</p>
+                                                </div>
+                                                <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> Current
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={() => showToast('All other sessions terminated', 'success')}
+                                                className="w-full py-2.5 border border-red-200 text-red-400 rounded-2xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50 transition-all"
+                                            >
+                                                Revoke All Other Sessions
+                                            </button>
+                                        </div>
+                                    </SettingRow>
+
+                                    <SettingRow label="Danger Zone" hint="Irreversible actions">
+                                        <div className="p-5 rounded-2xl border border-red-100 bg-red-50/30 space-y-3">
+                                            <p className="text-[10px] font-serif italic text-muted-foreground leading-relaxed">
+                                                Deleting your account will permanently remove all archive data, notes, and collections. This action cannot be undone.
+                                            </p>
+                                            <button className="text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-600 hover:underline transition-colors">
+                                                Request Account Deletion
+                                            </button>
+                                        </div>
+                                    </SettingRow>
+                                </div>
+                            )}
+
+                            {/* ── INTEGRATIONS ── */}
+                            {activeTab === 'integrations' && (
+                                <div className="animate-in fade-in duration-500">
+                                    <SectionHeading title="External Echoes" subtitle="Sync with your existing accounts" />
+                                    <div className="pt-6">
+                                        <TrackingSyncPanel />
+                                    </div>
+                                </div>
+                            )}
+
+                        </Surface>
+                    </main>
+                </div>
+            </div>
         </div>
     );
 }

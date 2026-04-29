@@ -8,6 +8,8 @@
     "lint": "npm --prefix client run lint",
     "start:api": "npm --prefix api start",
     "start:client": "npm --prefix client run dev:client",
-    "install:all": "npm --prefix api install && npm --prefix client install"
+    "start:mcp": "npm --prefix mcp-server run start",
+    "dev:mcp": "npm --prefix mcp-server run dev",
+    "install:all": "npm --prefix api install && npm --prefix client install && npm --prefix mcp-server install"
   }
 }

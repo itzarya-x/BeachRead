@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/auth-context';
-import { supabase } from '../lib/supabaseClient';
-import { isMissingTableError } from '../lib/supabaseSchema';
+import { useAuth } from '../features/auth/context/auth-context';
+import { supabase } from '../shared/api/supabaseClient';
+import { isMissingTableError } from '../shared/api/supabaseSchema';
 import { 
     ChevronRight, 
     ChevronLeft, 
@@ -106,7 +106,7 @@ export default function Onboarding() {
             <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-            <div className="w-full max-w-2xl bg-white/[0.02] border border-white/5 backdrop-blur-3xl rounded-[48px] p-12 shadow-2xl relative z-10">
+            <div className="w-full max-w-2xl bg-white/[0.02] border border-white/5 backdrop-blur-3xl rounded-3xl p-12 shadow-2xl relative z-10">
                 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-12">
@@ -140,7 +140,7 @@ export default function Onboarding() {
                         <div className="grid grid-cols-2 gap-4 mb-8">
                             <button 
                                 onClick={() => setProvider('ANILIST')}
-                                className={`p-6 rounded-[24px] border transition-all flex flex-col items-center gap-4 ${
+                                className={`p-6 rounded-3xl border transition-all flex flex-col items-center gap-4 ${
                                     provider === 'ANILIST' ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'
                                 }`}
                             >
@@ -151,7 +151,7 @@ export default function Onboarding() {
                             </button>
                             <button 
                                 onClick={() => setProvider('MAL')}
-                                className={`p-6 rounded-[24px] border transition-all flex flex-col items-center gap-4 ${
+                                className={`p-6 rounded-3xl border transition-all flex flex-col items-center gap-4 ${
                                     provider === 'MAL' ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-white/40 hover:border-white/20'
                                 }`}
                             >
@@ -217,7 +217,7 @@ export default function Onboarding() {
                                 <button 
                                     key={t.id}
                                     onClick={() => setTheme(t.id)}
-                                    className={`p-6 rounded-[24px] border transition-all flex items-center gap-6 text-left ${
+                                    className={`p-6 rounded-3xl border transition-all flex items-center gap-6 text-left ${
                                         theme === t.id ? 'bg-primary/10 border-primary shadow-lg shadow-primary/5' : 'bg-white/5 border-white/10 text-white/40'
                                     }`}
                                 >

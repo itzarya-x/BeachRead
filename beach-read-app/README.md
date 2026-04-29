@@ -19,7 +19,7 @@ npm run install:all
 cd beach-read-app
 npm run dev
 ```
-*This starts both API (`http://localhost:3001`) and frontend (`http://localhost:5173`) together.*
+*This starts both API (`http://localhost:3005`) and frontend (`http://localhost:5173`) together.*
 
 ### Optional Cloud Cache (Supabase)
 To share AniList cache across restarts/instances:

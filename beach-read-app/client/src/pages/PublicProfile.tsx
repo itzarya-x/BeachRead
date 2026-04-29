@@ -1,160 +1,109 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ArrowRight,
-    BookOpen,
-    Calendar,
-    Loader2,
+    BookOpen,    Calendar,
     Share2,
     MapPin,
     Globe,
     User as UserIcon,
-    Award,
     Heart,
-    TrendingUp,
     Clock3,
     Settings,
-    Activity,
-    Layers,
-    History,
-    Sparkles,
     UserPlus,
     MessageSquare,
-    PieChart,
-    BarChart3,
-    MoreHorizontal,
-    Bell
+    Search,
+    Play,
+    Book,
+    Coffee,
+    Wind,
+    Moon,
+    Edit3,
+    Layers,
+    ArrowUpRight
 } from 'lucide-react';
-import { fetchPublicProfile, type PublicProfileRecord } from '../lib/publicProfile';
-import { handleCoverImageError, sanitizeCoverUrl } from '../lib/image';
-import { useAuth } from '../context/auth-context';
-import type { ProfilePrivacyConfig, ProfileSectionsConfig, SectionId, SnapshotCardId } from '../lib/types';
+import { fetchPublicProfile, syncPublicProfileSnapshot, type PublicProfileRecord } from '../features/profile/api/publicProfile';
+import { handleCoverImageError, sanitizeCoverUrl } from '../shared/utils/image';
+import { useAuth } from '../features/auth/context/auth-context';
+import { useLibraryQuery, useLibraryStats } from '../features/library/hooks/useLibraryQuery';
+import { useLibrary } from '../features/library/hooks/useLibrary';
+import { ProfileSkeleton } from '../shared/ui/PageSkeletons';
+import type { SectionId, UserStats } from '../shared/types/types';
+import { Surface } from '../shared/ui/Surface';
+import { Button } from '../shared/ui/Button';
 
 // Management Components
-import Library from './Library';
-import Analytics from './Analytics';
+import Analytics from './MyJourney';
 import Notifications from './Notifications';
 import Collections from './Collections';
+import BulkManagement from '../features/library/components/BulkManagement';
+import {
+    DEFAULT_PROFILE_PRIVACY,
+    resolveSectionsConfig,
+    resolvePrivacyConfig,
+    formatStatus,
+    formatTime,
+    type ProfileTab
+} from '../features/profile/utils/profileUtils';
 
-const DEFAULT_SECTION_ORDER: SectionId[] = [
-    'now_reading',
-    'snapshot',
-    'starter_pack',
-    'stats',
-    'featured_collections',
-    'favorites',
-    'changelog',
-    'archive',
-    'characters',
-];
-
-const DEFAULT_PROFILE_SECTIONS: ProfileSectionsConfig = {
-    visible: {
-        stats: true,
-        snapshot: true,
-        now_reading: true,
-        featured_collections: true,
-        favorites: true,
-        starter_pack: true,
-        changelog: true,
-        archive: true,
-        characters: true,
-    },
-    order: DEFAULT_SECTION_ORDER,
-};
-
-
-const DEFAULT_PROFILE_PRIVACY: ProfilePrivacyConfig = {
-    showScores: true,
-    showProgress: true,
-    showDroppedPaused: true,
-    hideAdultContent: false,
-};
-
-type ProfileTab = 'overview' | 'anime' | 'manga' | 'favorites' | 'stats' | 'social' | 'reviews' | 'notifications';
-
-function resolveSectionsConfig(profile: PublicProfileRecord): ProfileSectionsConfig {
-    const incoming = profile.profile_sections;
-    if (!incoming) return DEFAULT_PROFILE_SECTIONS;
-
-    const visible = {
-        ...DEFAULT_PROFILE_SECTIONS.visible,
-        ...(incoming.visible || {}),
-    };
-
-    const normalizedOrder = Array.isArray(incoming.order)
-        ? incoming.order.filter((item): item is SectionId => typeof item === 'string' && item in visible)
-        : [];
-
-    return {
-        visible,
-        order: normalizedOrder.length ? normalizedOrder : DEFAULT_SECTION_ORDER,
-    };
-}
-
-function resolvePrivacyConfig(profile: PublicProfileRecord): ProfilePrivacyConfig {
-    if (!profile.profile_privacy) return DEFAULT_PROFILE_PRIVACY;
-    return {
-        ...DEFAULT_PROFILE_PRIVACY,
-        ...profile.profile_privacy,
-    };
-}
-
-function formatStatus(status: string) {
-    return status.replace(/_/g, ' ');
-}
-
-function formatTime(value?: string) {
-    if (!value) return 'Unknown';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Unknown';
-    return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function buildSnapshotCards(profile: PublicProfileRecord, cardIds: SnapshotCardId[]) {
-    const total = profile.total_entries || 0;
-    const completed = profile.completed_entries || 0;
-    const reading = profile.reading_entries || 0;
-    const favorites = profile.favorites_count ?? (profile.recent_library?.filter((item) => item.isFavourite).length || 0);
-    const completionRatio = total > 0 ? ((completed / total) * 100).toFixed(0) : '0';
-    const favoritesDensity = total > 0 ? ((favorites / total) * 100).toFixed(0) : '0';
-    const topGenre = profile.genre_stats?.[0]?.name || 'N/A';
-    const readingDepth = reading > 0 ? Math.round((profile.total_chapters || 0) / reading) : 0;
-
-    const map: Record<SnapshotCardId, { label: string; value: string }> = {
-        archive_overview: { label: 'Collection Size', value: `${total}` },
-        completion_ratio: { label: 'Completion Rate', value: `${completionRatio}%` },
-        favorites_density: { label: 'Favorites %', value: `${favoritesDensity}%` },
-        top_genre: { label: 'Top Genre', value: topGenre },
-        reading_depth: { label: 'Avg Chapters', value: `${readingDepth}` },
-    };
-
-    return cardIds.map((id) => ({ id, ...map[id] }));
-}
+type MediaFilter = 'ALL' | 'ANIME' | 'MANGA' | 'NOVEL';
 
 export default function PublicProfile() {
     const { username = '' } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
     const { user: authUser } = useAuth();
+    const { toggleFavourite } = useLibrary();
     const [profile, setProfile] = useState<PublicProfileRecord | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+    const [mediaFilter, setMediaFilter] = useState<MediaFilter>('ALL');
+    const [isBulkManaging, setIsBulkManaging] = useState(false);
 
     // Handle tab from URL
     useEffect(() => {
         const tab = searchParams.get('tab') as ProfileTab;
         if (tab && ['overview', 'anime', 'manga', 'favorites', 'stats', 'social', 'reviews', 'notifications'].includes(tab)) {
             setActiveTab(tab);
+            if (tab === 'anime') setMediaFilter('ANIME');
+            else if (tab === 'manga') setMediaFilter('MANGA');
         }
     }, [searchParams]);
 
     const handleTabChange = (tab: ProfileTab) => {
         setActiveTab(tab);
         setSearchParams({ tab }, { replace: true });
+        if (tab === 'anime') setMediaFilter('ANIME');
+        else if (tab === 'manga') setMediaFilter('MANGA');
+        else if (tab === 'overview' || tab === 'favorites') setMediaFilter('ALL');
     };
 
     const isOwner = authUser && profile && authUser.id === profile.user_id;
+
+    // Trigger sync if owner visits their own profile to ensure snapshot is fresh
+    const ownerStats = useLibraryStats();
+    const { data: library = [] } = useLibraryQuery();
+    
+    useEffect(() => {
+        if (isOwner && authUser && ownerStats && library.length > 0) {
+            void syncPublicProfileSnapshot({
+                user: authUser,
+                stats: ownerStats,
+                library
+            });
+        }
+    }, [isOwner, authUser, ownerStats, library]);
+
+    const loadProfile = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await fetchPublicProfile(username);
+            setProfile(data);
+        } catch (err) {
+            console.error('Failed to open the diary:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [username]);
 
     const handleShareProfile = async () => {
         if (!profile) return;
@@ -162,8 +111,8 @@ export default function PublicProfile() {
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: `${profile.display_name} on BeachRead`,
-                    text: `Check out ${profile.display_name}'s manga collection!`,
+                    title: `${profile.display_name}'s Sanctuary`,
+                    text: `Step into ${profile.display_name}'s personal reading diary.`,
                     url: shareUrl,
                 });
                 return;
@@ -174,51 +123,38 @@ export default function PublicProfile() {
         }
     };
 
+    const handleSearchMedia = (title: string, type: string) => {
+        const query = type === 'ANIME' ? `${title} watch online` : `${title} read online`;
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
+    };
+
     useEffect(() => {
-        let active = true;
-
-        const load = async () => {
-            setLoading(true);
-            setError(null);
-
-            try {
-                const data = await fetchPublicProfile(username);
-                if (!active) return;
-                setProfile(data);
-                if (!data) {
-                    setError('Profile not found');
-                }
-            } catch (err) {
-                if (!active) return;
-                setError(err instanceof Error ? err.message : 'Failed to load profile');
-            } finally {
-                if (active) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        void load();
-
-        return () => {
-            active = false;
-        };
-    }, [username]);
+        void loadProfile();
+    }, [loadProfile]);
 
     const safeProfile = profile;
-    const safeRecentLibrary = safeProfile?.recent_library || [];
-    const safeGenreStats = safeProfile?.genre_stats || [];
-    const safePrivacy = safeProfile ? resolvePrivacyConfig(safeProfile) : DEFAULT_PROFILE_PRIVACY;
+    const safeRecentLibrary = useMemo(() => safeProfile?.recent_library || [], [safeProfile]);
+    const safePrivacy = useMemo(() => safeProfile ? resolvePrivacyConfig(safeProfile) : DEFAULT_PROFILE_PRIVACY, [safeProfile]);
 
     const filteredRecentLibrary = useMemo(() => {
         const blockedStatuses = safePrivacy.showDroppedPaused ? [] : ['DROPPED', 'PAUSED'];
-        return safeRecentLibrary.filter((item) => !blockedStatuses.includes(item.status));
-    }, [safeRecentLibrary, safePrivacy.showDroppedPaused]);
-
-    const favoriteManga = useMemo(() => {
-        const favs = filteredRecentLibrary.filter((item) => item.isFavourite);
-        if (!profile) return favs;
+        let list = safeRecentLibrary.filter((item) => !blockedStatuses.includes(item.status));
         
+        if (mediaFilter !== 'ALL') {
+            list = list.filter(item => item.mediaType === mediaFilter);
+        }
+        
+        return list;
+    }, [safeRecentLibrary, safePrivacy.showDroppedPaused, mediaFilter]);
+
+    const favoriteMedia = useMemo(() => {
+        // Use safeRecentLibrary directly to avoid being affected by the archive filter
+        const favs = safeRecentLibrary.filter((item) => {
+            // Support both camelCase and snake_case from different API versions/sources
+            return !!(item.isFavourite || (item as any).isFavorite || (item as any).is_favourite || (item as any).is_favorite);
+        });
+        if (!profile) return favs;
+
         const order = profile.favorite_manga_order || [];
         if (order.length === 0) return favs;
 
@@ -228,45 +164,86 @@ export default function PublicProfile() {
             const indexB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999;
             return indexA - indexB;
         });
-    }, [filteredRecentLibrary, profile]);
+    }, [safeRecentLibrary, profile]);
 
-    const visibleGenreStats = useMemo(() => {
-        const adultKeywords = ['hentai', 'ecchi', 'adult', 'nsfw'];
-        if (!safePrivacy.hideAdultContent) return safeGenreStats;
-        return safeGenreStats.filter((genre) => !adultKeywords.some((key) => genre.name.toLowerCase().includes(key)));
-    }, [safeGenreStats, safePrivacy.hideAdultContent]);
+    const favoriteAnime = useMemo(() => {
+        return favoriteMedia.filter(m => {
+            const type = (m.mediaType || '').toUpperCase();
+            return type === 'ANIME';
+        });
+    }, [favoriteMedia]);
+
+    const favoriteManga = useMemo(() => {
+        return favoriteMedia.filter(m => {
+            const type = (m.mediaType || '').toUpperCase();
+            // Default to manga section if type is missing or NOVEL/MANGA
+            return type !== 'ANIME';
+        });
+    }, [favoriteMedia]);
+
+    const favoriteCharacters = useMemo(() => {
+        return profile?.favorite_characters || [];
+    }, [profile]);
+
+    const profileStats = useMemo<UserStats | undefined>(() => {
+        if (!profile) return undefined;
+        
+        const total = profile.total_entries || 0;
+        const completed = profile.completed_entries || 0;
+        const reading = profile.reading_entries || 0;
+        const planning = Math.max(0, total - completed - reading);
+        
+        const hoardingRatio = Number((planning / (completed || 1)).toFixed(2));
+        
+        return {
+            completed,
+            reading,
+            planning,
+            dropped: 0,
+            paused: 0,
+            meanScore: profile.mean_score || 0,
+            totalUnits: profile.total_chapters || 0,
+            totalChaptersRead: profile.manga_stats?.totalUnits || profile.total_chapters || 0,
+            totalEpisodesWatched: profile.anime_stats?.totalUnits || 0,
+            genreStats: (profile.genre_stats || []).map(g => ({ 
+                name: g.name, 
+                count: g.count, 
+                percentage: (g.count / (total || 1)) * 100 
+            })),
+            scoreDistribution: profile.manga_stats?.scoreDistribution || [], 
+            profileType: completed > 50 ? 'COMPLETIONIST' : 'STRATEGIST',
+            readingVelocity: [], // Recent library doesn't give enough history for a full sparkline easily here
+            animeStats: profile.anime_stats,
+            mangaStats: profile.manga_stats,
+            favorites: profile.favorites_count || favoriteMedia.length,
+            hoardingRatio,
+            formatStats: {
+                manga: profile.manga_stats?.count || 0,
+                anime: profile.anime_stats?.count || 0,
+                novel: 0,
+                oneShot: 0
+            },
+            archiveMaturity: 'Long-term', // Placeholder until we have a better way to calculate from profile dates
+            highestRatedGenre: { name: 'N/A', score: 0 }
+        };
+    }, [profile, favoriteMedia.length]);
+
+    const activeStats = isOwner ? ownerStats : profileStats;
+
 
     if (loading) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-background pt-[64px]">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-        );
+        return <ProfileSkeleton />;
     }
 
     if (!profile) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 pt-[64px] text-center">
-                <h1 className="text-3xl font-black uppercase tracking-tight text-foreground">Profile Missing</h1>
-                <p className="mt-4 max-w-md text-sm text-muted-foreground">{error || 'This public profile is not available.'}</p>
+                <Coffee className="w-16 h-16 text-muted-foreground mb-6 opacity-40" />
+                <h1 className="text-2xl font-serif italic text-foreground">Sanctuary Missing</h1>
+                <p className="mt-4 max-w-md text-sm text-muted-foreground/80">This personal diary has not been found in our records.</p>
                 <Link
                     to="/"
-                    className="mt-8 inline-flex h-[48px] items-center justify-center rounded-full bg-foreground px-8 text-[11px] font-black uppercase tracking-widest text-background transition-opacity hover:opacity-90"
-                >
-                    Return Home
-                </Link>
-            </div>
-        );
-    }
-
-    if (profile.is_private) {
-        return (
-            <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 pt-[64px] text-center">
-                <h1 className="text-3xl font-black uppercase tracking-tight text-foreground">Private Collection</h1>
-                <p className="mt-4 max-w-md text-sm text-muted-foreground">This user has set their collection to private.</p>
-                <Link
-                    to="/"
-                    className="mt-8 inline-flex h-[48px] items-center justify-center rounded-full bg-foreground px-8 text-[11px] font-black uppercase tracking-widest text-background transition-opacity hover:opacity-90"
+                    className="mt-8 px-8 py-3 rounded-full bg-foreground text-background text-xs font-bold uppercase tracking-widest transition-all hover:bg-muted-foreground"
                 >
                     Return Home
                 </Link>
@@ -275,25 +252,11 @@ export default function PublicProfile() {
     }
 
     const joinedDate = profile.created_at
-        ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        ? new Date(profile.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
         : 'Unknown';
 
-    const primaryColor = profile.custom_colors?.primary || '#F77F00';
     const sectionsConfig = resolveSectionsConfig(profile);
     const privacy = safePrivacy;
-    const snapshotCards = buildSnapshotCards(profile, profile.snapshot_cards || ['archive_overview', 'completion_ratio', 'top_genre']);
-
-    const copyShareKit = async (kind: 'link' | 'intro' | 'markdown') => {
-        const link = window.location.href;
-        const intro = `Check out @${profile.username}'s collection: ${link}`;
-        const markdown = `[${profile.display_name}'s Collection](${link})`;
-        const payload = kind === 'link' ? link : kind === 'intro' ? intro : markdown;
-        try {
-            await navigator.clipboard.writeText(payload);
-        } catch (err) {
-            console.error('Failed to copy share kit text:', err);
-        }
-    };
 
     const renderSection = (section: SectionId) => {
         if (!sectionsConfig.visible[section]) return null;
@@ -302,151 +265,108 @@ export default function PublicProfile() {
             const nowReading = profile.now_reading;
             if (!nowReading) return null;
             return (
-                <section key={section} className="space-y-6">
+                <motion.section 
+                    key={section} 
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="space-y-6"
+                >
                     <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                        <BookOpen className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Now Reading Spotlight</h2>
+                        <BookOpen className="h-4 w-4 text-primary" />
+                        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Current Reflection</h2>
                     </div>
-                    <div className="grid gap-6 lg:grid-cols-[220px,1fr] rounded-[28px] border border-border/40 bg-muted/10 p-6 shadow-xl">
-                        <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-border/40">
-                            <img src={sanitizeCoverUrl(nowReading.coverUrl)} onError={handleCoverImageError} alt={nowReading.title} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="space-y-4">
-                            <h3 className="text-3xl font-black uppercase tracking-tight text-foreground">{nowReading.title}</h3>
-                            <div className="flex flex-wrap gap-4">
-                                {privacy.showProgress && (
-                                    <span className="px-4 py-1.5 bg-primary/10 text-primary text-[11px] font-black uppercase tracking-widest rounded-full border border-primary/20">
-                                        Progress: {nowReading.progress}{nowReading.chapters ? ` / ${nowReading.chapters}` : ''}
-                                    </span>
-                                )}
-                                {privacy.showScores && typeof nowReading.score === 'number' && nowReading.score > 0 && (
-                                    <span className="px-4 py-1.5 bg-muted text-foreground text-[11px] font-black uppercase tracking-widest rounded-full border border-border/40">
-                                        Score: {nowReading.score}/10
-                                    </span>
-                                )}
+                    <Surface variant="paper" className="grid gap-8 lg:grid-cols-[240px_1fr] p-8 shadow-sm">
+                        <motion.div 
+                            whileHover={{ y: -4 }}
+                            className="relative group aspect-[2/3] overflow-hidden rounded-3xl shadow-2xl"
+                        >
+                            <img src={sanitizeCoverUrl(nowReading.coverUrl)} onError={handleCoverImageError} alt={nowReading.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button 
+                                    onClick={() => handleSearchMedia(nowReading.title, 'MANGA')}
+                                    className="p-4 bg-white/90 backdrop-blur-md rounded-full text-primary shadow-xl hover:scale-110 transition-all"
+                                    aria-label="Search current title"
+                                >
+                                    <Search size={24} />
+                                </button>
+                            </div>
+                        </motion.div>
+                        <div className="flex flex-col justify-center space-y-6">
+                            <div>
+                                <h3 className="text-4xl font-serif italic text-foreground leading-tight">{nowReading.title}</h3>
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                    {privacy.showProgress && (
+                                        <span className="px-4 py-1.5 bg-muted/30 text-muted-foreground text-[10px] font-bold uppercase tracking-wider rounded-full border border-border/40">
+                                            Chapter {nowReading.progress}{nowReading.chapters ? ` / ${nowReading.chapters}` : ''}
+                                        </span>
+                                    )}
+                                    <Button 
+                                        onClick={() => handleSearchMedia(nowReading.title, 'MANGA')}
+                                        variant="primary"
+                                        size="sm"
+                                    >
+                                        <Book size={14} className="mr-2" /> Read Now
+                                    </Button>
+                                </div>
                             </div>
                             {nowReading.publicNote ? (
-                                <div className="rounded-2xl border border-border/40 bg-background/50 p-6 text-base italic text-foreground/80 leading-relaxed shadow-inner">
-                                    "{nowReading.publicNote}"
+                                <div className="relative p-6 bg-muted/10 rounded-3xl text-lg italic text-muted-foreground leading-relaxed border-l-4 border-primary/40">
+                                    <span className="absolute -top-4 -left-2 text-6xl text-primary/10 font-serif">"</span>
+                                    {nowReading.publicNote}
                                 </div>
                             ) : null}
                         </div>
-                    </div>
-                </section>
-            );
-        }
-
-        if (section === 'starter_pack') {
-            const pinnedIds = profile.pinned_manga_ids || [];
-            const pinnedManga = profile.recent_library?.filter(m => pinnedIds.includes(m.id)) || [];
-            if (!pinnedManga.length) return null;
-            
-            return (
-                <section key={section} className="space-y-8">
-                    <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                        <Sparkles className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">The Starter Pack</h2>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {pinnedManga.map((manga) => (
-                            <Link
-                                key={manga.id}
-                                to={`/manga/${manga.id}`}
-                                className="group relative flex flex-col p-6 rounded-[40px] bg-muted/10 border border-border/40 hover:bg-muted/20 transition-all shadow-xl"
-                            >
-                                <div className="flex gap-6 items-center">
-                                    <div className="w-24 h-36 shrink-0 rounded-2xl overflow-hidden shadow-2xl border border-white/5">
-                                        <img src={sanitizeCoverUrl(manga.coverUrl)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20 mb-3">
-                                            <Award className="w-3 h-3 text-primary" />
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-primary">Masterpiece</span>
-                                        </div>
-                                        <h3 className="text-xl font-black text-foreground uppercase tracking-tight line-clamp-2 group-hover:text-primary transition-colors">{manga.title}</h3>
-                                        <p className="mt-2 text-xs text-muted-foreground uppercase tracking-widest font-bold">Recommended Entry</p>
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            );
-        }
-
-        if (section === 'snapshot') {
-
-            return (
-                <section key={section} className="space-y-6">
-                    <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                        <Award className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Collection Stats</h2>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {snapshotCards.map((card) => (
-                            <div key={card.id} className="rounded-3xl border border-border/40 bg-muted/5 p-6 transition-all hover:bg-muted/10 group">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">{card.label}</p>
-                                <p className="mt-3 text-3xl font-black tracking-tight text-foreground">{card.value}</p>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            );
-        }
-
-        if (section === 'stats' && profile.show_stats) {
-            return (
-                <div key={section} 
-                    className="p-8 rounded-[40px] border border-white/5 shadow-2xl overflow-hidden relative group bg-muted/10 dark:bg-muted/5"
-                >
-                    <div className="absolute top-0 right-0 p-8 opacity-5">
-                        <TrendingUp className="w-32 h-32" />
-                    </div>
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.3em] mb-10 text-primary">Library Analysis</h3>
-                    <div className="space-y-10">
-                        <StatRow label="Manga Completed" value={profile.completed_entries || 0} primaryColor={primaryColor} />
-                        <StatRow label="Chapters Read" value={profile.total_chapters || 0} primaryColor={primaryColor} />
-                        <StatRow label="Average Score" value={privacy.showScores ? profile.mean_score || 0 : 'HIDDEN'} primaryColor={primaryColor} />
-                    </div>
-
-                    <div className="mt-12 pt-8 border-t border-border/40">
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-6">Favorite Genres</h3>
-                        <div className="flex flex-wrap gap-2.5">
-                            {visibleGenreStats.length ? visibleGenreStats.map((genre) => (
-                                <span key={genre.name} className="px-4 py-1.5 rounded-xl bg-muted/40 border border-border/50 text-[10px] font-bold text-foreground/70 uppercase tracking-wider transition-colors hover:border-primary/30">
-                                    {genre.name} <span style={{ color: primaryColor }}>{genre.count}</span>
-                                </span>
-                            )) : <p className="text-[10px] italic text-muted-foreground">No data yet.</p>}
-                        </div>
-                    </div>
-                </div>
+                    </Surface>
+                </motion.section>
             );
         }
 
         if (section === 'featured_collections') {
             const featured = profile.featured_collections || [];
             if (!featured.length) return null;
+
             return (
-                <section key={section} className="space-y-6">
+                <section key={section} className="space-y-10">
                     <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                        <Award className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Featured Collections</h2>
+                        <Layers className="h-4 w-4 text-primary" />
+                        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Curated Collections</h2>
                     </div>
-                    <div className="grid gap-6 md:grid-cols-2">
-                        {featured.map((collection) => (
-                            <div key={collection.name} className="rounded-3xl border border-border/40 bg-muted/5 p-5 group hover:bg-muted/10 transition-all">
-                                <div className="mb-4 flex items-center justify-between">
-                                    <h3 className="text-sm font-black uppercase tracking-wider text-foreground group-hover:text-primary transition-colors">{collection.name}</h3>
-                                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-2 py-0.5 bg-muted rounded">{collection.count} Items</span>
-                                </div>
-                                <div className="flex -space-x-4">
-                                    {collection.covers.slice(0, 5).map((cover, index) => (
-                                        <div key={`${collection.name}-${index}`} className="h-24 w-16 overflow-hidden rounded-xl border-2 border-background bg-muted shadow-lg transition-transform group-hover:-translate-y-1" style={{ transitionDelay: `${index * 50}ms` }}>
-                                            <img src={sanitizeCoverUrl(cover)} onError={handleCoverImageError} alt="" className="h-full w-full object-cover" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {featured.map((col, idx) => (
+                            <motion.div
+                                key={col.name}
+                                initial={{ opacity: 0, y: 10 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: idx * 0.05 }}
+                            >
+                                <Surface variant="paper" className="p-6 h-full flex flex-col gap-6 group hover:shadow-xl transition-all duration-500">
+                                    <div className="flex justify-between items-start">
+                                        <div className="space-y-1">
+                                            <h3 className="text-xl font-serif italic text-foreground group-hover:text-primary transition-colors">{col.name}</h3>
+                                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{col.count} Archives</p>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        <Link 
+                                            to={`/library?filter=${encodeURIComponent(col.name)}`}
+                                            className="p-2 rounded-full bg-muted/10 text-muted-foreground hover:bg-primary hover:text-white transition-all"
+                                        >
+                                            <ArrowUpRight size={14} />
+                                        </Link>
+                                    </div>
+                                    <div className="flex -space-x-4 mt-auto">
+                                        {col.covers.map((cover, cIdx) => (
+                                            <div 
+                                                key={cIdx} 
+                                                className="w-12 h-16 rounded-lg overflow-hidden border-2 border-background shadow-lg rotate-[-5deg] group-hover:rotate-0 transition-transform duration-500"
+                                                style={{ zIndex: 10 - cIdx }}
+                                            >
+                                                <img src={sanitizeCoverUrl(cover)} onError={handleCoverImageError} className="w-full h-full object-cover" alt="" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </Surface>
+                            </motion.div>
                         ))}
                     </div>
                 </section>
@@ -455,23 +375,273 @@ export default function PublicProfile() {
 
         if (section === 'favorites') {
             return (
+                <section key={section} className="space-y-16">
+                    {/* Favorite Anime */}
+                    {favoriteAnime.length > 0 && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <Heart className="h-4 w-4 text-primary" />
+                                    <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Favorite Anime</h2>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">{favoriteAnime.length} Titles</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                                {favoriteAnime.map((item, idx) => (
+                                    <motion.div 
+                                        key={item.id} 
+                                        initial={{ opacity: 0, y: 10 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="group flex flex-col gap-3"
+                                    >
+                                        <motion.div 
+                                            whileHover={{ y: -4 }}
+                                            className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-md transition-all duration-500 group-hover:shadow-xl"
+                                        >
+                                            <img
+                                                src={sanitizeCoverUrl(item.coverUrl)}
+                                                onError={handleCoverImageError}
+                                                className="h-full w-full object-cover"
+                                                alt={item.title}
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-2">
+                                                <button 
+                                                    onClick={() => handleSearchMedia(item.title, item.mediaType)}
+                                                    className="w-10 h-10 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                                                    aria-label={`View ${item.title}`}
+                                                >
+                                                    <Play size={18} fill="currentColor" />
+                                                </button>
+                                                {isOwner && (
+                                                    <button 
+                                                        onClick={() => toggleFavourite(item.id)}
+                                                        className="w-10 h-10 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                                                        aria-label="Remove from cherished"
+                                                    >
+                                                        <Heart size={18} fill="currentColor" />
+                                                    </button>
+                                                )}
+                                                <Link to={`/manga/${item.id}`} className="text-[9px] font-bold uppercase tracking-widest text-white hover:underline">View Detail</Link>
+                                            </div>
+                                        </motion.div>
+                                        <p className="text-[11px] font-bold text-foreground uppercase tracking-tight line-clamp-1 group-hover:text-primary transition-colors">{item.title}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Favorite Manga */}
+                    {favoriteManga.length > 0 && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <Book className="h-4 w-4 text-primary" />
+                                    <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Favorite Manga</h2>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">{favoriteManga.length} Titles</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                                {favoriteManga.map((item, idx) => (
+                                    <motion.div 
+                                        key={item.id} 
+                                        initial={{ opacity: 0, y: 10 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="group flex flex-col gap-3"
+                                    >
+                                        <motion.div 
+                                            whileHover={{ y: -4 }}
+                                            className="relative aspect-[2/3] overflow-hidden rounded-2xl shadow-md transition-all duration-500 group-hover:shadow-xl"
+                                        >
+                                            <img
+                                                src={sanitizeCoverUrl(item.coverUrl)}
+                                                onError={handleCoverImageError}
+                                                className="h-full w-full object-cover"
+                                                alt={item.title}
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-2">
+                                                <button 
+                                                    onClick={() => handleSearchMedia(item.title, item.mediaType)}
+                                                    className="w-10 h-10 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                                                    aria-label={`View ${item.title}`}
+                                                >
+                                                    <Book size={18} />
+                                                </button>
+                                                {isOwner && (
+                                                    <button 
+                                                        onClick={() => toggleFavourite(item.id)}
+                                                        className="w-10 h-10 rounded-full bg-white text-primary flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                                                        aria-label="Remove from cherished"
+                                                    >
+                                                        <Heart size={18} fill="currentColor" />
+                                                    </button>
+                                                )}
+                                                <Link to={`/manga/${item.id}`} className="text-[9px] font-bold uppercase tracking-widest text-white hover:underline">View Detail</Link>
+                                            </div>
+                                        </motion.div>
+                                        <p className="text-[11px] font-bold text-foreground uppercase tracking-tight line-clamp-1 group-hover:text-primary transition-colors">{item.title}</p>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {favoriteMedia.length === 0 && (
+                        <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-3xl bg-muted/10">
+                            <p className="text-sm text-muted-foreground italic opacity-60 font-serif">The gallery is currently empty.</p>
+                        </div>
+                    )}
+
+                    {/* Favorite Characters */}
+                    {favoriteCharacters.length > 0 && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <UserIcon className="h-4 w-4 text-primary" />
+                                    <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Beloved Figures</h2>
+                                </div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">{favoriteCharacters.length} Characters</span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                                {favoriteCharacters.map((char, idx) => (
+                                    <motion.div 
+                                        key={char.id} 
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        whileInView={{ opacity: 1, scale: 1 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="group flex flex-col items-center gap-3 text-center"
+                                    >
+                                        <motion.div
+                                            whileHover={{ y: -4, scale: 1.02 }}
+                                            className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden shadow-md transition-all duration-500 group-hover:shadow-xl ring-2 ring-border/40 ring-offset-4 ring-offset-background"
+                                        >
+                                            <Link to={`/character/${char.id}`}>
+                                                <img
+                                                    src={char.image}
+                                                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                    alt={char.name}
+                                                />
+                                            </Link>
+                                        </motion.div>
+                                        <Link to={`/character/${char.id}`}>
+                                            <p className="text-[10px] font-bold text-foreground uppercase tracking-widest line-clamp-1 group-hover:text-primary transition-colors">{char.name}</p>
+                                        </Link>                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+            );
+        }
+
+        if (section === 'archive') {
+            return (
                 <section key={section} className="space-y-6">
                     <div className="flex items-center justify-between border-b border-border/40 pb-4">
                         <div className="flex items-center gap-3">
-                            <Heart className="h-5 w-5" style={{ color: primaryColor }} />
-                            <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Top Favorites</h2>
+                            <Layers className="h-4 w-4 text-primary" />
+                            <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">The Archive</h2>
                         </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{favoriteManga.length} Items</span>
+                        {isOwner && (
+                            <button 
+                                onClick={() => setIsBulkManaging(true)}
+                                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+                                aria-label="Bulk manage archive"
+                            >
+                                <Edit3 size={14} /> Bulk Manage
+                            </button>
+                        )}
                     </div>
-                    {favoriteManga.length ? (
-                        <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                            {favoriteManga.map((item) => (
-                                <FavoriteCover key={item.id} item={item} />
+                    
+                    {/* Media Filter Pills */}
+                    <div className="flex gap-2 pb-2 overflow-x-auto no-scrollbar">
+                        {(['ALL', 'ANIME', 'MANGA', 'NOVEL'] as MediaFilter[]).map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setMediaFilter(f)}
+                                aria-label={`Filter by ${f.toLowerCase()}`}
+                                aria-pressed={mediaFilter === f}
+                                className={`px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${
+                                    mediaFilter === f 
+                                    ? 'bg-foreground text-background shadow-md' 
+                                    : 'bg-background border border-border/40 text-muted-foreground hover:bg-muted/10'
+                                }`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+
+                    {filteredRecentLibrary.length ? (
+                        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                            {filteredRecentLibrary.map((item, idx) => (
+                                <motion.div 
+                                    key={item.id} 
+                                    initial={{ opacity: 0, x: -10 }}
+                                    whileInView={{ opacity: 1, x: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: idx * 0.03 }}
+                                >
+                                    <Surface 
+                                        variant="paper" 
+                                        whileHover={{ y: -4, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
+                                        className="group flex gap-4 p-4 transition-all duration-300"
+                                    >
+                                        <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl shadow-sm">
+                                            <img src={sanitizeCoverUrl(item.coverUrl)} onError={handleCoverImageError} alt={item.title} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
+                                        </div>
+                                        <div className="min-w-0 flex-1 flex flex-col justify-center">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-primary">{formatStatus(item.status)}</span>
+                                                <span className="w-1 h-1 rounded-full bg-border/40" />
+                                                <span className="text-[8px] font-bold uppercase tracking-widest text-muted-foreground/60">{item.mediaType}</span>
+                                            </div>
+                                            <h3 className="line-clamp-1 text-sm font-bold uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">{item.title}</h3>
+                                            <div className="mt-2 flex items-center justify-between">
+                                                <div className="flex gap-3">
+                                                    {privacy.showProgress ? (
+                                                        <span className="text-[9px] font-bold text-muted-foreground/80 uppercase tracking-widest">
+                                                            {item.mediaType === 'ANIME' ? `Ep. ${item.progress}` : `Ch. ${item.progress}`}
+                                                        </span>
+                                                    ) : null}
+                                                    {privacy.showScores && typeof item.score === 'number' && item.score > 0 ? (
+                                                        <span className="text-[9px] font-bold text-primary uppercase tracking-widest">★ {item.score}</span>
+                                                    ) : null}
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <button 
+                                                        onClick={() => handleSearchMedia(item.title, item.mediaType)}
+                                                        className="p-1.5 rounded-full text-muted-foreground hover:bg-muted/20 transition-colors"
+                                                        title={item.mediaType === 'ANIME' ? 'Watch' : 'Read'}
+                                                        aria-label={item.mediaType === 'ANIME' ? 'Watch online' : 'Read online'}
+                                                    >
+                                                        {item.mediaType === 'ANIME' ? <Play size={14} fill="currentColor" /> : <BookOpen size={14} />}
+                                                    </button>
+                                                    {isOwner && (
+                                                        <button 
+                                                            onClick={() => toggleFavourite(item.id)}
+                                                            className={`p-1.5 rounded-full transition-colors ${item.isFavourite ? 'text-primary' : 'text-muted-foreground hover:bg-muted/20'}`}
+                                                            title={item.isFavourite ? 'Remove from favorites' : 'Add to favorites'}
+                                                            aria-label="Toggle favorite"
+                                                        >
+                                                            <Heart size={14} fill={item.isFavourite ? "currentColor" : "none"} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Surface>
+                                </motion.div>
                             ))}
                         </div>
                     ) : (
-                        <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-[40px] bg-muted/5">
-                            <p className="text-sm text-muted-foreground italic">No favorites yet.</p>
+                        <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-3xl bg-muted/10">
+                            <p className="text-sm text-muted-foreground italic opacity-60 font-serif">No memories matched your filter.</p>
                         </div>
                     )}
                 </section>
@@ -484,111 +654,42 @@ export default function PublicProfile() {
             return (
                 <section key={section} className="space-y-6">
                     <div className="flex items-center gap-3 border-b border-border/40 pb-4">
-                        <Clock3 className="h-5 w-5" style={{ color: primaryColor }} />
-                        <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Recent Activity</h2>
+                        <Clock3 className="h-4 w-4 text-primary" />
+                        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Personal Timeline</h2>
                     </div>
                     <div className="space-y-4">
-                        {changelog.map((entry) => (
-                            <div key={entry.id} className="flex gap-6 p-6 rounded-[32px] bg-muted/5 border border-border/40 relative group overflow-hidden transition-all hover:bg-muted/10">
-                                <div className="absolute top-0 left-0 w-1 h-full opacity-40 group-hover:opacity-100 transition-all" style={{ backgroundColor: primaryColor }} />
-                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-primary/10">
-                                    <TrendingUp className="w-6 h-6 text-primary" />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div>
-                                            <h4 className="text-[11px] font-black uppercase tracking-widest mb-1 text-primary">{formatStatus(entry.status)}</h4>
-                                            <h3 className="text-lg font-black text-foreground uppercase tracking-tight">{entry.title}</h3>
+                        {changelog.map((entry, idx) => (
+                            <motion.div 
+                                key={entry.id} 
+                                initial={{ opacity: 0, x: -10 }}
+                                whileInView={{ opacity: 1, x: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: idx * 0.03 }}
+                            >
+                                <Surface 
+                                    variant="paper" 
+                                    whileHover={{ x: 6 }}
+                                    className="flex gap-6 p-6 transition-all group"
+                                >
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-muted/20 group-hover:bg-primary transition-colors">
+                                        <Edit3 className="w-5 h-5 text-primary group-hover:text-white transition-colors" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <div>
+                                                <h4 className="text-[9px] font-bold uppercase tracking-widest mb-1 text-primary/80">{formatStatus(entry.status)}</h4>
+                                                <h3 className="text-lg font-serif italic text-foreground">{entry.title}</h3>
+                                            </div>
+                                            <span className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest">
+                                                {formatTime(entry.updatedAt)}
+                                            </span>
                                         </div>
-                                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                            {formatTime(entry.updatedAt)}
-                                        </span>
+                                        <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest">
+                                            {privacy.showProgress ? `Progressed to ${entry.progress}` : 'Update logged.'}
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-muted-foreground italic leading-relaxed">
-                                        {privacy.showProgress ? `Read until Ch. ${entry.progress}` : 'List updated.'}
-                                    </p>
-                                    {entry.publicNote && <p className="mt-3 text-sm text-foreground/70 border-l-2 border-primary/30 pl-4 py-1 italic">{entry.publicNote}</p>}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            );
-        }
-
-        if (section === 'archive') {
-            const list = activeTab === 'anime'
-                ? filteredRecentLibrary.filter(item => item.mediaType === 'ANIME')
-                : activeTab === 'manga'
-                ? filteredRecentLibrary.filter(item => item.mediaType === 'MANGA')
-                : filteredRecentLibrary;
-
-            return (
-                <section key={section} className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-border/40 pb-4">
-                        <div className="flex items-center gap-3">
-                            <BookOpen className="h-5 w-5" style={{ color: primaryColor }} />
-                            <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">
-                                {activeTab === 'anime' ? 'Anime List' : activeTab === 'manga' ? 'Manga List' : 'Complete Collection'}
-                            </h2>
-                        </div>
-                        <Link to="/discover" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                            Browse More <ArrowRight size={14} />
-                        </Link>
-                    </div>
-                    {list.length ? (
-                        <div className="grid gap-6 md:grid-cols-2">
-                            {list.map((item) => (
-                                <div key={item.id} className="group flex gap-5 rounded-[32px] border border-border/40 bg-muted/5 p-5 hover:bg-muted/10 transition-all">
-                                    <div className="h-28 w-20 shrink-0 overflow-hidden rounded-2xl shadow-xl">
-                                        <img src={sanitizeCoverUrl(item.coverUrl)} onError={handleCoverImageError} alt={item.title} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
-                                    </div>
-                                    <div className="min-w-0 flex-1 flex flex-col justify-center">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1" style={{ color: primaryColor }}>{formatStatus(item.status)}</p>
-                                        <h3 className="line-clamp-1 text-lg font-black uppercase tracking-tight text-foreground group-hover:text-primary transition-colors">{item.title}</h3>
-                                        <div className="mt-2 flex flex-wrap gap-3">
-                                            {privacy.showProgress ? (
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                                                    {item.mediaType === 'ANIME' ? `Ep. ${item.progress}` : `Ch. ${item.progress}`}
-                                                </span>
-                                            ) : null}
-                                            {privacy.showScores && typeof item.score === 'number' && item.score > 0 ? (
-                                                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Score: {item.score}/10</span>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="py-20 text-center border-2 border-dashed border-border/40 rounded-[40px] bg-muted/5">
-                            <p className="text-sm text-muted-foreground italic">List is empty.</p>
-                        </div>
-                    )}
-                </section>
-            );
-        }
-
-        if (section === 'characters') {
-            const characters = profile.favorite_characters || [];
-            if (!characters.length) return null;
-            return (
-                <section key={section} className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-border/40 pb-4">
-                        <div className="flex items-center gap-3">
-                            <Award className="h-5 w-5" style={{ color: primaryColor }} />
-                            <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground">Favorite Characters</h2>
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">{characters.length} Added</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                        {characters.map((char) => (
-                            <div key={char.id} className="group relative aspect-[2/3] overflow-hidden rounded-2xl border border-border/40 bg-muted/20 hover:scale-105 transition-all duration-300 shadow-lg" title={char.name}>
-                                <img src={char.image} alt={char.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2">
-                                    <p className="text-[8px] font-black text-white uppercase truncate">{char.name}</p>
-                                </div>
-                            </div>
+                                </Surface>
+                            </motion.div>
                         ))}
                     </div>
                 </section>
@@ -598,435 +699,385 @@ export default function PublicProfile() {
         return null;
     };
 
-    const tabSections: Record<ProfileTab, SectionId[]> = {
-        overview: ['now_reading', 'stats', 'changelog'],
-        anime: ['archive'],
-        manga: ['archive'],
-        favorites: ['favorites', 'characters', 'featured_collections'],
-        stats: ['snapshot', 'stats'],
-        social: [],
-        reviews: [],
-        notifications: []
-    };
-
     return (
-        <div className="min-h-screen bg-background">
-            {/* AniList Style Header with Tactical Overlays */}
-            <div className="relative w-full">
+        <div className="min-h-screen bg-background selection:bg-muted-foreground selection:text-white relative pt-20">
+            {/* Global Texture Overlay */}
+            <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03]"
+                style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/natural-paper.png")' }}
+            />
+
+            {isBulkManaging && profile && (
+                <BulkManagement 
+                    userId={profile.user_id}
+                    items={profile.recent_library}
+                    onClose={() => setIsBulkManaging(false)}
+                    onComplete={() => void loadProfile()}
+                />
+            )}
+            
+            {/* Journal Header */}
+            <div className="relative w-full z-10">
                 {/* Banner */}
-                <div 
-                    className="h-[300px] md:h-[450px] w-full bg-muted relative overflow-hidden border-b-4 border-primary/20"
+                <div
+                    className="h-[250px] md:h-[350px] w-full bg-muted/20 relative overflow-hidden"
                     style={{
-                        backgroundImage: profile.banner_url ? `url(${profile.banner_url})` : 'none',
+                        backgroundImage: profile.banner_url ? `url(${sanitizeCoverUrl(profile.banner_url)})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                     }}
                 >
-                    {/* Scanlines Overlay */}
-                    <div className="absolute inset-0 z-10 pointer-events-none opacity-[0.03]" 
-                        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06))', backgroundSize: '100% 4px, 3px 100%' }} 
-                    />
-                    
-                    {!profile.banner_url && (
-                        <div className="absolute inset-0 opacity-10 flex items-center justify-center">
-                            <Layers size={200} />
-                        </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent z-0" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-0" />
 
-                    {/* Tactical Metadata Floating Labels */}
-                    <div className="absolute top-10 left-10 z-20 hidden md:flex flex-col gap-2">
-                        <div className="px-3 py-1 bg-primary text-black text-[9px] font-black uppercase tracking-widest">Archive Sector: {profile.username.slice(0,3).toUpperCase()}</div>
-                        <div className="px-3 py-1 bg-black/80 backdrop-blur-md text-white border border-white/20 text-[8px] font-bold uppercase tracking-[0.3em]">Status: Operational</div>
+                    {/* Aesthetic Floating Elements */}
+                    <div className="absolute top-12 left-12 z-20 hidden lg:block">
+                        <div className="flex items-center gap-4 text-foreground">
+                            <Wind className="w-5 h-5 opacity-40 animate-pulse" />
+                            <span className="text-[10px] font-serif italic tracking-[0.2em] opacity-60">Quiet Moments</span>
+                        </div>
                     </div>
-                    <div className="absolute top-10 right-10 z-20 hidden md:flex flex-col items-end gap-2">
-                        <div className="px-3 py-1 bg-black/80 backdrop-blur-md text-white border border-white/20 text-[8px] font-bold uppercase tracking-[0.3em]">v.2.0.ARCHIVE</div>
-                        <div className="text-[10px] font-black text-primary uppercase tracking-tighter">BeachRead Terminal</div>
+                    <div className="absolute top-12 right-12 z-20 hidden lg:block">
+                        <div className="flex items-center gap-4 text-foreground">
+                            <span className="text-[10px] font-serif italic tracking-[0.2em] opacity-60">Est. {joinedDate}</span>
+                            <Moon className="w-5 h-5 opacity-40" />
+                        </div>
                     </div>
                 </div>
 
                 {/* Profile Info Row */}
-                <div className="bg-background/90 backdrop-blur-xl border-b-2 border-border/60 sticky top-[72px] z-40">
-                    <div className="mx-auto max-w-[1200px] px-6">
-                        <div className="relative flex flex-col md:flex-row items-center md:items-end gap-10 pb-6 md:pb-0">
-                            {/* Avatar (Overlapping) with Industrial Border */}
-                            <div className="relative -mt-24 md:-mt-32 shrink-0 group">
-                                <div className="w-48 h-48 md:w-64 md:h-64 bg-muted border-[6px] border-background shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden relative">
-                                    {/* Corner Accents */}
-                                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-primary z-10" />
-                                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-primary z-10" />
-                                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-primary z-10" />
-                                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-primary z-10" />
-                                    
-                                    {profile.avatar_url ? (
-                                        <img src={profile.avatar_url} alt={profile.display_name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
-                                            <UserIcon className="w-24 h-24 text-muted-foreground/30" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="absolute -bottom-3 -right-3 w-12 h-12 bg-primary flex items-center justify-center border-4 border-background shadow-xl">
-                                    <Award size={24} className="text-black" />
-                                </div>
+                <div className="relative -mt-32 z-40 mx-auto max-w-[1200px] px-6">
+                    <div className="flex flex-col items-center text-center">
+                        {/* Avatar */}
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                            className="relative group mb-8"
+                        >
+                            <div className="w-32 h-32 md:w-44 md:h-44 rounded-full bg-white p-2 shadow-2xl overflow-hidden ring-4 ring-border/20">
+                                {profile.avatar_url ? (
+                                    <img 
+                                        src={sanitizeCoverUrl(profile.avatar_url)} 
+                                        alt={profile.display_name} 
+                                        referrerPolicy="no-referrer"
+                                        className="h-full w-full object-cover rounded-full transition-transform duration-700 group-hover:scale-105" 
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-muted/20 rounded-full">
+                                        <UserIcon className="w-16 h-16 text-muted-foreground/30" />
+                                    </div>
+                                )}
                             </div>
+                        </motion.div>
 
-                            {/* Name & Actions with High Contrast */}
-                            <div className="flex-1 flex flex-col md:flex-row items-center md:items-center justify-between gap-8 py-8">
-                                <div className="text-center md:text-left space-y-1">
-                                    <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
-                                        <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground uppercase leading-none">
-                                            {profile.display_name}
-                                        </h1>
-                                        <div className="px-3 py-1 bg-muted text-muted-foreground text-[10px] font-black uppercase tracking-widest border border-border/40">
-                                            @{profile.username}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-center md:justify-start gap-4">
-                                        <div className="h-1 w-12 bg-primary" />
-                                        <p className="text-xs font-black text-muted-foreground uppercase tracking-[0.4em]">Archival Strategist</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center gap-4">
-                                    {isOwner ? (
-                                        <Link
-                                            to="/settings"
-                                            className="h-14 px-8 bg-primary text-black text-[11px] font-black uppercase tracking-[0.2em] hover:bg-white transition-all flex items-center gap-3 shadow-[4px_4px_0px_rgba(247,127,0,0.3)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]"
-                                        >
-                                            <Settings size={16} />
-                                            Override Settings
-                                        </Link>
-                                    ) : (
-                                        <>
-                                            <button className="h-14 px-8 bg-foreground text-background text-[11px] font-black uppercase tracking-[0.2em] hover:bg-primary transition-all flex items-center gap-3">
-                                                <UserPlus size={16} />
-                                                Connect
-                                            </button>
-                                            <button className="h-14 w-14 flex items-center justify-center border-2 border-border/60 hover:border-primary hover:text-primary transition-all">
-                                                <MessageSquare size={20} />
-                                            </button>
-                                        </>
-                                    )}
-                                    <div className="h-14 w-[2px] bg-border/20 mx-2" />
-                                    <button 
-                                        onClick={handleShareProfile}
-                                        className="h-14 w-14 flex items-center justify-center border-2 border-border/60 hover:bg-muted transition-all"
+                        {/* Name & Bio */}
+                        <div className="max-w-2xl space-y-4">
+                            <motion.h1 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-4xl md:text-6xl font-serif italic text-foreground leading-none"
+                            >
+                                {profile.display_name}
+                            </motion.h1>
+                            <motion.p 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.5em] flex items-center justify-center gap-4"
+                            >
+                                <span className="w-8 h-[1px] bg-border/40" />
+                                Curator of Memories
+                                <span className="w-8 h-[1px] bg-border/40" />
+                            </motion.p>
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                                className="pt-4 flex items-center justify-center gap-6"
+                            >
+                                <Button
+                                    onClick={handleShareProfile}
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label="Share profile"
+                                    className="rounded-full shadow-sm"
+                                >
+                                    <Share2 size={18} />
+                                </Button>
+                                {isOwner ? (
+                                    <Button
+                                        as={Link}
+                                        to="/settings"
+                                        variant="primary"
+                                        className="px-8 py-3 rounded-full shadow-lg flex items-center gap-2"
                                     >
-                                        <Share2 size={20} />
-                                    </button>
-                                </div>
-                            </div>
+                                        <Settings size={14} /> Customize Diary
+                                    </Button>
+                                ) : (
+                                    <Button variant="archival" className="px-8 py-3 rounded-full shadow-lg flex items-center gap-2">
+                                        <UserPlus size={14} /> Follow Journey
+                                    </Button>
+                                )}
+                                <Button 
+                                    variant="outline"
+                                    size="icon"
+                                    aria-label="Send message"
+                                    className="rounded-full shadow-sm"
+                                >
+                                    <MessageSquare size={18} />
+                                </Button>
+                            </motion.div>
                         </div>
+                    </div>
 
-                        {/* Navigation Tabs - Terminal Style */}
-                        <div className="flex overflow-x-auto no-scrollbar gap-2 mt-4">
-                            {(['overview', 'anime', 'manga', 'favorites', 'stats', 'social', 'reviews', 'notifications'] as const)
+                    {/* Navigation Tabs */}
+                    <div className="flex justify-center mt-16 border-b border-border/40">
+                        <div className="flex gap-4 md:gap-12 overflow-x-auto no-scrollbar">
+                            {(['overview', 'anime', 'manga', 'favorites', 'stats', 'notifications'] as const)
                                 .filter(tab => tab !== 'notifications' || isOwner)
                                 .map((tab) => (
-                                <button
-                                    key={tab}
-                                    onClick={() => handleTabChange(tab)}
-                                    className={`px-8 py-5 text-[11px] font-black uppercase tracking-[0.3em] whitespace-nowrap transition-all border-t-4 ${
-                                        activeTab === tab 
-                                            ? 'text-primary border-primary bg-primary/5' 
-                                            : 'text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/30'
-                                    }`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                                    <button
+                                        key={tab}
+                                        onClick={() => handleTabChange(tab)}
+                                        className={`px-4 py-6 text-[11px] font-bold uppercase tracking-[0.3em] whitespace-nowrap transition-all relative ${activeTab === tab
+                                            ? 'text-foreground'
+                                            : 'text-muted-foreground/50 hover:text-muted-foreground'
+                                            }`}
+                                    >
+                                        {tab}
+                                        {activeTab === tab && (
+                                            <motion.div 
+                                                layoutId="activeTab"
+                                                className="absolute bottom-0 left-0 w-full h-1 bg-primary rounded-t-full" 
+                                            />
+                                        )}
+                                    </button>
+                                ))}
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Content Area */}
-            <div className="mx-auto max-w-[1200px] px-6 py-12">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                    {/* Sidebar - only show on Overview and Stats */}
+            <div className="mx-auto max-w-[1200px] px-6 py-16 relative z-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                    {/* Sidebar */}
                     {(activeTab === 'overview' || activeTab === 'stats') && (
-                        <aside className="lg:col-span-3 space-y-10">
-                            {/* Joined Info */}
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
-                                    <Calendar className="h-4 w-4 text-primary" />
-                                    Joined {joinedDate}
+                        <aside className="lg:col-span-3 space-y-12 order-2 lg:order-1">
+                            <motion.div 
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.4 }}
+                                className="space-y-4"
+                            >
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Preface</h3>
+                                <p className="text-sm leading-relaxed text-muted-foreground italic font-serif">
+                                    {profile.bio || "No words have been written yet..."}
+                                </p>
+                            </motion.div>
+
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.5 }}
+                                className="space-y-6 pt-8 border-t border-border/40"
+                            >
+                                <div className="flex items-center gap-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                                    <Calendar className="h-4 w-4" /> Joined {joinedDate}
                                 </div>
                                 {profile.location && (
-                                    <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
-                                        <MapPin className="h-4 w-4 text-primary" />
-                                        {profile.location}
+                                    <div className="flex items-center gap-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                                        <MapPin className="h-4 w-4" /> {profile.location}
                                     </div>
                                 )}
                                 {profile.website && (
-                                    <a 
-                                        href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-                                    >
-                                        <Globe className="h-4 w-4 text-primary" />
-                                        {profile.website.replace(/^https?:\/\//, '').split('/')[0]}
+                                    <a href={profile.website} target="_blank" className="flex items-center gap-3 text-[11px] font-bold text-muted-foreground uppercase tracking-widest hover:text-foreground">
+                                        <Globe className="h-4 w-4" /> Visit External
                                     </a>
                                 )}
-                            </div>
+                            </motion.div>
 
-                            {/* Mini Stats Component - Tactical Display */}
-                            <div className="p-8 border-2 border-border/60 bg-muted/20 space-y-8 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 -rotate-45 translate-x-8 -translate-y-8" />
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">System Integrity</h3>
-                                <div className="space-y-6">
-                                    <StatusMeter 
-                                        label="Archive Completion" 
-                                        value={snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0%'} 
-                                        percentage={parseInt(snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0')}
-                                        color={primaryColor}
-                                    />
-                                    <StatusMeter 
-                                        label="Favorites Density" 
-                                        value={snapshotCards.find(c => c.id === 'favorites_density')?.value || '0%'} 
-                                        percentage={parseInt(snapshotCards.find(c => c.id === 'favorites_density')?.value || '0')}
-                                        color="#3b82f6"
-                                    />
-                                    <div className="pt-4 border-t border-border/40 flex justify-between items-end">
-                                        <div>
-                                            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Total Units</p>
-                                            <p className="text-2xl font-black text-foreground">{profile.total_entries}</p>
+                            {/* Stat Highlights */}
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.6 }}
+                            >
+                                <Surface variant="paper" className="p-8 space-y-8">
+                                    <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground text-center">Volume Data</h3>
+                                    <div className="grid grid-cols-2 gap-8">
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-1">Items</p>
+                                            <p className="text-2xl font-serif italic text-foreground">{profile.total_entries}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Mean Delta</p>
-                                            <p className="text-2xl font-black text-primary">{profile.mean_score}</p>
+                                        <div className="text-center">
+                                            <p className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-1">Chapters</p>
+                                            <p className="text-2xl font-serif italic text-foreground">{profile.total_chapters}</p>
+                                        </div>
+                                        <div className="col-span-2 text-center pt-4 border-t border-border/40">
+                                            <p className="text-[9px] font-bold uppercase text-muted-foreground/60 mb-1">Average Score</p>
+                                            <p className="text-3xl font-serif italic text-primary">{profile.mean_score}</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Genre Breakdown in Sidebar */}
-                            <div className="space-y-4">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Top Genres</h3>
-                                <div className="flex flex-wrap gap-2">
-                                    {visibleGenreStats.slice(0, 10).map((genre) => (
-                                        <span key={genre.name} className="px-3 py-1 bg-muted rounded-lg text-[10px] font-bold uppercase tracking-wider">
-                                            {genre.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Technical Specifications */}
-                            <div className="pt-10 border-t-2 border-border/40 space-y-6">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/60">Technical Specifications</h3>
-                                <div className="space-y-4">
-                                    <div className="flex flex-col">
-                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Archive ID</span>
-                                        <span className="text-[10px] font-bold text-foreground font-mono">{profile.user_id.slice(0, 8)}...{profile.user_id.slice(-4)}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Deployment Date</span>
-                                        <span className="text-[10px] font-bold text-foreground uppercase">{joinedDate}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[8px] font-black uppercase text-muted-foreground/40 mb-1">Security Clearance</span>
-                                        <span className="text-[10px] font-bold text-primary uppercase">{isOwner ? 'Level 5 (Admin)' : 'Level 1 (Guest)'}</span>
-                                    </div>
-                                </div>
-                            </div>
+                                </Surface>
+                            </motion.div>
                         </aside>
                     )}
 
                     {/* Main Content */}
-                    <main className={`${(activeTab === 'overview' || activeTab === 'stats' || activeTab === 'social' || activeTab === 'reviews') ? 'lg:col-span-9' : 'lg:col-span-12'} space-y-12`}>
-                        {activeTab === 'overview' && (
-                            <div className="space-y-12">
-                                {/* Tactical Overview Readout */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Total Units</p>
-                                        <p className="text-4xl font-black text-foreground">{profile.total_entries}</p>
-                                    </div>
-                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Chapters Read</p>
-                                        <p className="text-4xl font-black text-foreground">{profile.total_chapters}</p>
-                                    </div>
-                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Mean Score</p>
-                                        <p className="text-4xl font-black text-primary">{profile.mean_score}</p>
-                                    </div>
-                                    <div className="p-6 border-2 border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center group hover:border-primary transition-all">
-                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-2">Completion</p>
-                                        <p className="text-4xl font-black text-foreground">{snapshotCards.find(c => c.id === 'completion_ratio')?.value || '0%'}</p>
-                                    </div>
-                                </div>
+                    <main className={`${(activeTab === 'overview' || activeTab === 'stats') ? 'lg:col-span-9' : 'lg:col-span-12'} space-y-16 order-1 lg:order-2`}>
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.4 }}
+                            >
+                                {activeTab === 'overview' && (
+                                    <div className="space-y-20">
+                                        {/* Snapshot Section */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            {/* Anime Snapshot */}
+                                            {profile.anime_stats && (
+                                                <Surface variant="paper" className="p-8 space-y-6 group">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <Play className="w-5 h-5 text-muted-foreground" fill="currentColor" />
+                                                            <h3 className="text-lg font-serif italic text-foreground">Anime Snapshot</h3>
+                                                        </div>
+                                                        <button onClick={() => handleTabChange('stats')} className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-primary transition-colors">Full Detail</button>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Total</p>
+                                                            <p className="text-xl font-serif italic text-foreground">{profile.anime_stats.count}</p>
+                                                        </div>
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Episodes</p>
+                                                            <p className="text-xl font-serif italic text-foreground">{profile.anime_stats.totalUnits}</p>
+                                                        </div>
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Mean</p>
+                                                            <p className="text-xl font-serif italic text-primary">{profile.anime_stats.meanScore}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 h-1 overflow-hidden rounded-full bg-muted/10">
+                                                        {profile.anime_stats.genreStats.slice(0, 5).map((genre, idx) => (
+                                                            <div 
+                                                                key={genre.name} 
+                                                                className="h-full bg-muted-foreground" 
+                                                                style={{ 
+                                                                    width: `${genre.percentage}%`,
+                                                                    opacity: 1 - (idx * 0.15)
+                                                                }} 
+                                                                title={`${genre.name}: ${Math.round(genre.percentage)}%`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </Surface>
+                                            )}
 
-                                {/* About Me / Bio */}
-                                <section className="space-y-4">
-                                    <h2 className="text-[12px] font-black uppercase tracking-[0.3em] text-foreground border-b border-border/40 pb-4">About Me</h2>
-                                    <div className="prose prose-invert max-w-none">
-                                        <p className="text-lg leading-relaxed text-foreground/80 whitespace-pre-wrap">
-                                            {profile.bio || "This user has not written a bio yet."}
-                                        </p>
-                                    </div>
-                                </section>
-                                
-                                {renderSection('now_reading')}
-                                {renderSection('changelog')}
-                            </div>
-                        )}
-
-                        {(activeTab === 'anime' || activeTab === 'manga') && (
-                            <div className="space-y-8">
-                                {isOwner ? (
-                                    <Library mediaTypeOverride={activeTab.toUpperCase() as 'ANIME' | 'MANGA'} />
-                                ) : (
-                                    renderSection('archive')
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'favorites' && (
-                            <div className="space-y-12">
-                                {isOwner && (
-                                    <div className="border-b border-border/40 pb-12">
-                                        <Collections />
-                                    </div>
-                                )}
-                                {renderSection('favorites')}
-                                {renderSection('characters')}
-                                {renderSection('featured_collections')}
-                            </div>
-                        )}
-
-                        {activeTab === 'stats' && (
-                            <div className="grid gap-8">
-                                {isOwner ? (
-                                    <div>
-                                        <Analytics />
-                                    </div>
-                                ) : (
-                                    <>
-                                        {renderSection('stats')}
-                                        {renderSection('snapshot')}
-                                        
-                                        {/* Placeholder for more detailed stats */}
-                                        <div className="p-10 rounded-3xl border border-border/40 bg-muted/5 flex flex-col items-center justify-center text-center">
-                                            <BarChart3 className="w-12 h-12 text-muted-foreground/20 mb-4" />
-                                            <h3 className="text-lg font-black uppercase">Detailed Analysis</h3>
-                                            <p className="text-sm text-muted-foreground mt-2">Charts and advanced insights are being calibrated for your archive.</p>
+                                            {/* Manga Snapshot */}
+                                            {profile.manga_stats && (
+                                                <Surface variant="paper" className="p-8 space-y-6 group">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <Book className="w-5 h-5 text-muted-foreground" />
+                                                            <h3 className="text-lg font-serif italic text-foreground">Manga Snapshot</h3>
+                                                        </div>
+                                                        <button onClick={() => handleTabChange('stats')} className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60 hover:text-primary transition-colors">Full Detail</button>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-4">
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Total</p>
+                                                            <p className="text-xl font-serif italic text-foreground">{profile.manga_stats.count}</p>
+                                                        </div>
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Chapters</p>
+                                                            <p className="text-xl font-serif italic text-foreground">{profile.manga_stats.totalUnits}</p>
+                                                        </div>
+                                                        <div className="text-center p-4 bg-muted/10 rounded-2xl">
+                                                            <p className="text-[8px] font-bold uppercase text-muted-foreground/60 mb-1">Mean</p>
+                                                            <p className="text-xl font-serif italic text-primary">{profile.manga_stats.meanScore}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-2 h-1 overflow-hidden rounded-full bg-muted/10">
+                                                        {profile.manga_stats.genreStats.slice(0, 5).map((genre, idx) => (
+                                                            <div 
+                                                                key={genre.name} 
+                                                                className="h-full bg-primary" 
+                                                                style={{ 
+                                                                    width: `${genre.percentage}%`,
+                                                                    opacity: 1 - (idx * 0.15)
+                                                                }} 
+                                                                title={`${genre.name}: ${Math.round(genre.percentage)}%`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </Surface>
+                                            )}
                                         </div>
-                                    </>
+
+                                        {renderSection('now_reading')}
+                                        {renderSection('changelog')}
+                                        {renderSection('featured_collections')}
+                                        {renderSection('favorites')}
+                                        
+                                        {/* Invitation to Library */}
+                                        <Surface variant="muted" className="p-12 flex flex-col items-center text-center gap-6">
+                                            <Wind className="w-12 h-12 text-muted-foreground opacity-40" />
+                                            <h3 className="text-2xl font-serif italic text-foreground">Continue the discovery?</h3>
+                                            <div className="flex gap-4">
+                                                <button onClick={() => handleTabChange('manga')} className="px-8 py-3 bg-card border border-border/40 text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-foreground hover:text-background transition-all active:scale-95">Manga Shelf</button>
+                                                <button onClick={() => handleTabChange('anime')} className="px-8 py-3 bg-card border border-border/40 text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-foreground hover:text-background transition-all active:scale-95">Anime Shelf</button>
+                                            </div>
+                                        </Surface>
+                                    </div>
                                 )}
-                            </div>
-                        )}
 
-                        {activeTab === 'social' && (
-                            <div className="space-y-12">
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div className="p-10 border-2 border-border/40 bg-muted/10 flex flex-col items-center justify-center text-center group transition-all hover:bg-muted/20">
-                                        <UserPlus size={48} className="text-muted-foreground/20 mb-6 group-hover:text-primary group-hover:scale-110 transition-all" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-1">Followers</p>
-                                        <p className="text-4xl font-black text-foreground">00</p>
+                                {(activeTab === 'anime' || activeTab === 'manga') && (
+                                    <div className="space-y-12">
+                                        {renderSection('archive')}
                                     </div>
-                                    <div className="p-10 border-2 border-border/40 bg-muted/10 flex flex-col items-center justify-center text-center group transition-all hover:bg-muted/20">
-                                        <UserIcon size={48} className="text-muted-foreground/20 mb-6 group-hover:text-primary group-hover:scale-110 transition-all" />
-                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground mb-1">Following</p>
-                                        <p className="text-4xl font-black text-foreground">00</p>
+                                )}
+
+                                {activeTab === 'favorites' && (
+                                    <div className="space-y-20">
+                                        {renderSection('featured_collections')}
+                                        <div className="pt-10">
+                                            {renderSection('favorites')}
+                                        </div>
+                                        {isOwner && (
+                                            <div className="pt-20 border-t border-border/40">
+                                                <Collections />
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="py-24 flex flex-col items-center justify-center text-center border-2 border-dashed border-border/40 bg-muted/5">
-                                    <Layers className="w-16 h-16 text-muted-foreground/20 mb-6 animate-pulse" />
-                                    <h3 className="text-2xl font-black uppercase tracking-tight text-foreground">Social Grid Offline</h3>
-                                    <p className="text-sm text-muted-foreground italic mt-2 max-w-sm">
-                                        The social networking layer is currently being calibrated. Peer connections will be visible in the next deployment.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'reviews' && (
-                            <div className="space-y-12">
-                                <div className="p-10 border-2 border-border/40 bg-primary/5 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-8 opacity-5">
-                                        <MessageSquare size={120} />
+                                {activeTab === 'stats' && (
+                                    <div className="grid gap-12">
+                                        {isOwner || profile.show_stats ? (
+                                            <Analytics stats={activeStats} />
+                                        ) : (
+                                            <div className="p-20 text-center bg-card rounded-3xl border border-border/40">
+                                                <Wind className="w-16 h-16 text-muted-foreground opacity-20 mx-auto mb-8" />
+                                                <h3 className="text-xl font-serif italic text-foreground">Archive Insights</h3>
+                                                <p className="mt-4 text-muted-foreground max-w-sm mx-auto">This diary owner prefers to keep their deeper analytics private.</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    <h3 className="text-[12px] font-black uppercase tracking-[0.4em] text-primary mb-2">Critical Analysis Feed</h3>
-                                    <p className="text-sm text-muted-foreground italic">No review transmissions detected for this sector.</p>
-                                </div>
+                                )}
 
-                                <div className="py-32 flex flex-col items-center justify-center text-center border-2 border-dashed border-border/40 bg-muted/5">
-                                    <div className="w-20 h-20 bg-muted flex items-center justify-center mb-8 rotate-45 border border-border/40">
-                                        <MessageSquare size={32} className="-rotate-45 text-muted-foreground/40" />
-                                    </div>
-                                    <h3 className="text-xl font-black uppercase tracking-widest text-foreground">Feed Uninitialized</h3>
-                                    <p className="text-sm text-muted-foreground italic mt-3 max-w-xs">
-                                        This archive owner has not published any critical reviews yet.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'notifications' && isOwner && (
-                            <div>
-                                <Notifications />
-                            </div>
-                        )}
+                                {activeTab === 'notifications' && isOwner && (
+                                    <Notifications />
+                                )}
+                            </motion.div>
+                        </AnimatePresence>
                     </main>
                 </div>
             </div>
         </div>
     );
 }
-
-function StatusMeter({ label, value, percentage, color }: { label: string; value: string; percentage: number; color: string }) {
-    return (
-        <div className="space-y-2">
-            <div className="flex justify-between items-end">
-                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
-                <span className="text-[10px] font-black text-foreground">{value}</span>
-            </div>
-            <div className="h-2 w-full bg-muted border border-border/40 rounded-full overflow-hidden relative">
-                <div 
-                    className="h-full transition-all duration-1000 ease-out"
-                    style={{ 
-                        width: `${percentage}%`, 
-                        backgroundColor: color,
-                        boxShadow: `0 0 10px ${color}40`
-                    }} 
-                />
-            </div>
-        </div>
-    );
-}
-
-function StatRow({ label, value, primaryColor }: { label: string; value: string | number, primaryColor: string }) {
-    return (
-        <div className="flex justify-between items-end relative z-10 p-6 border-b border-border/20 group hover:bg-primary/5 transition-colors">
-            <span className="text-[12px] font-black uppercase tracking-[0.2em] opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all">{label}</span>
-            <div className="flex flex-col items-end">
-                <span className="text-6xl font-black text-foreground leading-none tracking-tighter">{value}</span>
-                <div className="w-24 h-2 mt-4 bg-muted relative overflow-hidden">
-                    <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-700 ease-out" style={{ backgroundColor: primaryColor }} />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-const FavoriteCover: React.FC<{ item: any }> = ({ item }) => (
-    <Link
-        to={`/manga/${item.id}`}
-        className="group relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-muted/20 transition-all duration-500 hover:scale-[1.05] hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
-        title={item.title}
-    >
-        <img
-            src={sanitizeCoverUrl(item.coverUrl)}
-            onError={handleCoverImageError}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-            alt={item.title}
-        />
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/20 to-transparent p-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <p className="line-clamp-2 text-[10px] font-black uppercase tracking-tight text-white leading-tight">{item.title}</p>
-        </div>
-    </Link>
-);

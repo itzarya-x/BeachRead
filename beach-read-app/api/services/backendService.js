@@ -85,15 +85,16 @@ async function listLibrary(userId, options = {}) {
 async function createLibraryEntry(userId, payload = {}) {
   const requestId = payload.requestId || randomId();
   const now = nowIso();
+  const status = payload.status || 'PLANNING';
   const insertPayload = {
     user_id: userId,
     title_id: payload.titleId,
-    status: payload.status || 'PLANNING',
+    status,
     progress_chapters: Number(payload.progressChapters) || 0,
     progress_volumes: Number(payload.progressVolumes) || 0,
     score: payload.score ?? null,
     started_at: payload.startedAt || null,
-    completed_at: payload.completedAt || null,
+    completed_at: status === 'COMPLETED' ? (payload.completedAt || now) : null,
     last_read_at: payload.lastReadAt || null,
     is_favorite: Boolean(payload.isFavorite),
     last_mutation_source: payload.source || 'WEB',
@@ -134,7 +135,7 @@ async function patchLibraryEntry(userId, entryId, payload = {}) {
     progress_volumes: payload.progressVolumes ?? existing.progress_volumes,
     score: payload.score ?? existing.score,
     started_at: payload.startedAt ?? existing.started_at,
-    completed_at: nextStatus === 'COMPLETED' ? (payload.completedAt || existing.completed_at || nowIso()) : (payload.completedAt ?? existing.completed_at),
+    completed_at: nextStatus === 'COMPLETED' ? (payload.completedAt || existing.completed_at || nowIso()) : null,
     last_read_at: payload.lastReadAt ?? existing.last_read_at,
     is_favorite: payload.isFavorite ?? existing.is_favorite,
     last_mutation_source: payload.source || 'WEB',
@@ -485,6 +486,28 @@ async function triggerSyncJob(userId, provider, payload = {}) {
   const normalizedProvider = String(provider || '').toUpperCase();
   const jobType = payload.jobType || 'INCREMENTAL_PULL';
   const requestId = payload.requestId || randomId();
+
+  const activeStatuses = ['PENDING', 'RUNNING', 'RETRYABLE_FAILURE', 'AWAITING_CONFLICT_RESOLUTION'];
+  const { data: existingJob, error: existingJobError } = await supabaseAdmin
+    .from('sync_jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('provider', normalizedProvider)
+    .eq('job_type', jobType)
+    .in('status', activeStatuses)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingJobError) throw existingJobError;
+  if (existingJob) {
+    return {
+      requestId,
+      job: existingJob,
+      reused: true,
+    };
+  }
+
   const idempotencyKey = payload.idempotencyKey || makeIdempotencyKey([
     normalizedProvider,
     jobType,
@@ -642,10 +665,34 @@ async function getRecommendations(userId, kind) {
   return data || [];
 }
 
+async function cancelSyncJob(userId, jobId) {
+  const { data, error } = await supabaseAdmin
+    .from('sync_jobs')
+    .update({
+      status: 'FAILED',
+      error_message: 'Cancelled by user',
+      finished_at: nowIso(),
+    })
+    .eq('id', jobId)
+    .eq('user_id', userId)
+    .in('status', ['PENDING', 'RUNNING'])
+    .select('*')
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    const notFoundError = new Error('Job not found or cannot be cancelled');
+    notFoundError.status = 404;
+    throw notFoundError;
+  }
+  return data;
+}
+
 module.exports = {
   createCollection,
   createLibraryEntry,
   createNote,
+  cancelSyncJob,
   deleteCollection,
   deleteCollectionItem,
   deleteLibraryEntry,
